@@ -1,0 +1,166 @@
+# Pi Install For Current Version
+
+Current documented version: `v0.4.0`
+
+Use this file to install or update the current VN300 logger/dashboard package on the Raspberry Pi.
+
+## What This Version Includes
+
+- Dashboard Run Metadata panel.
+- Daily run-number filenames:
+
+  ```text
+  VN300_YYYY-MM-DD_RUN001_BINARY.csv
+  VN300_YYYY-MM-DD_RUN001_ttyUSB0.bin
+  VN300_YYYY-MM-DD_RUN001_session_metadata.json
+  ```
+
+- `VN300_run_metadata.csv` written in the Pi boot log folder.
+- Analyzer automatically loads `VN300_run_metadata.csv` from a Pi boot folder.
+- Analyzer outputs:
+
+  ```text
+  summary.csv
+  data_quality.csv
+  overlay.html
+  report.html
+  ```
+
+- Dashboard live track plot during active timing:
+  - current path and car position
+  - best path after a valid completed lap/run
+  - best-path dot at the same elapsed time as the current lap/run
+
+## Existing Pi Update
+
+Use this when the Pi already has the old logger installed.
+
+1. From Windows PowerShell, copy the updated folder to the Pi:
+
+   ```powershell
+   scp -r "<team-tools-folder>" vectornav@<pi-host>:/home/vectornav/
+   ```
+
+2. SSH into the Pi:
+
+   ```powershell
+   ssh vectornav@<pi-host>
+   ```
+
+3. Run the installer:
+
+   ```sh
+   cd /home/vectornav/VN300_Team_Tools/pi
+   chmod +x install_on_pi.sh
+   ./install_on_pi.sh
+   ```
+
+4. Confirm the service is running:
+
+   ```sh
+   systemctl status vn300-button-logger.service --no-pager
+   ```
+
+5. Watch live logs:
+
+   ```sh
+   journalctl -u vn300-button-logger.service -f
+   ```
+
+## Fresh Pi Install
+
+Use this when setting up a new Pi.
+
+1. Confirm the Pi user is:
+
+   ```text
+   vectornav
+   ```
+
+2. Confirm the VN-300 serial device is expected to be:
+
+   ```text
+   /dev/ttyUSB0
+   ```
+
+3. Copy the package to the Pi:
+
+   ```powershell
+   scp -r "<team-tools-folder>" vectornav@<pi-host>:/home/vectornav/
+   ```
+
+4. SSH into the Pi:
+
+   ```powershell
+   ssh vectornav@<pi-host>
+   ```
+
+5. Run the installer:
+
+   ```sh
+   cd /home/vectornav/VN300_Team_Tools/pi
+   chmod +x install_on_pi.sh
+   ./install_on_pi.sh
+   ```
+
+6. Reboot once:
+
+   ```sh
+   sudo reboot
+   ```
+
+7. Reconnect and check the service:
+
+   ```sh
+   ssh vectornav@<pi-host>
+   systemctl status vn300-button-logger.service --no-pager
+   ```
+
+## Required Functional Test
+
+Run this test after installing.
+
+1. Plug in the VN-300.
+2. Plug in the flash drive.
+3. Open:
+
+   ```text
+   http://<pi-host>:8080/
+   ```
+
+4. Fill in the Run Metadata panel.
+5. Click `Save Run Info`.
+6. Confirm `Next Run` shows:
+
+   ```text
+   VN300_YYYY-MM-DD_RUN001
+   ```
+
+7. Press the physical log button once.
+8. Confirm the dashboard status changes to logging.
+9. Wait at least 10 seconds.
+10. Press the physical log button again.
+11. Wait a few seconds for files to flush.
+12. Confirm the flash drive contains:
+
+   ```text
+   VN300_LOGS/
+     VN300_BOOT_YYYY-MM-DD_HH-MM-SS/
+       VN300_YYYY-MM-DD_RUN001_ttyUSB0.bin
+       VN300_YYYY-MM-DD_RUN001_session_metadata.json
+       VN300_run_metadata.csv
+   ```
+
+13. If the VN-300 binary output is configured correctly, also confirm:
+
+   ```text
+   VN300_YYYY-MM-DD_RUN001_BINARY.csv
+   ```
+
+## If Something Fails
+
+- Dashboard does not open: check that laptop and Pi are on the same router.
+- Service is not running: use `journalctl -u vn300-button-logger.service -f`.
+- No VN300 data: confirm `/dev/ttyUSB0` exists.
+- No flash drive files: confirm the drive is mounted and has at least 250 MB free.
+- Permissions error: rerun installer and reboot once.

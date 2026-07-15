@@ -1,0 +1,116 @@
+# Version History
+
+Use this file to record every meaningful change to the VN300 team tools. Update it whenever logger behavior, dashboard behavior, analyzer outputs, install steps, or file formats change.
+
+## Versioning Format
+
+Use:
+
+```text
+vMAJOR.MINOR.PATCH
+```
+
+- `MAJOR`: breaking workflow or file-format changes.
+- `MINOR`: new features that keep existing workflows mostly compatible.
+- `PATCH`: bug fixes, documentation updates, or small improvements.
+
+## Current Version
+
+`v0.4.0`
+
+## v0.4.0 - 2026-07-15
+
+### Dashboard
+
+- Added live GPS track plot for active timing runs.
+- Shows current lap/run path and current car position.
+- Shows best completed valid lap/run path once available.
+- Shows a best-lap comparison dot at the same elapsed time as the current lap/run.
+- Exposes bounded current/best timing traces through `/api/latest`.
+
+## v0.3.0 - 2026-07-15
+
+### Analyzer
+
+- Added automatic sector splitting for timed laps/runs.
+- Automatic sectors default to three sectors per lap/run.
+- Sector split points target even elapsed-time sections, then move to nearby low-cornering points.
+- Added `sector_summary.csv` output when automatic sectors are generated.
+- Added distance-based delta-to-fastest plot in `report.html`.
+
+### Documentation
+
+- Added `PI_INSTALL_CURRENT_VERSION.md`.
+- Added `PHASE_2_PLAN.md`.
+- Updated Phase 1 plan checkboxes/status.
+- Updated `README.md` with automatic sector and delta-comparison notes.
+
+## v0.2.1 - 2026-07-15
+
+### Documentation
+
+- Added `MOTEC_CAN_TO_PI_INTEGRATION_REPORT.md`.
+- Linked the MoTeC CAN report from `README.md`.
+- No logger, dashboard, analyzer, or installer behavior changed.
+
+## v0.2.0 - 2026-07-15
+
+### Logger And Dashboard
+
+- Added dashboard Run Metadata panel.
+- Added `GET /api/run_metadata` and `POST /api/run_metadata`.
+- Changed session filenames from time-of-day naming to date/run-number naming:
+
+  ```text
+  VN300_YYYY-MM-DD_RUN001_BINARY.csv
+  VN300_YYYY-MM-DD_RUN001_ttyUSB0.bin
+  VN300_YYYY-MM-DD_RUN001_session_metadata.json
+  ```
+
+- First run of each day starts at `RUN001`.
+- Same-day Pi reboot continues with the next unused run number by scanning `VN300_LOGS`.
+- Session metadata JSON now includes run metadata.
+- Logger writes `VN300_run_metadata.csv` in the boot folder.
+
+### Analyzer
+
+- Added optional `--metadata` CSV import.
+- Added automatic loading of `VN300_run_metadata.csv` from Pi boot folders.
+- Added `metadata_template.csv`.
+- Added `data_quality.csv`.
+- Added `report.html`.
+- Added G-G/grip metrics to `summary.csv`.
+- Added derived yaw-rate and curvature estimates.
+- Added longitudinal/lateral/vertical G, yaw rate, and curvature fields to lap/run CSV exports.
+- Added timestamp repair for older ASCII VNINS logs with repeated Pi logger timestamps.
+
+### Documentation
+
+- Added `DATA_ANALYZER_IMPROVEMENT_REPORT.md`.
+- Added `PHASE_1_VEHICLE_DYNAMICS_DESIGN_TOOL_PLAN.md`.
+- Added `INSTALLER_UPDATE_CHECKLIST.md`.
+- Updated `README.md` for generic paths, run-number filenames, run metadata, and analyzer metadata loading.
+- Updated `ONE_PAGE_SETUP_GUIDE.md` for the run metadata workflow.
+
+### Verification
+
+- Ran syntax checks on:
+  - `pi/vn300_button_logger.py`
+  - `analysis/vn300_lap_analysis.py`
+- Ran analyzer smoke tests against existing VN300 logs.
+
+## v0.1.0 - 2026-07-14
+
+### Initial Team Package
+
+- Packaged Raspberry Pi VN300 button logger.
+- Added live dashboard on port `8080`.
+- Added GPIO log button and power-hold shutdown support.
+- Added flash-drive logging under `VN300_LOGS`.
+- Added boot folders under `VN300_BOOT_YYYY-MM-DD_HH-MM-SS`.
+- Added raw `.bin` capture.
+- Added ASCII CSV parsing for `$VN...` messages.
+- Added binary CSV parsing for the saved VN-300 binary message configuration.
+- Added live timing setup for lap and autocross modes.
+- Added offline analyzer for summaries, lap/run splitting, live delta export, and overlay HTML.
+- Added Pi installer and systemd service.

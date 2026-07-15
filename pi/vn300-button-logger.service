@@ -1,0 +1,15 @@
+[Unit]
+Description=VN300 Button Logger and Live Dashboard
+After=local-fs.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vectornav
+WorkingDirectory=/home/vectornav/vn300_tools
+ExecStart=/usr/bin/python3 /home/vectornav/vn300_tools/vn300_button_logger.py --port /dev/ttyUSB0 --baud 921600
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
