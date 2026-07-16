@@ -1,0 +1,7 @@
+channel,can_id,start_bit,length_bits,byte_order,signed,scale,offset,unit,notes
+Throttle_Position_pct,0x500,0,16,little,false,0.1,0,%,example only - replace CAN ID and scaling with MoTeC/dash transmit layout
+Brake_Pressure_Front_psi,0x501,0,16,little,false,0.1,0,psi,example only - confirm sensor units and scaling
+Brake_Pressure_Rear_psi,0x501,16,16,little,false,0.1,0,psi,example only - confirm sensor units and scaling
+Engine_RPM,0x502,0,16,little,false,1,0,rpm,example only - confirm MoTeC transmit channel
+Gear,0x502,16,8,little,true,1,0,gear,example only - signed allows reverse/neutral conventions if needed
+Steering_Angle_deg,0x503,0,16,little,true,0.1,-3276.8,deg,example only - replace after steering sensor calibration

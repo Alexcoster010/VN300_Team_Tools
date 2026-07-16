@@ -38,6 +38,11 @@ from typing import Optional
 import serial
 from serial.tools import list_ports
 
+try:
+    import can
+except ImportError:
+    can = None
+
 
 READ_SIZE = 4096
 SERIAL_TIMEOUT_S = 0.25
@@ -49,6 +54,7 @@ MAX_LIVE_DELTA_POS_UNCERTAINTY_M = 4.0
 MAX_ASCII_BUFFER_BYTES = 16384
 MIN_FREE_SPACE_BYTES = 250 * 1024 * 1024
 LOCAL_FALLBACK = Path.home() / "vn300_logs"
+DEFAULT_CAN_SIGNAL_MAP = Path(__file__).with_name("motec_can_signal_map.csv")
 ASCII_MESSAGE_RE = re.compile(r"^VN[A-Z0-9]{2,12}$")
 VN300_BINARY_HEADER = bytes.fromhex("fa 7f f9 1f 4c 00 0d 06 bf a0 04 00 c6 00 1b 06 18 a2 02 00")
 VN300_BINARY_PACKET_LEN = 506
@@ -151,6 +157,16 @@ latest_packet = {
     "bad_binary_packets": 0,
     "parse_source": None,
     "warning": None,
+    "can": {
+        "enabled": False,
+        "status": "disabled",
+        "channel": None,
+        "frames": 0,
+        "decoded_frames": 0,
+        "decode_errors": 0,
+        "last_id": None,
+        "last_age_s": None,
+    },
 }
 run_metadata = {field: "" for field in RUN_METADATA_FIELDS if field not in ("session_file", "run_id", "run_number", "date")}
 run_metadata.update({
@@ -307,6 +323,240 @@ def write_run_metadata_csv(log_dir: Path, row: dict):
         if not exists:
             writer.writeheader()
         writer.writerow({field: row.get(field, "") for field in RUN_METADATA_FIELDS})
+
+
+def parse_bool_text(value, default: bool = False) -> bool:
+    if value in ("", None):
+        return default
+    return str(value).strip().lower() in ("1", "true", "yes", "y", "signed")
+
+
+def parse_int_text(value, default: Optional[int] = None) -> Optional[int]:
+    if value in ("", None):
+        return default
+    text = str(value).strip()
+    try:
+        return int(text, 0)
+    except ValueError:
+        return int(text, 16)
+
+
+def load_can_signal_map(path: Optional[Path]) -> dict[int, list[dict]]:
+    if not path or not path.exists():
+        return {}
+    signal_map: dict[int, list[dict]] = {}
+    with path.open(newline="") as f:
+        for row in csv.DictReader(f):
+            channel = (row.get("channel") or row.get("name") or "").strip()
+            can_id_text = row.get("can_id") or row.get("can_id_hex")
+            can_id = parse_int_text(can_id_text, None)
+            if not channel or can_id is None:
+                continue
+            spec = {
+                "channel": safe_filename_part(channel),
+                "can_id": can_id,
+                "start_bit": int(float(row.get("start_bit") or 0)),
+                "length_bits": int(float(row.get("length_bits") or row.get("bit_length") or 0)),
+                "byte_order": (row.get("byte_order") or "little").strip().lower(),
+                "signed": parse_bool_text(row.get("signed"), False),
+                "scale": float(row.get("scale") or 1.0),
+                "offset": float(row.get("offset") or 0.0),
+                "unit": (row.get("unit") or "").strip(),
+            }
+            if spec["length_bits"] <= 0:
+                continue
+            signal_map.setdefault(can_id, []).append(spec)
+    return signal_map
+
+
+def decode_can_signal(data: bytes, spec: dict) -> tuple[int, float]:
+    length_bits = spec["length_bits"]
+    start_bit = spec["start_bit"]
+    total_bits = len(data) * 8
+    byte_order = spec["byte_order"]
+    if byte_order in ("big", "motorola", "msb"):
+        raw_full = int.from_bytes(data, byteorder="big", signed=False)
+        shift = total_bits - start_bit - length_bits
+    else:
+        raw_full = int.from_bytes(data, byteorder="little", signed=False)
+        shift = start_bit
+    if shift < 0 or start_bit + length_bits > total_bits:
+        raise ValueError(f"signal {spec['channel']} does not fit in CAN payload")
+    raw_value = (raw_full >> shift) & ((1 << length_bits) - 1)
+    if spec["signed"] and raw_value & (1 << (length_bits - 1)):
+        raw_value -= 1 << length_bits
+    physical_value = raw_value * spec["scale"] + spec["offset"]
+    return raw_value, physical_value
+
+
+class CanCsvWriter:
+    def __init__(self, log_dir: Path, file_prefix: str):
+        self.raw_path = log_dir / f"{file_prefix}_MOTEC_RAW_CAN.csv"
+        self.channels_path = log_dir / f"{file_prefix}_MOTEC_CHANNELS.csv"
+        self.raw_file = self.raw_path.open("w", newline="", buffering=1)
+        self.channel_file = self.channels_path.open("w", newline="", buffering=1)
+        self.raw_writer = csv.writer(self.raw_file)
+        self.channel_writer = csv.writer(self.channel_file)
+        self.raw_writer.writerow([
+            "Pi_Logger_Elapsed_Time_s",
+            "System_Time_ISO",
+            "CAN_Interface",
+            "CAN_ID",
+            "DLC",
+            "Data_Hex",
+            "Is_Extended_ID",
+            "Is_Error_Frame",
+        ])
+        self.channel_writer.writerow([
+            "Pi_Logger_Elapsed_Time_s",
+            "System_Time_ISO",
+            "CAN_ID",
+            "Channel",
+            "Value",
+            "Unit",
+            "Raw_Value",
+        ])
+        logging.info("CAN raw CSV output: %s", self.raw_path)
+        logging.info("CAN decoded CSV output: %s", self.channels_path)
+
+    def write_raw(self, elapsed_s: float, interface_name: str, msg):
+        timestamp = dt.datetime.now().isoformat(timespec="milliseconds")
+        data_hex = bytes(msg.data).hex(" ").upper()
+        self.raw_writer.writerow([
+            f"{elapsed_s:.6f}",
+            timestamp,
+            interface_name,
+            f"0x{msg.arbitration_id:X}",
+            len(msg.data),
+            data_hex,
+            bool(msg.is_extended_id),
+            bool(getattr(msg, "is_error_frame", False)),
+        ])
+
+    def write_channels(self, elapsed_s: float, msg, decoded_rows: list[tuple[dict, int, float]]):
+        timestamp = dt.datetime.now().isoformat(timespec="milliseconds")
+        for spec, raw_value, physical_value in decoded_rows:
+            self.channel_writer.writerow([
+                f"{elapsed_s:.6f}",
+                timestamp,
+                f"0x{msg.arbitration_id:X}",
+                spec["channel"],
+                f"{physical_value:.6f}",
+                spec["unit"],
+                raw_value,
+            ])
+
+    def flush(self):
+        for file_obj in (self.raw_file, self.channel_file):
+            file_obj.flush()
+            os.fsync(file_obj.fileno())
+
+    def close(self):
+        for file_obj in (self.raw_file, self.channel_file):
+            try:
+                file_obj.flush()
+                os.fsync(file_obj.fileno())
+            finally:
+                file_obj.close()
+
+
+def update_can_status(**updates):
+    with state_lock:
+        can_state = latest_packet.setdefault("can", {})
+        can_state.update(updates)
+        if "_last_monotonic" in can_state:
+            can_state["last_age_s"] = time.monotonic() - can_state["_last_monotonic"]
+
+
+def run_can_logger(
+    config: dict,
+    log_dir: Path,
+    file_prefix: str,
+    session_start_monotonic: float,
+    stop_event: threading.Event,
+):
+    if not config.get("enabled"):
+        update_can_status(enabled=False, status="disabled")
+        return
+    if can is None:
+        update_can_status(enabled=True, status="python-can missing", decode_errors=1)
+        logging.error("CAN logging requested but python-can is not installed")
+        return
+
+    signal_map = load_can_signal_map(config.get("signal_map"))
+    interface_name = config["channel"]
+    writers = None
+    bus = None
+    frames = 0
+    decoded_frames = 0
+    decode_errors = 0
+    try:
+        bus_kwargs = {
+            "interface": config["interface"],
+            "channel": config["channel"],
+        }
+        if config.get("bitrate"):
+            bus_kwargs["bitrate"] = config["bitrate"]
+        bus = can.Bus(**bus_kwargs)
+        writers = CanCsvWriter(log_dir, file_prefix)
+        update_can_status(
+            enabled=True,
+            status="online",
+            channel=config["channel"],
+            frames=0,
+            decoded_frames=0,
+            decode_errors=0,
+            last_id=None,
+            last_age_s=None,
+        )
+        logging.info(
+            "CAN logging enabled: interface=%s channel=%s bitrate=%s signals=%d",
+            config["interface"],
+            config["channel"],
+            config.get("bitrate") or "",
+            sum(len(items) for items in signal_map.values()),
+        )
+        while not stop_requested.is_set() and not stop_event.is_set():
+            msg = bus.recv(timeout=0.2)
+            if msg is None:
+                update_can_status(status="online")
+                continue
+            elapsed_s = time.monotonic() - session_start_monotonic
+            frames += 1
+            writers.write_raw(elapsed_s, interface_name, msg)
+            decoded_rows = []
+            for spec in signal_map.get(msg.arbitration_id, []):
+                try:
+                    raw_value, physical_value = decode_can_signal(bytes(msg.data), spec)
+                    decoded_rows.append((spec, raw_value, physical_value))
+                except (ValueError, OverflowError) as exc:
+                    decode_errors += 1
+                    logging.warning("CAN decode failed for %s: %s", spec["channel"], exc)
+            if decoded_rows:
+                decoded_frames += 1
+                writers.write_channels(elapsed_s, msg, decoded_rows)
+            update_can_status(
+                enabled=True,
+                status="online",
+                channel=config["channel"],
+                frames=frames,
+                decoded_frames=decoded_frames,
+                decode_errors=decode_errors,
+                last_id=f"0x{msg.arbitration_id:X}",
+                _last_monotonic=time.monotonic(),
+            )
+    except Exception as exc:
+        decode_errors += 1
+        update_can_status(enabled=True, status=f"error: {exc}", decode_errors=decode_errors)
+        logging.error("CAN logger stopped: %s", exc)
+    finally:
+        if writers:
+            writers.close()
+        if bus:
+            try:
+                bus.shutdown()
+            except Exception:
+                pass
 
 
 def set_latest_warning(message: Optional[str]):
@@ -1100,7 +1350,15 @@ def update_latest_fields(
         update_timing(sample_time, fields)
 
 
-def run_session(port: str, baud: int, log_dir: Path, base_log_dir: Path, parse_mode: str = "auto"):
+def run_session(
+    port: str,
+    baud: int,
+    log_dir: Path,
+    base_log_dir: Path,
+    parse_mode: str = "auto",
+    can_config: Optional[dict] = None,
+):
+    can_config = can_config or {"enabled": False}
     metadata_snapshot = current_run_metadata()
     identity = build_run_identity(base_log_dir, metadata_snapshot)
     run_id = identity["run_id"]
@@ -1119,6 +1377,8 @@ def run_session(port: str, baud: int, log_dir: Path, base_log_dir: Path, parse_m
     binary_buffer = bytearray()
     csv_outputs = CsvPacketWriter(log_dir, file_prefix)
     binary_outputs = BinaryCsvWriter(log_dir, file_prefix)
+    can_stop_event = threading.Event()
+    can_thread = None
     metadata = {
         "session": session_name,
         "run_id": run_id,
@@ -1139,6 +1399,11 @@ def run_session(port: str, baud: int, log_dir: Path, base_log_dir: Path, parse_m
         "ascii_packets": 0,
         "binary_packets": 0,
         "bad_binary_packets": 0,
+        "can_enabled": bool(can_config.get("enabled")),
+        "can_interface": can_config.get("interface"),
+        "can_channel": can_config.get("channel"),
+        "can_bitrate": can_config.get("bitrate"),
+        "can_signal_map": str(can_config.get("signal_map") or ""),
     }
 
     logging.info("Opening %s at %d baud", port, baud)
@@ -1160,6 +1425,13 @@ def run_session(port: str, baud: int, log_dir: Path, base_log_dir: Path, parse_m
 
     try:
         write_session_metadata(metadata_path, metadata)
+        if can_config.get("enabled"):
+            can_thread = threading.Thread(
+                target=run_can_logger,
+                args=(can_config, log_dir, file_prefix, start_time, can_stop_event),
+                daemon=True,
+            )
+            can_thread.start()
         with serial.Serial(
             port=port,
             baudrate=baud,
@@ -1283,12 +1555,18 @@ def run_session(port: str, baud: int, log_dir: Path, base_log_dir: Path, parse_m
         stop_reason = "error"
         raise
     finally:
+        can_stop_event.set()
+        if can_thread:
+            can_thread.join(timeout=2.0)
         csv_outputs.close()
         binary_outputs.close()
         with state_lock:
             metadata["ascii_packets"] = latest_packet["ascii_packets"]
             metadata["binary_packets"] = latest_packet["binary_packets"]
             metadata["bad_binary_packets"] = latest_packet["bad_binary_packets"]
+            can_state = dict(latest_packet.get("can") or {})
+        can_state.pop("_last_monotonic", None)
+        metadata["can"] = can_state
         metadata["raw_bytes"] = byte_count
         metadata["binary_bytes_estimate"] = binary_byte_count
         metadata["free_space_end_bytes"] = free_space_bytes(log_dir)
@@ -1391,6 +1669,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 <div class="tile"><div class="label">Live Delta</div><div id="deltaTime" class="value">--</div></div>
 <div class="tile"><div class="label">GPS</div><div id="gps" class="value">--</div></div>
 <div class="tile"><div class="label">Stream</div><div id="stream" class="value small">--</div></div>
+<div class="tile"><div class="label">CAN</div><div id="canStatus" class="value small">disabled</div></div>
 </section>
 <section class="panel">
 <h2>Run Metadata</h2>
@@ -1487,6 +1766,7 @@ async function tick(){try{const r=await fetch('/api/latest',{cache:'no-store'});
  if(t.live_delta_error){deltaEl.textContent=t.live_delta_error; deltaEl.className='value small bad'} else {deltaEl.textContent=t.live_delta_available?deltaFmt(t.live_delta_s):'--'}
  document.getElementById('gps').textContent=(fmt(f.Latitude_deg,5)+', '+fmt(f.Longitude_deg,5));
  document.getElementById('stream').textContent=`raw ${d.raw_bytes||0} B / bin ${d.binary_packets||0} pkts / bad ${d.bad_binary_packets||0} / ASCII ${d.ascii_packets||0}`;
+ const can=d.can||{}; document.getElementById('canStatus').textContent=`${can.status||'disabled'} / ${can.frames||0} frames / ${can.decoded_frames||0} decoded`;
  document.getElementById('yaw').textContent=fmt(f.Yaw_deg,1)+' deg'; document.getElementById('lat').textContent=fmt(f.Latitude_deg,7);
  document.getElementById('lon').textContent=fmt(f.Longitude_deg,7); document.getElementById('pos').textContent=fmt(f.PosUncertainty_m,2)+' m';
  document.getElementById('checksum').innerHTML=d.checksum_ok===true?'<span class="ok">true</span>':String(d.checksum_ok??'--');
@@ -1533,6 +1813,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 if latest_packet.get("updated_monotonic") is not None:
                     age_s = time.monotonic() - latest_packet["updated_monotonic"]
                 payload = {k: v for k, v in latest_packet.items() if k != "updated_monotonic"}
+                if isinstance(payload.get("can"), dict):
+                    payload["can"] = {k: v for k, v in payload["can"].items() if k != "_last_monotonic"}
                 payload["age_s"] = age_s
             payload["timing"] = public_timing_snapshot()
             payload["run_metadata"] = public_run_metadata_snapshot()
@@ -1614,6 +1896,11 @@ def main():
     parser.add_argument("--dashboard-host", default="0.0.0.0")
     parser.add_argument("--dashboard-port", type=int, default=8080)
     parser.add_argument("--parse-mode", choices=("auto", "binary", "ascii"), default="auto")
+    parser.add_argument("--can-enable", action="store_true", help="passively log CAN frames during each VN300 logging session")
+    parser.add_argument("--can-interface", default="socketcan", help="python-can interface type, usually socketcan on Raspberry Pi")
+    parser.add_argument("--can-channel", default="can0", help="CAN channel/device name, usually can0")
+    parser.add_argument("--can-bitrate", type=int, default=0, help="CAN bitrate such as 1000000; use 0 if the interface is already configured")
+    parser.add_argument("--can-signal-map", type=Path, default=DEFAULT_CAN_SIGNAL_MAP, help="CSV signal map used to decode MoTeC/dash CAN frames")
     parser.add_argument("--shutdown-command", default="/usr/bin/sudo /sbin/shutdown -h now")
     args = parser.parse_args()
 
@@ -1627,6 +1914,13 @@ def main():
     logging.info("Using base log directory: %s", base_log_dir)
     logging.info("Using boot log directory: %s", active_log_dir)
     start_dashboard(args.dashboard_host, args.dashboard_port)
+    can_config = {
+        "enabled": args.can_enable,
+        "interface": args.can_interface,
+        "channel": args.can_channel,
+        "bitrate": args.can_bitrate or None,
+        "signal_map": args.can_signal_map,
+    }
 
     gpio_handles = None
     if not args.no_buttons:
@@ -1649,7 +1943,7 @@ def main():
 
         active_session_stop.clear()
         try:
-            run_session(port, args.baud, active_log_dir, base_log_dir, args.parse_mode)
+            run_session(port, args.baud, active_log_dir, base_log_dir, args.parse_mode, can_config)
         except serial.SerialException as exc:
             logging.error("Serial error: %s", exc)
             update_latest("serial error", False)

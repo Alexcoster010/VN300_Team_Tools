@@ -16,7 +16,49 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.4.0`
+`v0.5.0-dev`
+
+Stable Pi install tag:
+
+```text
+v0.4.0
+```
+
+Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.5.0-dev - 2026-07-15
+
+### Phase 2 Development
+
+- Started optional passive MoTeC/dash CAN logging in the Pi logger.
+- Added disabled-by-default command-line options:
+  - `--can-enable`
+  - `--can-interface`
+  - `--can-channel`
+  - `--can-bitrate`
+  - `--can-signal-map`
+- Added raw CAN frame output:
+
+  ```text
+  VN300_YYYY-MM-DD_RUN001_MOTEC_RAW_CAN.csv
+  ```
+
+- Added decoded CAN channel output from a CSV signal map:
+
+  ```text
+  VN300_YYYY-MM-DD_RUN001_MOTEC_CHANNELS.csv
+  ```
+
+- Added dashboard CAN health tile showing CAN status, raw frame count, and decoded frame count.
+- Added `pi/motec_can_signal_map.csv` as the Pi-side decode map.
+- Added `motec_can_signal_map_template.csv` as a team-fillable signal-map example.
+- Added `python-can` to Pi requirements.
+- Updated the Pi installer to copy the CAN signal map and include the `netdev` group.
+
+### Compatibility
+
+- CAN logging is off unless `--can-enable` is passed.
+- The default systemd service still starts the logger in VN300-only mode.
 
 ## v0.4.0 - 2026-07-15
 

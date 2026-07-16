@@ -160,6 +160,11 @@ Do this after analyzer changes.
 
 Last documented update:
 
+- Phase 2 development has started after the stable `v0.4.0` tag.
+- CAN logging support is present but disabled unless the service/manual command includes `--can-enable`.
+- Installer now copies `pi/motec_can_signal_map.csv` to the Pi app folder.
+- Installer now installs/checks `python-can`.
+- Default service still runs VN300-only unless edited.
 - Logger/dashboard now supports dashboard-entered run metadata.
 - Session files are named by date and run number, not time of day.
 - Example: `VN300_YYYY-MM-DD_RUN001_BINARY.csv`.

@@ -16,11 +16,13 @@ For change tracking, use `VERSION_HISTORY.md`.
 - `VERSION_HISTORY.md`: version and change history for the team tools.
 - `MOTEC_CAN_TO_PI_INTEGRATION_REPORT.md`: detailed plan for MoTeC M130 CAN broadcast into the Pi logger.
 - `PHASE_2_PLAN.md`: next-step plan for MoTeC/dash CAN, steering angle, driver inputs, and balance metrics.
+- `motec_can_signal_map_template.csv`: example MoTeC/dash CAN signal map to fill in after CAN IDs and scaling are known.
 - `pi/vn300_button_logger.py`: Raspberry Pi logger and live dashboard. It starts at boot, then waits idle until the log button is pressed.
 - `pi/vn300-button-logger.service`: systemd service for the logger/dashboard.
 - `pi/install_on_pi.sh`: installer to run on the Pi after copying this folder.
 - `pi/vn300-shutdown-sudoers`: allows the service user to shut down the Pi from the power button.
 - `pi/requirements-pi.txt`: Python packages needed on the Pi.
+- `pi/motec_can_signal_map.csv`: Pi-side CAN signal map used by optional Phase 2 CAN logging.
 - `analysis/vn300_lap_analysis.py`: offline analysis, lap splitting, and overlay HTML generation from `*_BINARY.csv` or `*_VNINS.csv`.
 - `analysis_output/`, `folder_import_output/`, `lap_smoke_output/`: example generated outputs.
 - `serial_samples/`: example raw serial capture.
@@ -67,6 +69,24 @@ Log button behavior:
 Power button behavior:
 
 - Hold about 2 seconds: stop logging, flush files, and shut down the Pi.
+
+## Stable v0.4.0 Install From GitHub
+
+The last VN300-only version before Phase 2 work is tagged:
+
+```text
+v0.4.0
+```
+
+On a Pi or laptop with Git installed, that exact version can be checked out with:
+
+```sh
+git clone https://github.com/Alexcoster010/VN300_Team_Tools.git
+cd VN300_Team_Tools
+git checkout v0.4.0
+```
+
+Use that tag if the team needs the stable logger/dashboard before the Phase 2 CAN work is ready.
 
 ## Copy Tools To The Pi
 
@@ -176,6 +196,44 @@ The binary CSV includes normalized columns used by the dashboard and analyzer:
 - `PosUncertainty_m`, `VelUncertainty_mps`
 
 The analyzer folder import prefers `*_BINARY.csv` over a matching `*_VNINS.csv` so the same session is not analyzed twice. Use `--include-ascii` only when you intentionally want both files included.
+
+## Optional Phase 2 CAN Logging
+
+Current development versions include the start of passive MoTeC/dash CAN logging. It is disabled by default.
+
+Default service behavior:
+
+- VN300 logging still works without CAN hardware.
+- The service file does not include `--can-enable`.
+- No CAN files are created unless CAN is enabled.
+
+When CAN is enabled, each run can create:
+
+```text
+VN300_YYYY-MM-DD_RUN001_MOTEC_RAW_CAN.csv
+VN300_YYYY-MM-DD_RUN001_MOTEC_CHANNELS.csv
+```
+
+`*_MOTEC_RAW_CAN.csv` stores every received CAN frame. `*_MOTEC_CHANNELS.csv` stores decoded channels from:
+
+```text
+pi/motec_can_signal_map.csv
+```
+
+The team must fill in the real MoTeC/dash CAN IDs, bit positions, scaling, offsets, and units before decoded values are meaningful. Use `motec_can_signal_map_template.csv` as the starting point.
+
+Manual CAN test example after `can0` is configured on the Pi:
+
+```sh
+python3 /home/<pi-user>/vn300_tools/vn300_button_logger.py \
+  --port /dev/ttyUSB0 \
+  --baud 921600 \
+  --no-buttons \
+  --auto-start \
+  --can-enable \
+  --can-channel can0 \
+  --can-bitrate 1000000
+```
 
 ## Flash Drive Output
 

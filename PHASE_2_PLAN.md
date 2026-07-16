@@ -201,17 +201,30 @@ Add warning states:
 
 ## Suggested Phase 2 Order
 
-1. Confirm MoTeC/dash CAN transmit options.
-2. Choose and install Pi CAN hardware.
-3. Use `candump can0` to prove CAN frames are visible.
-4. Create DBC or signal map.
-5. Add CAN logging to Pi.
-6. Add CAN dashboard health/status.
-7. Add analyzer import for MoTeC channels.
-8. Add throttle/brake/RPM plots.
-9. Add steering angle hardware and calibration.
-10. Add steering-based balance metrics.
-11. Add wheel speed analysis.
+- [ ] Confirm MoTeC/dash CAN transmit options.
+- [ ] Choose and install Pi CAN hardware.
+- [ ] Use `candump can0` to prove CAN frames are visible.
+- [x] Create first CSV signal map format.
+- [x] Add disabled-by-default CAN logging scaffold to Pi.
+- [x] Add basic CAN dashboard health/status.
+- [ ] Add analyzer import for MoTeC channels.
+- [ ] Add throttle/brake/RPM plots.
+- [ ] Add steering angle hardware and calibration.
+- [ ] Add steering-based balance metrics.
+- [ ] Add wheel speed analysis.
+
+## Phase 2 Work Started
+
+The first Phase 2 code slice adds optional passive CAN capture to the Pi logger. It is intentionally off by default so the `v0.4.0` VN300-only workflow stays usable while CAN hardware and MoTeC/dash transmit settings are still being confirmed.
+
+When enabled, each logging session can create:
+
+```text
+VN300_YYYY-MM-DD_RUN001_MOTEC_RAW_CAN.csv
+VN300_YYYY-MM-DD_RUN001_MOTEC_CHANNELS.csv
+```
+
+The raw file preserves every received CAN frame. The channels file only contains decoded values from `pi/motec_can_signal_map.csv`.
 
 ## Phase 2 Success Criteria
 

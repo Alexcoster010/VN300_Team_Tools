@@ -1,6 +1,16 @@
 # Pi Install For Current Version
 
-Current documented version: `v0.4.0`
+Current documented version: `v0.5.0-dev`
+
+Stable tagged Pi version: `v0.4.0`
+
+If the team needs the last pre-Phase-2 version later:
+
+```sh
+git clone https://github.com/Alexcoster010/VN300_Team_Tools.git
+cd VN300_Team_Tools
+git checkout v0.4.0
+```
 
 Use this file to install or update the current VN300 logger/dashboard package on the Raspberry Pi.
 
@@ -30,6 +40,12 @@ Use this file to install or update the current VN300 logger/dashboard package on
   - current path and car position
   - best path after a valid completed lap/run
   - best-path dot at the same elapsed time as the current lap/run
+- Optional Phase 2 CAN logging scaffold:
+  - disabled unless `--can-enable` is passed
+  - raw CAN output to `*_MOTEC_RAW_CAN.csv`
+  - decoded channel output to `*_MOTEC_CHANNELS.csv`
+  - decode map at `pi/motec_can_signal_map.csv`
+  - dashboard CAN health tile
 
 ## Existing Pi Update
 
