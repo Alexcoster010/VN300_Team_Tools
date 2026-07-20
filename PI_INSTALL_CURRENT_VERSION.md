@@ -25,6 +25,16 @@ Use this file to install or update the current VN300 logger/dashboard package on
   VN300_YYYY-MM-DD_RUN001_session_metadata.json
   ```
 
+- VN-300 UTC date correction for binary logs:
+  - run files are finalized with the VN-300 UTC date when available
+  - session metadata records both Pi clock time and VN-300 UTC time
+  - boot folder names can still reflect the Pi clock at service start
+- Dashboard log-destination health:
+  - `flash drive / writing` means logs are going to the mounted drive
+  - `pi local fallback / writing` means the flash drive was not writable at service start
+  - `write error` means the active destination failed during logging
+  - `VN300_logger_status.json` is written in the boot folder as a heartbeat/status file
+
 - `VN300_run_metadata.csv` written in the Pi boot log folder.
 - Analyzer automatically loads `VN300_run_metadata.csv` from a Pi boot folder.
 - Analyzer outputs:

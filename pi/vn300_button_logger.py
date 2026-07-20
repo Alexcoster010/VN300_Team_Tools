@@ -142,6 +142,7 @@ state_lock = threading.Lock()
 run_metadata_lock = threading.Lock()
 active_log_dir = None
 active_base_log_dir = None
+active_log_destination_type = None
 latest_packet = {
     "status": "idle",
     "logging": False,
@@ -157,6 +158,13 @@ latest_packet = {
     "bad_binary_packets": 0,
     "parse_source": None,
     "warning": None,
+    "log_dir": None,
+    "base_log_dir": None,
+    "log_destination": None,
+    "log_health": "unknown",
+    "log_write_error": None,
+    "free_space_mb": None,
+    "last_flush_s": None,
     "can": {
         "enabled": False,
         "status": "disabled",
@@ -263,6 +271,44 @@ def find_log_directory() -> Path:
     return LOCAL_FALLBACK
 
 
+def log_destination_type(base_log_dir: Path) -> str:
+    try:
+        resolved = base_log_dir.resolve()
+        fallback = LOCAL_FALLBACK.resolve()
+    except OSError:
+        resolved = base_log_dir
+        fallback = LOCAL_FALLBACK
+    if resolved == fallback:
+        return "pi local fallback"
+    return "flash drive"
+
+
+def set_log_health(
+    health: str,
+    *,
+    log_dir: Optional[Path] = None,
+    base_log_dir: Optional[Path] = None,
+    destination: Optional[str] = None,
+    free_space: Optional[int] = None,
+    write_error: Optional[str] = None,
+    last_flush_s: Optional[float] = None,
+):
+    with state_lock:
+        latest_packet["log_health"] = health
+        if log_dir is not None:
+            latest_packet["log_dir"] = str(log_dir)
+        if base_log_dir is not None:
+            latest_packet["base_log_dir"] = str(base_log_dir)
+        if destination is not None:
+            latest_packet["log_destination"] = destination
+        if free_space is not None:
+            latest_packet["free_space_mb"] = free_space // (1024 * 1024)
+        if write_error is not None:
+            latest_packet["log_write_error"] = write_error
+        if last_flush_s is not None:
+            latest_packet["last_flush_s"] = last_flush_s
+
+
 def create_boot_log_directory(base_log_dir: Path) -> Path:
     timestamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     for index in range(100):
@@ -293,16 +339,77 @@ def next_run_number(base_log_dir: Path, date_text: str) -> int:
     return highest + 1
 
 
-def build_run_identity(base_log_dir: Path, metadata_snapshot: dict) -> dict:
-    date_text = dt.datetime.now().strftime("%Y-%m-%d")
+def build_run_identity(base_log_dir: Path, metadata_snapshot: dict, date_text: Optional[str] = None, date_source: str = "pi_clock") -> dict:
+    date_text = date_text or dt.datetime.now().strftime("%Y-%m-%d")
     run_number = next_run_number(base_log_dir, date_text)
     run_id = f"VN300_{date_text}_RUN{run_number:03d}"
     return {
         "date": date_text,
+        "date_source": date_source,
         "run_number": run_number,
         "run_id": run_id,
         "file_prefix": run_id,
     }
+
+
+def valid_vn_utc_datetime(fields: dict, prefix: str = "TimeUtc") -> Optional[dt.datetime]:
+    try:
+        year = int(fields.get(f"{prefix}_Year"))
+        month = int(fields.get(f"{prefix}_Month"))
+        day = int(fields.get(f"{prefix}_Day"))
+        hour = int(fields.get(f"{prefix}_Hour", 0))
+        minute = int(fields.get(f"{prefix}_Minute", 0))
+        second = int(fields.get(f"{prefix}_Second", 0))
+        millisecond = int(fields.get(f"{prefix}_Millisecond", 0))
+    except (TypeError, ValueError):
+        return None
+    if not (2020 <= year <= 2100):
+        return None
+    try:
+        return dt.datetime(year, month, day, hour, minute, second, millisecond * 1000, tzinfo=dt.timezone.utc)
+    except ValueError:
+        return None
+
+
+def sensor_utc_datetime_from_fields(fields: dict) -> Optional[dt.datetime]:
+    return valid_vn_utc_datetime(fields, "TimeUtc") or valid_vn_utc_datetime(fields, "Gnss1Utc")
+
+
+def rename_run_files(log_dir: Path, old_prefix: str, new_prefix: str) -> list[dict]:
+    if old_prefix == new_prefix:
+        return []
+    paths = sorted(log_dir.glob(f"{old_prefix}*"))
+    blocked = [
+        {
+            "source": str(path),
+            "target": str(path.with_name(new_prefix + path.name[len(old_prefix):])),
+            "renamed": False,
+            "error": "target exists",
+        }
+        for path in paths
+        if path.with_name(new_prefix + path.name[len(old_prefix):]).exists()
+    ]
+    if blocked:
+        return blocked
+    results = []
+    for path in paths:
+        target = path.with_name(new_prefix + path.name[len(old_prefix):])
+        try:
+            path.replace(target)
+            results.append({
+                "source": str(path),
+                "target": str(target),
+                "renamed": True,
+                "error": "",
+            })
+        except OSError as exc:
+            results.append({
+                "source": str(path),
+                "target": str(target),
+                "renamed": False,
+                "error": repr(exc),
+            })
+    return results
 
 
 def free_space_bytes(path: Path) -> int:
@@ -323,6 +430,13 @@ def write_run_metadata_csv(log_dir: Path, row: dict):
         if not exists:
             writer.writeheader()
         writer.writerow({field: row.get(field, "") for field in RUN_METADATA_FIELDS})
+
+
+def write_log_status_file(log_dir: Path, payload: dict):
+    path = log_dir / "VN300_logger_status.json"
+    tmp_path = path.with_suffix(".tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    tmp_path.replace(path)
 
 
 def parse_bool_text(value, default: bool = False) -> bool:
@@ -837,6 +951,10 @@ def parse_vn300_binary_packet(packet: bytes):
     fields["Longitudinal_G"] = fields["Longitudinal_Accel_mps2"] / 9.80665
     fields["Lateral_G"] = fields["Lateral_Accel_mps2"] / 9.80665
     fields["Vertical_G"] = fields["Vertical_Accel_mps2"] / 9.80665
+    sensor_utc = sensor_utc_datetime_from_fields(fields)
+    if sensor_utc:
+        fields["Sensor_UTC_Date"] = sensor_utc.strftime("%Y-%m-%d")
+        fields["Sensor_UTC_DateTime"] = sensor_utc.isoformat()
     return fields
 
 
@@ -1359,6 +1477,7 @@ def run_session(
     can_config: Optional[dict] = None,
 ):
     can_config = can_config or {"enabled": False}
+    destination_type = log_destination_type(base_log_dir)
     metadata_snapshot = current_run_metadata()
     identity = build_run_identity(base_log_dir, metadata_snapshot)
     run_id = identity["run_id"]
@@ -1371,6 +1490,8 @@ def run_session(
     byte_count = 0
     binary_byte_count = 0
     binary_active = False
+    first_sensor_utc = None
+    last_sensor_utc = None
     stop_reason = "log stopped"
     error_text = None
     line_buffer = bytearray()
@@ -1384,11 +1505,16 @@ def run_session(
         "run_id": run_id,
         "run_number": identity["run_number"],
         "date": identity["date"],
+        "date_source": identity["date_source"],
         "file_prefix": file_prefix,
         "start_time_local": dt.datetime.now().isoformat(timespec="seconds"),
+        "start_time_pi_clock": dt.datetime.now().isoformat(timespec="seconds"),
         "port": port,
         "baud": baud,
         "parse_mode": parse_mode,
+        "log_dir": str(log_dir),
+        "base_log_dir": str(base_log_dir),
+        "log_destination": destination_type,
         "raw_path": str(raw_path),
         "metadata_path": str(metadata_path),
         "run_metadata": metadata_snapshot,
@@ -1408,10 +1534,19 @@ def run_session(
 
     logging.info("Opening %s at %d baud", port, baud)
     logging.info("Run ID: %s", run_id)
+    logging.info("Log destination: %s (%s)", log_dir, destination_type)
     logging.info("Raw output: %s", raw_path)
     reset_latest_for_session(session_name)
     start_free = free_space_bytes(log_dir)
     metadata["free_space_start_bytes"] = start_free
+    set_log_health(
+        "ready",
+        log_dir=log_dir,
+        base_log_dir=base_log_dir,
+        destination=destination_type,
+        free_space=start_free,
+        write_error="",
+    )
     if start_free < MIN_FREE_SPACE_BYTES:
         stop_reason = "low disk space before session start"
         metadata["stop_reason"] = stop_reason
@@ -1419,12 +1554,24 @@ def run_session(
         metadata["end_time_local"] = dt.datetime.now().isoformat(timespec="seconds")
         write_session_metadata(metadata_path, metadata)
         set_latest_warning(f"Low disk space: {start_free // (1024 * 1024)} MB free")
+        set_log_health("low disk space", free_space=start_free)
         update_latest("low disk space", False, session_name)
         logging.error("%s", stop_reason)
         return
 
     try:
         write_session_metadata(metadata_path, metadata)
+        write_log_status_file(log_dir, {
+            "status": "session started",
+            "session": session_name,
+            "log_destination": destination_type,
+            "log_dir": str(log_dir),
+            "base_log_dir": str(base_log_dir),
+            "raw_path": str(raw_path),
+            "start_time_pi_clock": metadata["start_time_pi_clock"],
+            "free_space_start_bytes": start_free,
+        })
+        set_log_health("writing", last_flush_s=0.0)
         if can_config.get("enabled"):
             can_thread = threading.Thread(
                 target=run_can_logger,
@@ -1445,7 +1592,16 @@ def run_session(
                 now = time.monotonic()
 
                 if chunk:
-                    raw_file.write(chunk)
+                    try:
+                        raw_file.write(chunk)
+                    except OSError as exc:
+                        error_text = repr(exc)
+                        stop_reason = "log write error"
+                        set_latest_warning(f"Log write error: {exc}")
+                        set_log_health("write error", write_error=error_text)
+                        logging.error("Raw log write failed: %s", exc)
+                        active_session_stop.set()
+                        break
                     byte_count += len(chunk)
                     binary_byte_count += sum(1 for byte in chunk if byte not in b"\r\n\t" and (byte < 32 or byte > 126))
                     if parse_mode in ("auto", "binary"):
@@ -1473,8 +1629,22 @@ def run_session(
                             logging.warning("Binary packet parse failed: %s", exc)
                         if fields:
                             binary_active = True
+                            sensor_utc = sensor_utc_datetime_from_fields(fields)
+                            if sensor_utc:
+                                if first_sensor_utc is None:
+                                    first_sensor_utc = sensor_utc
+                                last_sensor_utc = sensor_utc
                             elapsed_s = now - start_time
-                            binary_outputs.write(elapsed_s, fields)
+                            try:
+                                binary_outputs.write(elapsed_s, fields)
+                            except OSError as exc:
+                                error_text = repr(exc)
+                                stop_reason = "log write error"
+                                set_latest_warning(f"Binary CSV write error: {exc}")
+                                set_log_health("write error", write_error=error_text)
+                                logging.error("Binary CSV write failed: %s", exc)
+                                active_session_stop.set()
+                                break
                             update_latest_fields(
                                 "logging",
                                 True,
@@ -1485,6 +1655,9 @@ def run_session(
                             )
                         elif not parse_failed:
                             increment_bad_binary_packets()
+
+                    if active_session_stop.is_set():
+                        continue
 
                     parse_ascii_this_chunk = parse_mode == "ascii" or (parse_mode == "auto" and not binary_active)
                     if parse_ascii_this_chunk and (b"$VN" in chunk or line_buffer):
@@ -1506,7 +1679,16 @@ def run_session(
                             parsed = parse_ascii_line(raw_bytes.decode("ascii", errors="ignore"))
                             if parsed:
                                 elapsed_s = now - start_time
-                                csv_outputs.write(elapsed_s, parsed)
+                                try:
+                                    csv_outputs.write(elapsed_s, parsed)
+                                except OSError as exc:
+                                    error_text = repr(exc)
+                                    stop_reason = "log write error"
+                                    set_latest_warning(f"ASCII CSV write error: {exc}")
+                                    set_log_health("write error", write_error=error_text)
+                                    logging.error("ASCII CSV write failed: %s", exc)
+                                    active_session_stop.set()
+                                    break
                                 allow_ascii_timing = parse_mode == "ascii" or not binary_active
                                 update_latest(
                                     "logging",
@@ -1534,6 +1716,7 @@ def run_session(
                     if free_now < MIN_FREE_SPACE_BYTES:
                         stop_reason = "low disk space during session"
                         set_latest_warning(f"Low disk space: {free_now // (1024 * 1024)} MB free")
+                        set_log_health("low disk space", free_space=free_now)
                         active_session_stop.set()
                     update_latest(
                         "binary logging" if binary_active else "logging",
@@ -1542,14 +1725,42 @@ def run_session(
                         raw_bytes=byte_count,
                         binary_bytes=binary_byte_count,
                     )
-                    raw_file.flush()
-                    os.fsync(raw_file.fileno())
-                    csv_outputs.flush()
-                    binary_outputs.flush()
+                    try:
+                        raw_file.flush()
+                        os.fsync(raw_file.fileno())
+                        csv_outputs.flush()
+                        binary_outputs.flush()
+                        write_log_status_file(log_dir, {
+                            "status": "logging",
+                            "session": session_name,
+                            "log_destination": destination_type,
+                            "log_dir": str(log_dir),
+                            "base_log_dir": str(base_log_dir),
+                            "raw_path": str(raw_path),
+                            "raw_bytes": byte_count,
+                            "binary_bytes_estimate": binary_byte_count,
+                            "free_space_bytes": free_now,
+                            "last_flush_pi_clock": dt.datetime.now().isoformat(timespec="seconds"),
+                        })
+                        set_log_health("writing", free_space=free_now, write_error="", last_flush_s=now - start_time)
+                    except OSError as exc:
+                        error_text = repr(exc)
+                        stop_reason = "log write error"
+                        set_latest_warning(f"Log flush error: {exc}")
+                        set_log_health("write error", write_error=error_text)
+                        logging.error("Log flush failed: %s", exc)
+                        active_session_stop.set()
                     last_flush = now
 
-            raw_file.flush()
-            os.fsync(raw_file.fileno())
+            try:
+                raw_file.flush()
+                os.fsync(raw_file.fileno())
+            except OSError as exc:
+                error_text = repr(exc)
+                stop_reason = "log write error"
+                set_latest_warning(f"Final raw flush error: {exc}")
+                set_log_health("write error", write_error=error_text)
+                logging.error("Final raw flush failed: %s", exc)
     except Exception as exc:
         error_text = repr(exc)
         stop_reason = "error"
@@ -1558,8 +1769,22 @@ def run_session(
         can_stop_event.set()
         if can_thread:
             can_thread.join(timeout=2.0)
-        csv_outputs.close()
-        binary_outputs.close()
+        try:
+            csv_outputs.close()
+        except OSError as exc:
+            logging.error("ASCII CSV close failed: %s", exc)
+            if error_text is None:
+                error_text = repr(exc)
+                stop_reason = "log write error"
+                set_log_health("write error", write_error=error_text)
+        try:
+            binary_outputs.close()
+        except OSError as exc:
+            logging.error("Binary CSV close failed: %s", exc)
+            if error_text is None:
+                error_text = repr(exc)
+                stop_reason = "log write error"
+                set_log_health("write error", write_error=error_text)
         with state_lock:
             metadata["ascii_packets"] = latest_packet["ascii_packets"]
             metadata["binary_packets"] = latest_packet["binary_packets"]
@@ -1569,17 +1794,82 @@ def run_session(
         metadata["can"] = can_state
         metadata["raw_bytes"] = byte_count
         metadata["binary_bytes_estimate"] = binary_byte_count
-        metadata["free_space_end_bytes"] = free_space_bytes(log_dir)
+        try:
+            metadata["free_space_end_bytes"] = free_space_bytes(log_dir)
+        except OSError as exc:
+            metadata["free_space_end_error"] = repr(exc)
+            metadata["free_space_end_bytes"] = None
+            if error_text is None:
+                error_text = repr(exc)
+                stop_reason = "log write error"
+                set_log_health("write error", write_error=error_text)
         metadata["end_time_local"] = dt.datetime.now().isoformat(timespec="seconds")
+        metadata["end_time_pi_clock"] = dt.datetime.now().isoformat(timespec="seconds")
+        if first_sensor_utc:
+            metadata["sensor_start_time_utc"] = first_sensor_utc.isoformat()
+            metadata["sensor_start_date"] = first_sensor_utc.strftime("%Y-%m-%d")
+            metadata["sensor_date_source"] = "vn300_utc"
+        if last_sensor_utc:
+            metadata["sensor_end_time_utc"] = last_sensor_utc.isoformat()
         if shutdown_requested.is_set():
             stop_reason = "shutdown requested"
         metadata["stop_reason"] = stop_reason
         metadata["error"] = error_text
         metadata["clean_stop"] = error_text is None and not stop_reason.startswith("low disk")
+
+        if first_sensor_utc:
+            sensor_date = first_sensor_utc.strftime("%Y-%m-%d")
+            if sensor_date == identity["date"]:
+                identity["date_source"] = "vn300_utc"
+            else:
+                final_identity = build_run_identity(base_log_dir, metadata_snapshot, sensor_date, "vn300_utc")
+                rename_results = rename_run_files(log_dir, file_prefix, final_identity["file_prefix"])
+                metadata["post_session_rename"] = rename_results
+                rename_failed = any(not result.get("renamed") for result in rename_results)
+                if rename_failed:
+                    logging.error("Could not rename all run files from %s to %s", file_prefix, final_identity["file_prefix"])
+                else:
+                    logging.info("Renamed run files from %s to %s using VN-300 UTC date", file_prefix, final_identity["file_prefix"])
+                    identity = final_identity
+                    run_id = identity["run_id"]
+                    file_prefix = identity["file_prefix"]
+                    session_name = run_id
+                    raw_path = log_dir / f"{file_prefix}_{Path(port).name}.bin"
+                    metadata_path = log_dir / f"{file_prefix}_session_metadata.json"
+
+        metadata["session"] = session_name
+        metadata["run_id"] = run_id
+        metadata["run_number"] = identity["run_number"]
+        metadata["date"] = identity["date"]
+        metadata["date_source"] = identity["date_source"]
+        metadata["file_prefix"] = file_prefix
+        metadata["raw_path"] = str(raw_path)
+        metadata["metadata_path"] = str(metadata_path)
         try:
             write_session_metadata(metadata_path, metadata)
         except OSError as exc:
             logging.error("Could not write session metadata: %s", exc)
+        try:
+            write_log_status_file(log_dir, {
+                "status": metadata["stop_reason"],
+                "session": session_name,
+                "run_id": run_id,
+                "log_destination": destination_type,
+                "log_dir": str(log_dir),
+                "base_log_dir": str(base_log_dir),
+                "raw_path": str(raw_path),
+                "raw_bytes": byte_count,
+                "binary_bytes_estimate": binary_byte_count,
+                "ascii_packets": metadata["ascii_packets"],
+                "binary_packets": metadata["binary_packets"],
+                "bad_binary_packets": metadata["bad_binary_packets"],
+                "clean_stop": metadata["clean_stop"],
+                "error": metadata["error"],
+                "end_time_pi_clock": metadata["end_time_pi_clock"],
+                "free_space_end_bytes": metadata.get("free_space_end_bytes"),
+            })
+        except OSError as exc:
+            logging.error("Could not write logger status file: %s", exc)
         try:
             run_metadata_row = dict(metadata_snapshot)
             run_metadata_row.update({
@@ -1669,6 +1959,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 <div class="tile"><div class="label">Live Delta</div><div id="deltaTime" class="value">--</div></div>
 <div class="tile"><div class="label">GPS</div><div id="gps" class="value">--</div></div>
 <div class="tile"><div class="label">Stream</div><div id="stream" class="value small">--</div></div>
+<div class="tile"><div class="label">Log</div><div id="logHealth" class="value small">--</div></div>
 <div class="tile"><div class="label">CAN</div><div id="canStatus" class="value small">disabled</div></div>
 </section>
 <section class="panel">
@@ -1766,6 +2057,7 @@ async function tick(){try{const r=await fetch('/api/latest',{cache:'no-store'});
  if(t.live_delta_error){deltaEl.textContent=t.live_delta_error; deltaEl.className='value small bad'} else {deltaEl.textContent=t.live_delta_available?deltaFmt(t.live_delta_s):'--'}
  document.getElementById('gps').textContent=(fmt(f.Latitude_deg,5)+', '+fmt(f.Longitude_deg,5));
  document.getElementById('stream').textContent=`raw ${d.raw_bytes||0} B / bin ${d.binary_packets||0} pkts / bad ${d.bad_binary_packets||0} / ASCII ${d.ascii_packets||0}`;
+ document.getElementById('logHealth').textContent=`${d.log_destination||'unknown'} / ${d.log_health||'unknown'} / ${d.free_space_mb??'--'} MB`;
  const can=d.can||{}; document.getElementById('canStatus').textContent=`${can.status||'disabled'} / ${can.frames||0} frames / ${can.decoded_frames||0} decoded`;
  document.getElementById('yaw').textContent=fmt(f.Yaw_deg,1)+' deg'; document.getElementById('lat').textContent=fmt(f.Latitude_deg,7);
  document.getElementById('lon').textContent=fmt(f.Longitude_deg,7); document.getElementById('pos').textContent=fmt(f.PosUncertainty_m,2)+' m';
@@ -1885,7 +2177,7 @@ def perform_shutdown(shutdown_command: str):
 
 
 def main():
-    global active_log_dir, active_base_log_dir
+    global active_log_dir, active_base_log_dir, active_log_destination_type
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", default=None)
     parser.add_argument("--baud", type=int, default=921600)
@@ -1910,9 +2202,21 @@ def main():
 
     base_log_dir = find_log_directory()
     active_base_log_dir = base_log_dir
+    active_log_destination_type = log_destination_type(base_log_dir)
     active_log_dir = create_boot_log_directory(base_log_dir)
     logging.info("Using base log directory: %s", base_log_dir)
     logging.info("Using boot log directory: %s", active_log_dir)
+    logging.info("Log destination type: %s", active_log_destination_type)
+    set_log_health(
+        "idle",
+        log_dir=active_log_dir,
+        base_log_dir=base_log_dir,
+        destination=active_log_destination_type,
+        free_space=free_space_bytes(active_log_dir),
+        write_error="",
+    )
+    if active_log_destination_type != "flash drive":
+        set_latest_warning(f"Logging to {active_log_destination_type}, not flash drive")
     start_dashboard(args.dashboard_host, args.dashboard_port)
     can_config = {
         "enabled": args.can_enable,

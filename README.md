@@ -250,11 +250,11 @@ VN300_LOGS/
   VN300_BOOT_YYYY-MM-DD_HH-MM-SS/
 ```
 
-All logger output from that power cycle goes inside that boot folder.
+All logger output from that power cycle goes inside that boot folder. The boot folder name is based on the Pi clock at service start, so it can be wrong if the Pi has no network time.
 
-Each logging session is numbered by date. The first run of a day is `RUN001`, the next is `RUN002`, and the count restarts the next day. If the Pi reboots during a test day, the logger scans existing same-day files under `VN300_LOGS` and continues with the next run number.
+Each logging session is numbered by date. When binary VN-300 packets include a valid UTC date, the logger uses that VN-300 UTC date for the final run filename and run metadata. This keeps run files correctly dated even when the Pi clock is wrong or offline. The first run of a day is `RUN001`, the next is `RUN002`, and the count restarts the next day. If the Pi reboots during a test day, the logger scans existing same-day files under `VN300_LOGS` and continues with the next run number.
 
-Each logging session also writes `VN300_YYYY-MM-DD_RUN###_session_metadata.json` with the run number, dashboard run metadata, port, baud rate, parse mode, stop reason, byte counts, packet counts, and free space. The logger also appends one row to `VN300_run_metadata.csv` in the boot folder. The logger refuses to start, or stops an active session, when the selected log drive has less than 250 MB free.
+Each logging session also writes `VN300_YYYY-MM-DD_RUN###_session_metadata.json` with the run number, dashboard run metadata, port, baud rate, parse mode, stop reason, byte counts, packet counts, free space, Pi clock timestamps, and VN-300 UTC timestamps when available. The logger also appends one row to `VN300_run_metadata.csv` in the boot folder. The logger refuses to start, or stops an active session, when the selected log drive has less than 250 MB free.
 
 If no writable flash drive is found, it falls back to:
 
@@ -303,6 +303,14 @@ http://192.168.1.25:8080/
 The dashboard starts when the Pi service starts. Logging does not need to be active for the dashboard page to load. Before logging starts, the dashboard will show idle/blank live data.
 
 The dashboard shows current logging state, speed, yaw, GPS position, position uncertainty, checksum state, and a rolling speed trace.
+
+The dashboard `Log` tile shows where the logger is writing:
+
+- `flash drive / writing / ... MB`: expected drive-day state.
+- `pi local fallback / writing / ... MB`: the Pi could not use the flash drive at service start, so logs are going to `/home/<pi-user>/vn300_logs`.
+- `write error`: the active log destination failed during a run. Stop the run and check the service logs before continuing.
+
+Live dashboard data only proves that the Pi is receiving and decoding VN-300 packets. It does not prove the flash drive is accepting writes; use the `Log` tile and `VN300_logger_status.json` in the boot folder to confirm file logging health.
 
 When live timing is configured and a run/lap is active, the dashboard also shows a GPS track plot:
 

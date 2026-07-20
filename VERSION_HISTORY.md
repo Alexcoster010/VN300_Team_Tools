@@ -28,6 +28,16 @@ Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboa
 
 ## v0.5.0-dev - 2026-07-15
 
+### Logger
+
+- Added VN-300 UTC date handling for binary logs.
+- Run files now start with a provisional Pi-clock name, then after the session closes they are renamed to the first valid VN-300 UTC date when available.
+- Session metadata now records Pi clock timestamps, VN-300 UTC start/end timestamps, and the date source used for the final run ID.
+- This prevents offline/wrong Pi clock dates from permanently misdating run files.
+- Added dashboard log-destination health so the team can see whether logging is going to the flash drive or Pi local fallback.
+- Added `VN300_logger_status.json` heartbeat/status output in the boot log folder.
+- Added write/flush error detection for raw, ASCII CSV, and binary CSV outputs so failed flash-drive writes stop the session with a visible warning.
+
 ### Phase 2 Development
 
 - Started optional passive MoTeC/dash CAN logging in the Pi logger.
