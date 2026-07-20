@@ -622,6 +622,277 @@ def live_deltas_to_reference(segment: list[Sample], reference):
     return deltas
 
 
+def fixed_distance_sector_times(segment: list[Sample], sector_count: int = 3) -> tuple[list[float], list[float]]:
+    if sector_count < 2 or len(segment) < sector_count + 1:
+        return [], []
+    total_distance = segment[-1].dist_m - segment[0].dist_m
+    duration = segment_duration(segment)
+    if total_distance <= 0.0 or duration <= 0.0:
+        return [], []
+
+    elapsed_points = [0.0]
+    gates_m = []
+    for split_number in range(1, sector_count):
+        distance_m = total_distance * split_number / sector_count
+        elapsed = reference_time_at_distance(segment, distance_m)
+        if elapsed is None:
+            return [], []
+        elapsed_points.append(elapsed)
+        gates_m.append(distance_m)
+    elapsed_points.append(duration)
+
+    sector_times = [
+        elapsed_points[i + 1] - elapsed_points[i]
+        for i in range(sector_count)
+    ]
+    if any(value < 0.0 for value in sector_times):
+        return [], []
+    return sector_times, gates_m
+
+
+def append_lap_sector_split(
+    sector_split_rows: list[dict],
+    name: str,
+    segment: list[Sample],
+    segment_type: str,
+    global_segment_number: int,
+    local_segment_number: int,
+    timing_warning: str,
+    path_metadata: dict,
+    sector_count: int = 3,
+):
+    sector_times, gates_m = fixed_distance_sector_times(segment, sector_count)
+    if len(sector_times) != sector_count:
+        return
+    duration = segment_duration(segment)
+    row = {
+        "name": name,
+        "source": segment[0].source,
+        "driver": path_metadata.get("meta_driver", ""),
+        "segment_type": segment_type,
+        "segment_number": global_segment_number,
+        "lap_number": local_segment_number if segment_type == "lap" else "",
+        "run_number": local_segment_number if segment_type == "run" else "",
+        "duration_s": duration,
+        "distance_m": segment[-1].dist_m - segment[0].dist_m,
+        "max_speed_mph": max(s.speed_mph for s in segment),
+        "timing_warning": timing_warning,
+        "sector_method": "equal_distance_thirds",
+    }
+    for index, value in enumerate(sector_times, start=1):
+        row[f"sector_{index}_s"] = value
+    for index, value in enumerate(gates_m, start=1):
+        row[f"sector_{index}_end_m"] = value
+    row.update(path_metadata)
+    sector_split_rows.append(row)
+
+
+def format_seconds(value) -> str:
+    if value in ("", None):
+        return ""
+    return f"{float(value):.3f}"
+
+
+def write_lap_sector_outputs(
+    out_dir: Path,
+    rows: list[dict],
+    excluded_rows: list[dict],
+    sector_count: int = 3,
+):
+    if not rows:
+        if excluded_rows:
+            write_summary(out_dir / "lap_sector_excluded.csv", excluded_rows)
+        return
+
+    best_sector = {
+        sector_number: min(rows, key=lambda row: row[f"sector_{sector_number}_s"])
+        for sector_number in range(1, sector_count + 1)
+    }
+    overall_theoretical = sum(
+        best_sector[sector_number][f"sector_{sector_number}_s"]
+        for sector_number in range(1, sector_count + 1)
+    )
+    best_lap_time = min(row["duration_s"] for row in rows)
+
+    lap_fields = [
+        "driver", "name", "source", "segment_type", "segment_number", "lap_number", "run_number",
+        "duration_s",
+        *[f"sector_{sector_number}_s" for sector_number in range(1, sector_count + 1)],
+        "distance_m", "max_speed_mph", "timing_warning", "sector_method",
+    ]
+    write_summary(out_dir / "lap_sector_splits.csv", [
+        {field: row.get(field, "") for field in lap_fields}
+        for row in rows
+    ])
+
+    if excluded_rows:
+        write_summary(out_dir / "lap_sector_excluded.csv", excluded_rows)
+
+    drivers = sorted(set(row.get("driver") or "Unknown" for row in rows))
+    theoretical_rows = []
+    for driver in drivers:
+        driver_rows = [row for row in rows if (row.get("driver") or "Unknown") == driver]
+        best_lap = min(driver_rows, key=lambda row: row["duration_s"])
+        driver_best_sectors = {
+            sector_number: min(driver_rows, key=lambda row: row[f"sector_{sector_number}_s"])
+            for sector_number in range(1, sector_count + 1)
+        }
+        theoretical = sum(
+            driver_best_sectors[sector_number][f"sector_{sector_number}_s"]
+            for sector_number in range(1, sector_count + 1)
+        )
+        row = {
+            "driver": driver,
+            "best_lap_time_s": best_lap["duration_s"],
+            "best_segment_number": best_lap["segment_number"],
+            "best_lap_number": best_lap.get("lap_number", ""),
+            "best_run_number": best_lap.get("run_number", ""),
+            "theoretical_best_s": theoretical,
+            "delta_theoretical_to_best_s": best_lap["duration_s"] - theoretical,
+        }
+        for sector_number in range(1, sector_count + 1):
+            sector_row = driver_best_sectors[sector_number]
+            row[f"best_sector_{sector_number}_s"] = sector_row[f"sector_{sector_number}_s"]
+            row[f"best_sector_{sector_number}_segment_number"] = sector_row["segment_number"]
+            row[f"best_sector_{sector_number}_lap_number"] = sector_row.get("lap_number", "")
+            row[f"best_sector_{sector_number}_run_number"] = sector_row.get("run_number", "")
+        theoretical_rows.append(row)
+    theoretical_rows.sort(key=lambda row: row["theoretical_best_s"])
+    write_summary(out_dir / "theoretical_best_by_driver.csv", theoretical_rows)
+
+    overall_rows = []
+    for sector_number in range(1, sector_count + 1):
+        row = best_sector[sector_number]
+        overall_rows.append({
+            "sector": sector_number,
+            "driver": row.get("driver", ""),
+            "name": row.get("name", ""),
+            "segment_type": row.get("segment_type", ""),
+            "segment_number": row.get("segment_number", ""),
+            "lap_number": row.get("lap_number", ""),
+            "run_number": row.get("run_number", ""),
+            "sector_time_s": row[f"sector_{sector_number}_s"],
+            "overall_theoretical_best_s": overall_theoretical,
+        })
+    write_summary(out_dir / "overall_best_sectors.csv", overall_rows)
+
+    def segment_label(row: dict) -> str:
+        if row.get("segment_type") == "lap":
+            return f"L{row.get('lap_number')}"
+        if row.get("segment_type") == "run":
+            return f"R{row.get('run_number')}"
+        return str(row.get("segment_number", ""))
+
+    def all_laps_table() -> str:
+        headers = ["Driver", "Segment", "Lap Time"]
+        headers.extend(f"Sector {sector_number}" for sector_number in range(1, sector_count + 1))
+        headers.extend(["Delta To Best", "Warning", "Source"])
+        head = "".join(f"<th>{html.escape(header)}</th>" for header in headers)
+        body = []
+        for row in rows:
+            delta = row["duration_s"] - best_lap_time
+            cells = [
+                f"<td>{html.escape(row.get('driver') or 'Unknown')}</td>",
+                f"<td>{html.escape(segment_label(row))}</td>",
+                f"<td>{format_seconds(row['duration_s'])}</td>",
+            ]
+            for sector_number in range(1, sector_count + 1):
+                is_best = row is best_sector[sector_number]
+                class_name = " class=\"best-sector\"" if is_best else ""
+                cells.append(f"<td{class_name}>{format_seconds(row[f'sector_{sector_number}_s'])}</td>")
+            cells.extend([
+                f"<td>{delta:+.3f}</td>",
+                f"<td>{html.escape(row.get('timing_warning', ''))}</td>",
+                f"<td>{html.escape(row.get('source', ''))}</td>",
+            ])
+            body.append(f"<tr>{''.join(cells)}</tr>")
+        return f"<table><thead><tr>{head}</tr></thead><tbody>{''.join(body)}</tbody></table>"
+
+    def theoretical_table() -> str:
+        headers = ["Driver", "Best Lap", "Theoretical Best", "Gap"]
+        headers.extend(f"Best S{sector_number}" for sector_number in range(1, sector_count + 1))
+        head = "".join(f"<th>{html.escape(header)}</th>" for header in headers)
+        body = []
+        for row in theoretical_rows:
+            cells = [
+                f"<td>{html.escape(row['driver'])}</td>",
+                f"<td>{format_seconds(row['best_lap_time_s'])}</td>",
+                f"<td>{format_seconds(row['theoretical_best_s'])}</td>",
+                f"<td>{format_seconds(row['delta_theoretical_to_best_s'])}</td>",
+            ]
+            for sector_number in range(1, sector_count + 1):
+                label = row.get(f"best_sector_{sector_number}_lap_number") or row.get(f"best_sector_{sector_number}_run_number")
+                cells.append(f"<td>{format_seconds(row[f'best_sector_{sector_number}_s'])} ({html.escape(str(label))})</td>")
+            body.append(f"<tr>{''.join(cells)}</tr>")
+        return f"<table><thead><tr>{head}</tr></thead><tbody>{''.join(body)}</tbody></table>"
+
+    def best_sector_table() -> str:
+        body = []
+        for sector_number in range(1, sector_count + 1):
+            row = best_sector[sector_number]
+            body.append(
+                "<tr>"
+                f"<td>Sector {sector_number}</td>"
+                f"<td class=\"best-sector\">{html.escape(row.get('driver') or 'Unknown')}</td>"
+                f"<td>{html.escape(segment_label(row))}</td>"
+                f"<td class=\"best-sector\">{format_seconds(row[f'sector_{sector_number}_s'])}</td>"
+                f"<td>{html.escape(row.get('source', ''))}</td>"
+                "</tr>"
+            )
+        return (
+            "<table><thead><tr><th>Sector</th><th>Driver</th><th>Segment</th>"
+            "<th>Time</th><th>Source</th></tr></thead><tbody>"
+            + "".join(body)
+            + "</tbody></table>"
+        )
+
+    cards = []
+    cards.append(f"<div class=\"card\"><div class=\"note\">Overall Theoretical Best</div><div class=\"big\">{overall_theoretical:.3f} s</div></div>")
+    for sector_number in range(1, sector_count + 1):
+        row = best_sector[sector_number]
+        cards.append(
+            "<div class=\"card\">"
+            f"<div class=\"note\">Best Sector {sector_number}</div>"
+            f"<div class=\"big\">{html.escape(row.get('driver') or 'Unknown')} {html.escape(segment_label(row))} - {format_seconds(row[f'sector_{sector_number}_s'])}</div>"
+            "</div>"
+        )
+
+    body = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VN300 Lap Times And Sector Splits</title>
+<style>
+body{{margin:0;background:#f6f7f9;color:#17202a;font-family:Arial,Helvetica,sans-serif}}
+header{{background:#17202a;color:white;padding:18px 22px}}
+main{{padding:18px 22px;display:grid;gap:18px}}
+section{{background:white;border:1px solid #d8e0e8;border-radius:6px;padding:14px;overflow:auto}}
+h1{{margin:0 0 6px;font-size:24px}}h2{{margin:0 0 10px;font-size:18px}}
+.note{{color:#617080;font-size:13px;line-height:1.4}}
+table{{border-collapse:collapse;width:100%;font-size:13px}}
+th,td{{border-bottom:1px solid #e1e7ee;padding:6px 8px;text-align:right;white-space:nowrap}}
+th:first-child,td:first-child{{text-align:left}}
+th{{background:#eef2f6;position:sticky;top:0}}
+.best-sector{{background:#7e22ce!important;color:white!important;font-weight:700}}
+.cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}}
+.card{{border:1px solid #d8e0e8;border-radius:6px;padding:12px;background:#fbfcfe}}
+.big{{font-size:24px;font-weight:700;margin-top:4px}}
+</style>
+</head>
+<body>
+<header><h1>VN300 Lap Times And Sector Splits</h1><div class="note">Three sectors are split by thirds of each segment's GPS trace distance. Purple highlights the overall fastest sector in each sector column.</div></header>
+<main>
+<section class="cards">{''.join(cards)}</section>
+<section><h2>Overall Best Sectors</h2>{best_sector_table()}</section>
+<section><h2>Theoretical Best By Driver</h2>{theoretical_table()}</section>
+<section><h2>All Lap Times And Sector Splits</h2>{all_laps_table()}</section>
+</main>
+</body>
+</html>"""
+    (out_dir / "lap_times_sector_splits.html").write_text(body, encoding="utf-8")
+
+
 def write_summary(path: Path, summaries: list[dict]):
     if not summaries:
         return
@@ -948,6 +1219,52 @@ def metadata_for_path(metadata: dict[str, dict], path: Path) -> dict:
     return {}
 
 
+def load_driver_map(path: Path | None) -> dict[str, str]:
+    if path is None:
+        return {}
+    if not path.exists():
+        raise SystemExit(f"Driver map file not found: {path}")
+    mapping = {}
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            driver = (row.get("driver") or row.get("Driver") or "").strip()
+            if not driver:
+                continue
+            for column in ("run_id", "session_file", "file", "filename", "session", "source"):
+                value = (row.get(column) or "").strip()
+                if not value:
+                    continue
+                mapping[value.lower()] = driver
+                mapping[Path(value).name.lower()] = driver
+                mapping[Path(value).stem.lower()] = driver
+                mapping[session_stem_from_name(value).lower()] = driver
+    return mapping
+
+
+def driver_override_for_path(
+    path: Path,
+    path_index: int,
+    driver_map: dict[str, str],
+    driver_order: list[str],
+    driver_order_offset: int,
+) -> str | None:
+    keys = metadata_keys_for_path(path)
+    keys.update({
+        path.name.lower(),
+        path.stem.lower(),
+        session_stem_from_name(path.name).lower(),
+    })
+    for key in keys:
+        if key in driver_map:
+            return driver_map[key]
+
+    order_index = path_index - driver_order_offset
+    if 0 <= order_index < len(driver_order):
+        return driver_order[order_index]
+    return None
+
+
 def expand_input_paths(paths: list[Path], include_ascii: bool = False) -> list[Path]:
     csv_paths = []
     for path in paths:
@@ -1069,7 +1386,11 @@ def main():
     parser.add_argument("--no-prompts", action="store_true", help="only summarize if timing setup arguments are incomplete")
     parser.add_argument("--include-ascii", action="store_true", help="include *_VNINS.csv even when a matching *_BINARY.csv exists")
     parser.add_argument("--metadata", type=Path, help="optional CSV metadata/run sheet to merge into summaries and reports")
+    parser.add_argument("--driver-map", type=Path, help="optional CSV with run_id/session_file and driver columns")
+    parser.add_argument("--driver-order", help="comma-separated driver names mapped onto sorted input files")
+    parser.add_argument("--driver-order-offset", type=int, default=0, help="number of sorted input files to skip before applying --driver-order")
     parser.add_argument("--auto-sectors", type=int, default=3, help="automatically split each timed lap/run into this many sectors; use 0 to disable")
+    parser.add_argument("--sector-report-min-seconds", type=float, default=20.0, help="minimum timed segment duration to include in lap sector/theoretical-best output")
     args = parser.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -1080,6 +1401,8 @@ def main():
     metadata, _metadata_columns = load_metadata(metadata_path)
     if metadata_path:
         print(f"Loaded metadata: {metadata_path}")
+    driver_map = load_driver_map(args.driver_map)
+    driver_order = [item.strip() for item in (args.driver_order or "").split(",") if item.strip()]
     mode = args.mode
     start_line = line_from_args(args, "start")
     finish_line = line_from_args(args, "finish")
@@ -1117,12 +1440,14 @@ def main():
     summaries = []
     quality_reports = []
     sector_summaries = []
+    lap_sector_rows = []
+    lap_sector_excluded_rows = []
     overlay_laps = []
     report_segments = []
     best_segment = None
     best_duration = None
     segment_count = 0
-    for path in csv_paths:
+    for path_index, path in enumerate(csv_paths):
         fieldnames = inspect_csv_fieldnames(path)
         samples = load_vnins(path)
         quality = data_quality_report(path, samples, fieldnames)
@@ -1132,6 +1457,15 @@ def main():
             continue
 
         path_metadata = metadata_for_path(metadata, path)
+        driver_override = driver_override_for_path(
+            path,
+            path_index,
+            driver_map,
+            driver_order,
+            args.driver_order_offset,
+        )
+        if driver_override:
+            path_metadata["meta_driver"] = driver_override
         run_summary = add_analysis_fields(summarize_segment(path.stem, samples), samples)
         run_summary.update(path_metadata)
         run_summary["data_quality_status"] = quality.get("status", "")
@@ -1155,7 +1489,7 @@ def main():
             segment_type = "run"
             print(f"  start_crossings={len(start_crossings)} finish_crossings={len(finish_crossings)} runs={len(segments)}")
 
-        for segment_info in segments:
+        for local_segment_number, segment_info in enumerate(segments, start=1):
             segment = segment_info["samples"]
             timing_warning = segment_info.get("warning", "")
             segment_count += 1
@@ -1167,6 +1501,7 @@ def main():
             summary = add_analysis_fields(summarize_segment(name, segment), segment)
             summary["segment_type"] = segment_type
             summary["segment_number"] = segment_count
+            summary["source_segment_number"] = local_segment_number
             summary["delta_to_best_s"] = delta
             summary["best_after_segment_s"] = (
                 duration if valid_timing and (best_duration is None or duration < best_duration) else best_duration
@@ -1177,6 +1512,28 @@ def main():
             summary.update(path_metadata)
             summaries.append(summary)
             write_lap_csv(args.out / f"{name}.csv", segment, segment_type, segment_count, delta, live_deltas, timing_warning)
+            if duration >= args.sector_report_min_seconds:
+                append_lap_sector_split(
+                    lap_sector_rows,
+                    name,
+                    segment,
+                    segment_type,
+                    segment_count,
+                    local_segment_number,
+                    timing_warning,
+                    path_metadata,
+                )
+            else:
+                lap_sector_excluded_rows.append({
+                    "name": name,
+                    "source": path.name,
+                    "driver": path_metadata.get("meta_driver", ""),
+                    "segment_type": segment_type,
+                    "segment_number": segment_count,
+                    "source_segment_number": local_segment_number,
+                    "duration_s": duration,
+                    "reason": f"below sector report minimum {args.sector_report_min_seconds:.1f} s",
+                })
             overlay_laps.append((name, segment))
             report_segments.append((name, segment))
             if args.auto_sectors >= 2:
@@ -1199,12 +1556,18 @@ def main():
     write_summary(args.out / "data_quality.csv", quality_reports)
     if sector_summaries:
         write_sector_summary(args.out / "sector_summary.csv", sector_summaries)
+    write_lap_sector_outputs(args.out, lap_sector_rows, lap_sector_excluded_rows)
     write_overlay_html(args.out / "overlay.html", overlay_laps)
     write_report_html(args.out / "report.html", summaries, quality_reports, report_segments)
     print(f"Wrote {args.out / 'summary.csv'}")
     print(f"Wrote {args.out / 'data_quality.csv'}")
     if sector_summaries:
         print(f"Wrote {args.out / 'sector_summary.csv'}")
+    if lap_sector_rows:
+        print(f"Wrote {args.out / 'lap_times_sector_splits.html'}")
+        print(f"Wrote {args.out / 'lap_sector_splits.csv'}")
+        print(f"Wrote {args.out / 'theoretical_best_by_driver.csv'}")
+        print(f"Wrote {args.out / 'overall_best_sectors.csv'}")
     print(f"Wrote {args.out / 'overlay.html'}")
     print(f"Wrote {args.out / 'report.html'}")
 

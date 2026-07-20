@@ -433,6 +433,16 @@ py -3 "<team-tools-folder>\analysis\vn300_lap_analysis.py" `
   --out "<output-folder>"
 ```
 
+If the run metadata has the wrong driver names, pass a driver map or the corrected sorted file order:
+
+```powershell
+py -3 "<team-tools-folder>\analysis\vn300_lap_analysis.py" `
+  "<data-folder>" `
+  --driver-order "Jimmy,Mercer,Caleb,Alex K,Joseph,Hayden,Alex C" `
+  --driver-order-offset 1 `
+  --out "<output-folder>"
+```
+
 When lap or autocross timing is active, the analyzer automatically splits each timed lap/run into three sectors. It aims for even time sections, then moves each split to the nearest low-cornering section so the split is between corners instead of during a corner.
 
 To change the number of automatic sectors:
@@ -458,6 +468,17 @@ When automatic sectors are used, the analyzer writes:
 ```
 
 The generated `report.html` also includes a distance-based delta-to-fastest plot for run-to-run comparison.
+
+When timed laps/runs are found, the analyzer also writes a lap-time/sector report using three equal-distance sectors:
+
+```text
+<output-folder>\lap_times_sector_splits.html
+<output-folder>\lap_sector_splits.csv
+<output-folder>\theoretical_best_by_driver.csv
+<output-folder>\overall_best_sectors.csv
+```
+
+The HTML report lists every lap/run time with driver name, sector splits, each driver's theoretical best, and the overall theoretical best. The fastest sector in each sector column is highlighted purple. Segments shorter than `20 s` are skipped from this report by default to keep false timing splits out; change that with `--sector-report-min-seconds`.
 
 ### Corrected G-G diagrams
 

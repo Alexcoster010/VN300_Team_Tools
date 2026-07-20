@@ -79,6 +79,14 @@ Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboa
 - Added directional percentile envelopes so the outer usable G-G shape is shown without assuming a perfect traction circle.
 - Added driver override options for bad metadata: `--driver-map`, `--driver-order`, and `--driver-order-offset`.
 - Corrected the existing `report.html` G-G plot axis order in `vn300_lap_analysis.py`.
+- Added normal lap/run sector report outputs to `vn300_lap_analysis.py`:
+  - `lap_times_sector_splits.html`
+  - `lap_sector_splits.csv`
+  - `theoretical_best_by_driver.csv`
+  - `overall_best_sectors.csv`
+- The sector report lists all timed laps/runs, highlights each overall best sector in purple, and computes theoretical best laps by driver.
+- Added `--sector-report-min-seconds` to keep obvious false short timing splits out of the sector report.
+- Added the same `--driver-map`, `--driver-order`, and `--driver-order-offset` overrides to the lap/run analyzer.
 
 ## v0.4.0 - 2026-07-15
 
