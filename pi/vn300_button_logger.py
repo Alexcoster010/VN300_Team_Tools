@@ -283,6 +283,14 @@ def log_destination_type(base_log_dir: Path) -> str:
     return "flash drive"
 
 
+def cpu_temperature_c() -> Optional[float]:
+    try:
+        raw = Path("/sys/class/thermal/thermal_zone0/temp").read_text(encoding="utf-8").strip()
+        return float(raw) / 1000.0
+    except (OSError, ValueError):
+        return None
+
+
 def set_log_health(
     health: str,
     *,
@@ -1964,6 +1972,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 <div class="tile"><div class="label">GPS</div><div id="gps" class="value">--</div></div>
 <div class="tile"><div class="label">Stream</div><div id="stream" class="value small">--</div></div>
 <div class="tile"><div class="label">Log</div><div id="logHealth" class="value small">--</div></div>
+<div class="tile"><div class="label">Pi CPU</div><div id="cpuTemp" class="value small">--</div></div>
 <div class="tile"><div class="label">CAN</div><div id="canStatus" class="value small">disabled</div></div>
 </section>
 <section class="panel">
@@ -2085,6 +2094,7 @@ async function tick(){try{const r=await fetch('/api/latest',{cache:'no-store'});
  document.getElementById('gps').textContent=(fmt(f.Latitude_deg,5)+', '+fmt(f.Longitude_deg,5));
  document.getElementById('stream').textContent=`raw ${d.raw_bytes||0} B / bin ${d.binary_packets||0} pkts / bad ${d.bad_binary_packets||0} / ASCII ${d.ascii_packets||0}`;
  document.getElementById('logHealth').textContent=`${d.log_destination||'unknown'} / ${d.log_health||'unknown'} / ${d.free_space_mb??'--'} MB`;
+ document.getElementById('cpuTemp').textContent=Number.isFinite(d.cpu_temp_c)?`${fmt(d.cpu_temp_c,1)} C / ${fmt(d.cpu_temp_f,1)} F`:'--';
  const can=d.can||{}; document.getElementById('canStatus').textContent=`${can.status||'disabled'} / ${can.frames||0} frames / ${can.decoded_frames||0} decoded`;
  document.getElementById('yaw').textContent=fmt(f.Yaw_deg,1)+' deg'; document.getElementById('lat').textContent=fmt(f.Latitude_deg,7);
  document.getElementById('lon').textContent=fmt(f.Longitude_deg,7); document.getElementById('pos').textContent=fmt(f.PosUncertainty_m,2)+' m';
@@ -2137,6 +2147,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 payload["age_s"] = age_s
             payload["timing"] = public_timing_snapshot()
             payload["run_metadata"] = public_run_metadata_snapshot()
+            cpu_temp_c = cpu_temperature_c()
+            payload["cpu_temp_c"] = cpu_temp_c
+            payload["cpu_temp_f"] = None if cpu_temp_c is None else cpu_temp_c * 9.0 / 5.0 + 32.0
             self.send_json(payload)
             return
 
