@@ -1941,6 +1941,8 @@ main{padding:18px;display:grid;gap:14px;grid-template-columns:repeat(12,1fr)}sec
 label{display:grid;gap:5px;color:#9ba3aa;font-size:12px}input,select,button,textarea{font:inherit;border-radius:4px;border:1px solid #3a4148;background:#101418;color:#f2f4f5;padding:8px}
 textarea{min-height:70px;resize:vertical}.span2{grid-column:span 2}.next-run{color:#9ba3aa;font-size:14px}
 button{background:#2563eb;border-color:#2563eb;cursor:pointer}.secondary{background:#30363d;border-color:#454c54}
+.save-button{display:inline-flex;align-items:center;justify-content:center;gap:8px}.save-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.save-status{align-self:center;color:#9ba3aa;font-size:13px;min-height:20px}.save-status.saving{color:#d29922}.save-status.saved{color:#56d364}.save-status.error{color:#ff7b72}.save-status.dirty{color:#d29922}
 canvas{border:1px solid #333;border-radius:6px;background:#15191d;width:100%;height:260px}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px solid #30363d;padding:8px;text-align:left}th{color:#9ba3aa;font-weight:400}
 .finish{display:none}.autocross .finish{display:grid}.wide{grid-column:1/-1}.ok{color:#56d364}.bad{color:#ff7b72}
@@ -1980,7 +1982,11 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 <label>Aero<input id="aero_config" autocomplete="off"></label>
 <label>Valid<select id="valid_run"><option value="yes">Yes</option><option value="no">No</option><option value="review">Review</option></select></label>
 <label class="span2">Notes<textarea id="notes"></textarea></label>
-<button id="saveRunMetadata">Save Run Info</button>
+<button id="saveRunMetadata" class="save-button" title="Save run metadata for the next log">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3"></path><path d="M8 21v-7h8v7"></path></svg>
+<span>Save Run Info</span>
+</button>
+<div id="runMetadataSaveStatus" class="save-status" aria-live="polite"></div>
 </div>
 </section>
 <section class="panel" id="setupPanel">
@@ -2040,9 +2046,16 @@ function drawTrack(t){trackCtx.clearRect(0,0,trackCanvas.width,trackCanvas.heigh
  trackCtx.fillStyle='#d8dee4'; trackCtx.fillText('current',20,24); trackCtx.fillStyle='#58a6ff'; trackCtx.fillRect(78,16,18,4); trackCtx.fillStyle='#d8dee4'; trackCtx.fillText('best / same elapsed',112,24); trackCtx.fillStyle='#56d364'; trackCtx.fillRect(228,16,18,4)}
 function configPayload(){const p={mode:document.getElementById('mode').value}; ids.forEach(id=>p[id]=Number(document.getElementById(id).value)); return p}
 function metadataPayload(){const p={}; metadataIds.forEach(id=>p[id]=document.getElementById(id).value); return p}
+function setMetadataSaveStatus(text,state=''){const el=document.getElementById('runMetadataSaveStatus'); el.textContent=text; el.className='save-status '+state}
+metadataIds.forEach(id=>document.getElementById(id).addEventListener('input',()=>setMetadataSaveStatus('Unsaved metadata changes','dirty')));
 document.getElementById('saveConfig').onclick=async()=>{const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(configPayload())}); if(!r.ok) alert((await r.json()).error||'Config failed')};
 document.getElementById('resetTiming').onclick=async()=>{await fetch('/api/reset_timing',{method:'POST'})};
-document.getElementById('saveRunMetadata').onclick=async()=>{const r=await fetch('/api/run_metadata',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(metadataPayload())}); const d=await r.json(); if(!r.ok) alert(d.error||'Metadata failed'); else fillRunMetadata(d)};
+document.getElementById('saveRunMetadata').onclick=async()=>{
+ const btn=document.getElementById('saveRunMetadata'); btn.disabled=true; setMetadataSaveStatus('Saving metadata...','saving');
+ try{const r=await fetch('/api/run_metadata',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(metadataPayload())}); const d=await r.json(); if(!r.ok){setMetadataSaveStatus(d.error||'Metadata save failed','error'); alert(d.error||'Metadata failed')} else {fillRunMetadata(d); setMetadataSaveStatus(`Saved for ${d.next_run_id||'next run'}`,'saved')}}
+ catch(e){setMetadataSaveStatus('Metadata save failed','error'); alert('Metadata failed')}
+ finally{btn.disabled=false}
+};
 function fillConfig(cfg){if(!cfg||!cfg.mode)return; document.getElementById('mode').value=cfg.mode; setModeClass(); const s=cfg.start_line||{},f=cfg.finish_line||{};
  [['start_lat1',s.lat1],['start_lon1',s.lon1],['start_lat2',s.lat2],['start_lon2',s.lon2],['finish_lat1',f.lat1],['finish_lon1',f.lon1],['finish_lat2',f.lat2],['finish_lon2',f.lon2],['min_speed_mph',cfg.min_speed_mph],['min_gap_s',cfg.min_gap_s]].forEach(([id,v])=>{if(v!==undefined&&v!==null)document.getElementById(id).value=v})}
 async function loadConfig(){try{const d=await (await fetch('/api/config')).json(); fillConfig(d.config)}catch(e){}}
