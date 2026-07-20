@@ -70,6 +70,16 @@ Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboa
 - CAN logging is off unless `--can-enable` is passed.
 - The default systemd service still starts the logger in VN300-only mode.
 
+### Analyzer
+
+- Added `analysis/vn300_gg_analysis.py` for corrected per-driver G-G diagrams.
+- The G-G analyzer plots lateral G on the X axis and longitudinal G on the Y axis with equal scaling.
+- It filters GPS uncertainty above `4.0 m`, speed outside the selected range, and obvious acceleration spikes.
+- It writes `gg_diagrams_by_driver.html`, `gg_summary_by_driver.csv`, `gg_envelope_by_driver.csv`, and per-driver G-G point CSVs.
+- Added directional percentile envelopes so the outer usable G-G shape is shown without assuming a perfect traction circle.
+- Added driver override options for bad metadata: `--driver-map`, `--driver-order`, and `--driver-order-offset`.
+- Corrected the existing `report.html` G-G plot axis order in `vn300_lap_analysis.py`.
+
 ## v0.4.0 - 2026-07-15
 
 ### Dashboard

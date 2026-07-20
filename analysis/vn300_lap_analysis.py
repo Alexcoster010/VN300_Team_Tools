@@ -752,7 +752,7 @@ def report_payload(segments: list[tuple[str, list[Sample]]]):
             "isReference": segment is reference_segment,
             "referenceName": reference_name,
             "gg": [
-                [s.longitudinal_g or 0.0, s.lateral_g or 0.0, s.speed_mph]
+                [s.lateral_g or 0.0, s.longitudinal_g or 0.0, s.speed_mph]
                 for s in segment[::step]
                 if s.longitudinal_g is not None or s.lateral_g is not None
             ],
@@ -832,7 +832,7 @@ canvas{{width:100%;height:360px;border:1px solid #ccd4db;border-radius:4px;backg
 const series={data};
 const colors=['#1464a5','#c03a2b','#12805c','#8a5a00','#6f42c1','#007582','#a23b72','#4f6f00'];
 function drawXY(id, getPoints, xlabel, ylabel){{const c=document.getElementById(id),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);let all=series.flatMap(getPoints);if(!all.length)return;let xs=all.map(p=>p[0]),ys=all.map(p=>p[1]);let minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);if(minx===maxx)maxx=minx+1;if(miny===maxy)maxy=miny+1;let pad=46;ctx.strokeStyle='#d7dde2';ctx.lineWidth=1;for(let i=0;i<6;i++){{let x=pad+i*(c.width-pad-18)/5;let y=18+i*(c.height-pad-18)/5;ctx.beginPath();ctx.moveTo(x,18);ctx.lineTo(x,c.height-pad);ctx.stroke();ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(c.width-18,y);ctx.stroke();}}series.forEach((s,si)=>{{let pts=getPoints(s);ctx.strokeStyle=colors[si%colors.length];ctx.fillStyle=colors[si%colors.length];ctx.lineWidth=2;ctx.beginPath();pts.forEach((p,i)=>{{let x=pad+(p[0]-minx)/(maxx-minx)*(c.width-pad-18);let y=c.height-pad-(p[1]-miny)/(maxy-miny)*(c.height-pad-18);if(id==='gg'){{ctx.fillRect(x-1.5,y-1.5,3,3)}}else if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}});if(id!=='gg')ctx.stroke();}});ctx.fillStyle='#44515c';ctx.fillText(xlabel,pad,c.height-12);ctx.save();ctx.translate(14,c.height-pad);ctx.rotate(-Math.PI/2);ctx.fillText(ylabel,0,0);ctx.restore();}}
-drawXY('gg', s=>s.gg.map(p=>[p[0],p[1]]), 'Longitudinal G', 'Lateral G');
+drawXY('gg', s=>s.gg.map(p=>[p[0],p[1]]), 'Lateral G', 'Longitudinal G');
 drawXY('speed', s=>s.speed, 'Distance, m', 'Speed, mph');
 drawXY('latg', s=>s.latg, 'Distance, m', 'Lateral G');
 drawXY('longg', s=>s.longg, 'Distance, m', 'Longitudinal G');

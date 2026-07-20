@@ -24,6 +24,7 @@ For change tracking, use `VERSION_HISTORY.md`.
 - `pi/requirements-pi.txt`: Python packages needed on the Pi.
 - `pi/motec_can_signal_map.csv`: Pi-side CAN signal map used by optional Phase 2 CAN logging.
 - `analysis/vn300_lap_analysis.py`: offline analysis, lap splitting, and overlay HTML generation from `*_BINARY.csv` or `*_VNINS.csv`.
+- `analysis/vn300_gg_analysis.py`: corrected per-driver G-G diagrams with data-quality filtering and directional grip envelopes.
 - `analysis_output/`, `folder_import_output/`, `lap_smoke_output/`: example generated outputs.
 - `serial_samples/`: example raw serial capture.
 
@@ -457,6 +458,46 @@ When automatic sectors are used, the analyzer writes:
 ```
 
 The generated `report.html` also includes a distance-based delta-to-fastest plot for run-to-run comparison.
+
+### Corrected G-G diagrams
+
+Use the G-G analyzer for per-driver lateral-vs-longitudinal acceleration plots:
+
+```powershell
+py -3 "<team-tools-folder>\analysis\vn300_gg_analysis.py" `
+  "<data-folder>" `
+  --out "<output-folder>\gg_analysis"
+```
+
+That writes:
+
+```text
+<output-folder>\gg_analysis\gg_diagrams_by_driver.html
+<output-folder>\gg_analysis\gg_summary_by_driver.csv
+<output-folder>\gg_analysis\gg_envelope_by_driver.csv
+<output-folder>\gg_analysis\<driver>_gg_points.csv
+```
+
+The G-G diagram uses lateral G on the X axis and longitudinal G on the Y axis. It filters samples with GPS position uncertainty above `4.0 m`, filters obvious acceleration spikes, keeps an equal G scale on both axes, and draws a directional percentile envelope instead of a simple traction circle.
+
+If the dashboard metadata has the wrong driver names, pass the correct driver order. For example, if the first sorted file is a test run and the seven real runs follow it:
+
+```powershell
+py -3 "<team-tools-folder>\analysis\vn300_gg_analysis.py" `
+  "<data-folder>" `
+  --driver-order "Jimmy,Mercer,Caleb,Alex K,Joseph,Hayden,Alex C" `
+  --driver-order-offset 1 `
+  --out "<output-folder>\gg_analysis"
+```
+
+You can also pass a CSV driver map with `run_id` and `driver` columns:
+
+```powershell
+py -3 "<team-tools-folder>\analysis\vn300_gg_analysis.py" `
+  "<data-folder>" `
+  --driver-map "<driver-map.csv>" `
+  --out "<output-folder>\gg_analysis"
+```
 
 Generated lap/run CSVs include:
 
