@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.5.0-dev`
+`v0.4.5`
 
 Stable Pi install tag:
 
@@ -26,7 +26,7 @@ v0.4.0
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
 
-## v0.5.0-dev - 2026-07-15
+## v0.4.5 - 2026-07-20
 
 ### Logger
 
@@ -37,6 +37,9 @@ Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboa
 - Added dashboard log-destination health so the team can see whether logging is going to the flash drive or Pi local fallback.
 - Added `VN300_logger_status.json` heartbeat/status output in the boot log folder.
 - Added write/flush error detection for raw, ASCII CSV, and binary CSV outputs so failed flash-drive writes stop the session with a visible warning.
+- Added visible save icons and saved/error/unsaved status messages for Run Metadata and Timing Setup.
+- Timing completed laps, best lap, current trace, and lap count now reset when a new logging run starts.
+- Added Pi CPU temperature to the live dashboard.
 
 ### Phase 2 Development
 

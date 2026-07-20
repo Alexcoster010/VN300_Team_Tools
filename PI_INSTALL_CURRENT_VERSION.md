@@ -1,6 +1,6 @@
 # Pi Install For Current Version
 
-Current documented version: `v0.5.0-dev`
+Current documented version: `v0.4.5`
 
 Stable tagged Pi version: `v0.4.0`
 
@@ -50,6 +50,11 @@ Use this file to install or update the current VN300 logger/dashboard package on
   - current path and car position
   - best path after a valid completed lap/run
   - best-path dot at the same elapsed time as the current lap/run
+- Dashboard save feedback:
+  - Run Metadata and Timing Setup save buttons show a save icon
+  - save status shows unsaved, saving, saved, or error feedback
+- Completed timing laps reset automatically when a new logging run starts.
+- Dashboard shows Pi CPU temperature.
 - Optional Phase 2 CAN logging scaffold:
   - disabled unless `--can-enable` is passed
   - raw CAN output to `*_MOTEC_RAW_CAN.csv`
