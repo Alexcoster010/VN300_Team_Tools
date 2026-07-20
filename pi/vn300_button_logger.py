@@ -1537,6 +1537,8 @@ def run_session(
     logging.info("Log destination: %s (%s)", log_dir, destination_type)
     logging.info("Raw output: %s", raw_path)
     reset_latest_for_session(session_name)
+    with timing_lock:
+        reset_timing_state("waiting for start" if timing_state["configured"] else "not configured")
     start_free = free_space_bytes(log_dir)
     metadata["free_space_start_bytes"] = start_free
     set_log_health(
@@ -2003,7 +2005,12 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 <label class="finish">Finish Lon 2<input id="finish_lon2" type="number" step="0.00000001"></label>
 <label>Min Speed mph<input id="min_speed_mph" type="number" step="0.5" value="5"></label>
 <label>Min Gap s<input id="min_gap_s" type="number" step="0.5" value="8"></label>
-<button id="saveConfig">Save</button><button id="resetTiming" class="secondary">Reset</button>
+<button id="saveConfig" class="save-button" title="Save timing setup">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3"></path><path d="M8 21v-7h8v7"></path></svg>
+<span>Save Timing</span>
+</button>
+<button id="resetTiming" class="secondary">Reset</button>
+<div id="timingConfigSaveStatus" class="save-status" aria-live="polite"></div>
 </div>
 </section>
 <section class="panel">
@@ -2046,10 +2053,17 @@ function drawTrack(t){trackCtx.clearRect(0,0,trackCanvas.width,trackCanvas.heigh
  trackCtx.fillStyle='#d8dee4'; trackCtx.fillText('current',20,24); trackCtx.fillStyle='#58a6ff'; trackCtx.fillRect(78,16,18,4); trackCtx.fillStyle='#d8dee4'; trackCtx.fillText('best / same elapsed',112,24); trackCtx.fillStyle='#56d364'; trackCtx.fillRect(228,16,18,4)}
 function configPayload(){const p={mode:document.getElementById('mode').value}; ids.forEach(id=>p[id]=Number(document.getElementById(id).value)); return p}
 function metadataPayload(){const p={}; metadataIds.forEach(id=>p[id]=document.getElementById(id).value); return p}
+function setTimingSaveStatus(text,state=''){const el=document.getElementById('timingConfigSaveStatus'); el.textContent=text; el.className='save-status '+state}
 function setMetadataSaveStatus(text,state=''){const el=document.getElementById('runMetadataSaveStatus'); el.textContent=text; el.className='save-status '+state}
+['mode'].concat(ids).forEach(id=>{const el=document.getElementById(id); el.addEventListener('input',()=>setTimingSaveStatus('Unsaved timing changes','dirty')); el.addEventListener('change',()=>setTimingSaveStatus('Unsaved timing changes','dirty'))});
 metadataIds.forEach(id=>document.getElementById(id).addEventListener('input',()=>setMetadataSaveStatus('Unsaved metadata changes','dirty')));
-document.getElementById('saveConfig').onclick=async()=>{const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(configPayload())}); if(!r.ok) alert((await r.json()).error||'Config failed')};
-document.getElementById('resetTiming').onclick=async()=>{await fetch('/api/reset_timing',{method:'POST'})};
+document.getElementById('saveConfig').onclick=async()=>{
+ const btn=document.getElementById('saveConfig'); btn.disabled=true; setTimingSaveStatus('Saving timing setup...','saving');
+ try{const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(configPayload())}); const d=await r.json(); if(!r.ok){setTimingSaveStatus(d.error||'Timing setup save failed','error'); alert(d.error||'Config failed')} else {fillConfig((d.timing&&d.timing.config)||d.config); setTimingSaveStatus('Timing setup saved','saved')}}
+ catch(e){setTimingSaveStatus('Timing setup save failed','error'); alert('Config failed')}
+ finally{btn.disabled=false}
+};
+document.getElementById('resetTiming').onclick=async()=>{await fetch('/api/reset_timing',{method:'POST'}); setTimingSaveStatus('Timing laps reset','saved')};
 document.getElementById('saveRunMetadata').onclick=async()=>{
  const btn=document.getElementById('saveRunMetadata'); btn.disabled=true; setMetadataSaveStatus('Saving metadata...','saving');
  try{const r=await fetch('/api/run_metadata',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(metadataPayload())}); const d=await r.json(); if(!r.ok){setMetadataSaveStatus(d.error||'Metadata save failed','error'); alert(d.error||'Metadata failed')} else {fillRunMetadata(d); setMetadataSaveStatus(`Saved for ${d.next_run_id||'next run'}`,'saved')}}
