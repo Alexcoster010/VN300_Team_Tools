@@ -27,6 +27,12 @@ class UpdaterTests(unittest.TestCase):
         self.assertFalse(updater.update_available("0.5.0", "0.5.0"))
         self.assertFalse(updater.update_available("1.0.0", "0.9.9"))
 
+    def test_public_version_response_is_parsed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            version_file = Path(directory) / "APP_VERSION"
+            version_file.write_text("0.6.1\n", encoding="utf-8")
+            self.assertEqual(updater.fetch_remote_version(url=version_file.as_uri()), "0.6.1")
+
     def test_stage_branch_archive_validates_expected_files_and_version(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

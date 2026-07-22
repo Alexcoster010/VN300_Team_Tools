@@ -19,8 +19,8 @@ from typing import Any
 GITHUB_OWNER = "Alexcoster010"
 GITHUB_REPOSITORY = "VN300_Team_Tools"
 UPDATE_BRANCH = "desktop-app"
-RAW_VERSION_URL = (
-    f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPOSITORY}/{UPDATE_BRANCH}/APP_VERSION"
+VERSION_API_URL = (
+    f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPOSITORY}/contents/APP_VERSION?ref={UPDATE_BRANCH}"
 )
 BRANCH_ARCHIVE_URL = (
     f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPOSITORY}/archive/refs/heads/{UPDATE_BRANCH}.zip"
@@ -62,7 +62,7 @@ def _git_flags() -> int:
     return subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
 
-def fetch_remote_version(repo_root: Path | None = None, url: str = RAW_VERSION_URL, timeout: float = 5.0) -> str:
+def fetch_remote_version(repo_root: Path | None = None, url: str = VERSION_API_URL, timeout: float = 5.0) -> str:
     if repo_root is not None and has_git_checkout(repo_root):
         subprocess.run(
             ["git", "fetch", "--quiet", "origin", UPDATE_BRANCH],
@@ -82,7 +82,14 @@ def fetch_remote_version(repo_root: Path | None = None, url: str = RAW_VERSION_U
         ).stdout.strip()
         parse_version(version)
         return version
-    request = urllib.request.Request(url, headers={"User-Agent": "VN300DesktopUpdater/0.5"})
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github.raw+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "VN300DesktopUpdater/0.5",
+        },
+    )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             body = response.read(128)

@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.5.1`
+`v0.5.2`
 
 Stable Pi install tag:
 
@@ -25,6 +25,12 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.5.2 - 2026-07-21
+
+### Update Reliability
+
+- Switched public version checks to GitHub's Contents API so a newly pushed `APP_VERSION` is visible immediately instead of waiting for raw-file CDN cache expiration.
 
 ## v0.5.1 - 2026-07-21
 
