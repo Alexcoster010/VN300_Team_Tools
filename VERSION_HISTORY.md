@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.5.0`
+`v0.5.1`
 
 Stable Pi install tag:
 
@@ -25,6 +25,15 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.5.1 - 2026-07-21
+
+### Public Desktop Distribution
+
+- Published the repository for anonymous branch and ZIP downloads.
+- Enabled automatic update checks and validated branch-archive updates for Download ZIP installations without Git.
+- Kept clean fast-forward updates for Git clones.
+- Updated the teammate installation guide to recommend the public `desktop-app` ZIP.
 
 ## v0.5.0 - 2026-07-21
 
@@ -35,8 +44,8 @@ Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboa
 - Added the console-free `Start_VN300_Team_Tools.bat` launcher.
 - Added the versioned `desktop-app` GitHub update channel.
 - Added automatic and manual update checks using `APP_VERSION`.
-- Authenticated Git clones update with a fast-forward from `origin/desktop-app`, including private-repository access through Git Credential Manager.
-- Public-repository Download ZIP installations can validate and apply the latest branch archive without requiring Git.
+- Git clones update with a fast-forward from `origin/desktop-app`.
+- Download ZIP installations validate and apply the latest public branch archive without requiring Git.
 - Added detached update application, automatic restart, update status reporting, and backups for replaced ZIP-install files.
 - Added `DESKTOP_APP_INSTALL.md` for teammate installation and future updates.
 
