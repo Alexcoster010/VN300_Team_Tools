@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.4.5`
+`v0.5.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,18 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.5.0 - 2026-07-21
+
+### Pi Logger Distribution
+
+- Added the public, versioned `pi-logger` branch ZIP workflow.
+- Added the root `Install_VN300_Logger.sh` entry point for new installs and updates.
+- Added installer preflight checks, dependency installation, backups, service restart, API health validation, and rollback.
+- Preserved installed CAN signal maps during updates and installed the package map as `.dist`.
+- Added `logger_version` to `/api/latest`.
+- Added a 20-second USB mount wait so boot-time mount delays do not immediately select Pi-local fallback logging.
+- Added `PI_LOGGER_INSTALL.md` and `PI_LOGGER_VERSION`.
 
 ## v0.4.5 - 2026-07-20
 

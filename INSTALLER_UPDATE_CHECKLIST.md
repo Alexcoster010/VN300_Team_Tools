@@ -18,45 +18,36 @@ Use this checklist when:
 
 Use this when the Pi is already set up and only the team tools changed.
 
-1. Copy the updated folder from the laptop to the Pi:
+1. On the Pi, download and extract the current `pi-logger` branch ZIP:
 
-   ```powershell
-   scp -r "<team-tools-folder>" vectornav@<pi-host>:/home/vectornav/
-   ```
+   `https://github.com/Alexcoster010/VN300_Team_Tools/archive/refs/heads/pi-logger.zip`
 
-2. SSH into the Pi:
-
-   ```powershell
-   ssh vectornav@<pi-host>
-   ```
-
-3. Run the installer:
+2. Open a terminal in the extracted folder and run:
 
    ```sh
-   cd /home/vectornav/VN300_Team_Tools/pi
-   chmod +x install_on_pi.sh
-   ./install_on_pi.sh
+   sh Install_VN300_Logger.sh
    ```
 
-4. Check the service:
+3. Check the service:
 
    ```sh
    systemctl status vn300-button-logger.service --no-pager
    ```
 
-5. Watch live logs:
+4. Watch live logs:
 
    ```sh
    journalctl -u vn300-button-logger.service -f
    ```
 
-6. Open the dashboard:
+5. Open the dashboard:
 
    ```text
    http://<pi-host>:8080/
    ```
 
-7. Confirm the dashboard loads and shows idle before logging starts.
+6. Confirm the dashboard loads and shows idle before logging starts.
+7. Confirm `http://<pi-host>:8080/api/latest` reports the installed `logger_version`.
 
 ## Full New Pi Install
 
@@ -65,33 +56,20 @@ Use this when setting up a fresh Pi.
 1. Confirm the Pi username is `vectornav`.
 2. Confirm the VN-300 appears as `/dev/ttyUSB0`.
 3. Confirm the VN-300 baud rate is `921600`.
-4. Copy the folder to the Pi:
-
-   ```powershell
-   scp -r "<team-tools-folder>" vectornav@<pi-host>:/home/vectornav/
-   ```
-
-5. SSH into the Pi:
-
-   ```powershell
-   ssh vectornav@<pi-host>
-   ```
-
-6. Run the installer:
+4. Download and extract the public `pi-logger` branch ZIP on the Pi.
+5. Open a terminal in the extracted folder and run:
 
    ```sh
-   cd /home/vectornav/VN300_Team_Tools/pi
-   chmod +x install_on_pi.sh
-   ./install_on_pi.sh
+   sh Install_VN300_Logger.sh
    ```
 
-7. Reboot once if group permissions changed:
+6. Reboot once if group permissions changed:
 
    ```sh
    sudo reboot
    ```
 
-8. After reboot, check service status:
+7. After reboot, check service status:
 
    ```sh
    systemctl status vn300-button-logger.service --no-pager
@@ -158,12 +136,15 @@ Do this after analyzer changes.
 
 ## Current Update Notes
 
-Last documented update:
+Last documented update: Pi logger `v0.5.0`.
 
-- Phase 2 development has started after the stable `v0.4.0` tag.
+- The public `pi-logger` branch provides a downloadable ZIP and root-level installer.
+- The installer can run from any extracted folder using `sh Install_VN300_Logger.sh`.
+- The installer validates the package, checks dependencies, creates a timestamped backup, installs the service, and verifies the API version.
+- A failed health check restores the prior logger when a backup exists.
+- The installed CAN map is preserved; the new package default is saved as `motec_can_signal_map.csv.dist`.
+- The logger waits up to 20 seconds for a USB log drive before falling back to local storage.
 - CAN logging support is present but disabled unless the service/manual command includes `--can-enable`.
-- Installer now copies `pi/motec_can_signal_map.csv` to the Pi app folder.
-- Installer now installs/checks `python-can`.
 - Default service still runs VN300-only unless edited.
 - Logger/dashboard now supports dashboard-entered run metadata.
 - Session files are named by date and run number, not time of day.

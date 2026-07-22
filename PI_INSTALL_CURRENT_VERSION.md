@@ -1,6 +1,6 @@
 # Pi Install For Current Version
 
-Current documented version: `v0.4.5`
+Current documented Pi logger version: `v0.5.0`
 
 Stable tagged Pi version: `v0.4.0`
 
@@ -13,6 +13,18 @@ git checkout v0.4.0
 ```
 
 Use this file to install or update the current VN300 logger/dashboard package on the Raspberry Pi.
+
+The simplest supported workflow is the public `pi-logger` branch ZIP. Download and extract:
+
+```text
+https://github.com/Alexcoster010/VN300_Team_Tools/archive/refs/heads/pi-logger.zip
+```
+
+Then run from the extracted folder:
+
+```sh
+sh Install_VN300_Logger.sh
+```
 
 ## What This Version Includes
 
@@ -34,6 +46,9 @@ Use this file to install or update the current VN300 logger/dashboard package on
   - `pi local fallback / writing` means the flash drive was not writable at service start
   - `write error` means the active destination failed during logging
   - `VN300_logger_status.json` is written in the boot folder as a heartbeat/status file
+- Logger version is included in `/api/latest` as `logger_version`.
+- Startup waits up to 20 seconds for a writable USB mount before selecting Pi-local fallback storage.
+- Installer backups, CAN-map preservation, service/API health checks, and rollback on failed service startup.
 
 - `VN300_run_metadata.csv` written in the Pi boot log folder.
 - Analyzer automatically loads `VN300_run_metadata.csv` from a Pi boot folder.
@@ -66,33 +81,21 @@ Use this file to install or update the current VN300 logger/dashboard package on
 
 Use this when the Pi already has the old logger installed.
 
-1. From Windows PowerShell, copy the updated folder to the Pi:
+1. Download and extract the latest public `pi-logger` branch ZIP on the Pi.
 
-   ```powershell
-   scp -r "<team-tools-folder>" vectornav@<pi-host>:/home/vectornav/
-   ```
-
-2. SSH into the Pi:
-
-   ```powershell
-   ssh vectornav@<pi-host>
-   ```
-
-3. Run the installer:
+2. Open a terminal in the extracted folder and run:
 
    ```sh
-   cd /home/vectornav/VN300_Team_Tools/pi
-   chmod +x install_on_pi.sh
-   ./install_on_pi.sh
+   sh Install_VN300_Logger.sh
    ```
 
-4. Confirm the service is running:
+3. Confirm the service is running:
 
    ```sh
    systemctl status vn300-button-logger.service --no-pager
    ```
 
-5. Watch live logs:
+4. Watch live logs:
 
    ```sh
    journalctl -u vn300-button-logger.service -f
@@ -114,33 +117,21 @@ Use this when setting up a new Pi.
    /dev/ttyUSB0
    ```
 
-3. Copy the package to the Pi:
+3. Download and extract the public `pi-logger` branch ZIP on the Pi.
 
-   ```powershell
-   scp -r "<team-tools-folder>" vectornav@<pi-host>:/home/vectornav/
-   ```
-
-4. SSH into the Pi:
-
-   ```powershell
-   ssh vectornav@<pi-host>
-   ```
-
-5. Run the installer:
+4. Run the root installer from the extracted folder:
 
    ```sh
-   cd /home/vectornav/VN300_Team_Tools/pi
-   chmod +x install_on_pi.sh
-   ./install_on_pi.sh
+   sh Install_VN300_Logger.sh
    ```
 
-6. Reboot once:
+5. Reboot once:
 
    ```sh
    sudo reboot
    ```
 
-7. Reconnect and check the service:
+6. Reconnect and check the service:
 
    ```sh
    ssh vectornav@<pi-host>

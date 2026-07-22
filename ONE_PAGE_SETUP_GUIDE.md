@@ -26,31 +26,23 @@ Do not wire either button to 5V or 3.3V. The software uses the Pi internal pull-
 
 Only do this once, or after the team updates the logger code.
 
-1. From a Windows laptop, copy this folder to the Pi:
+1. On the Pi, download and extract the public logger ZIP:
 
-   ```powershell
-   scp -r "<team-tools-folder>" vectornav@<pi-host>:/home/vectornav/
-   ```
+   `https://github.com/Alexcoster010/VN300_Team_Tools/archive/refs/heads/pi-logger.zip`
 
-2. SSH into the Pi:
+2. Open a terminal in the extracted folder and run:
 
    ```sh
-   ssh vectornav@<pi-host>
+   sh Install_VN300_Logger.sh
    ```
 
-3. Run the installer:
-
-   ```sh
-   cd /home/vectornav/VN300_Team_Tools/pi
-   chmod +x install_on_pi.sh
-   ./install_on_pi.sh
-   ```
-
-4. Reboot once if the installer changed user groups:
+3. Reboot once if the installer changed user groups:
 
    ```sh
    sudo reboot
    ```
+
+The installer preserves the current CAN map, backs up the old logger, installs dependencies, restarts the service, and verifies the new version through the dashboard API.
 
 ## Normal Event Startup
 

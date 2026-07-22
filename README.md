@@ -13,6 +13,9 @@ For change tracking, use `VERSION_HISTORY.md`.
 - `ONE_PAGE_SETUP_GUIDE.md`: one-page setup guide for a new team member.
 - `INSTALLER_UPDATE_CHECKLIST.md`: step-by-step update/install checklist to maintain after future changes.
 - `PI_INSTALL_CURRENT_VERSION.md`: concise current-version install/update procedure for the Pi.
+- `PI_LOGGER_INSTALL.md`: one-command public ZIP install and update procedure for the Pi logger.
+- `PI_LOGGER_VERSION`: version marker installed with the Pi logger and exposed through `/api/latest`.
+- `Install_VN300_Logger.sh`: root installer entry point for an extracted `pi-logger` branch ZIP.
 - `VERSION_HISTORY.md`: version and change history for the team tools.
 - `MOTEC_CAN_TO_PI_INTEGRATION_REPORT.md`: detailed plan for MoTeC M130 CAN broadcast into the Pi logger.
 - `PHASE_2_PLAN.md`: next-step plan for MoTeC/dash CAN, steering angle, driver inputs, and balance metrics.
@@ -37,6 +40,8 @@ The included Pi service and installer are set up for these team defaults:
 - VN-300 baud rate: `921600`
 - Dashboard port: `8080`
 - Installed app path on Pi: `/home/vectornav/vn300_tools`
+
+The public Pi logger package is distributed from the `pi-logger` branch. After extracting its ZIP on the Pi, run `sh Install_VN300_Logger.sh` from the extracted root folder. See `PI_LOGGER_INSTALL.md`.
 
 If your Pi uses a different username, serial port, or baud rate, update these files before installing:
 
@@ -89,44 +94,27 @@ git checkout v0.4.0
 
 Use that tag if the team needs the stable logger/dashboard before the Phase 2 CAN work is ready.
 
-## Copy Tools To The Pi
+## Install Or Update The Pi Logger
 
-From Windows PowerShell, after your laptop and Pi are on the same network:
+On the Pi, download and extract the current public logger ZIP:
 
-```powershell
-scp -r "<team-tools-folder>" <pi-user>@<pi-host>:/home/<pi-user>/
+```text
+https://github.com/Alexcoster010/VN300_Team_Tools/archive/refs/heads/pi-logger.zip
 ```
 
-Examples:
-
-```powershell
-scp -r "C:\Path\To\VN300_Team_Tools" vectornav@raspberrypi.local:/home/vectornav/
-scp -r "C:\Path\To\VN300_Team_Tools" vectornav@192.168.1.25:/home/vectornav/
-```
-
-Then SSH into the Pi:
-
-```powershell
-ssh <pi-user>@<pi-host>
-```
-
-Install on the Pi:
+Open a terminal in the extracted folder and run:
 
 ```sh
-cd /home/<pi-user>/VN300_Team_Tools/pi
-chmod +x install_on_pi.sh
-./install_on_pi.sh
+sh Install_VN300_Logger.sh
 ```
 
-With the default user, that is:
+To validate a download without changing the installed logger, run:
 
 ```sh
-cd /home/vectornav/VN300_Team_Tools/pi
-chmod +x install_on_pi.sh
-./install_on_pi.sh
+sh Install_VN300_Logger.sh --check
 ```
 
-The installer adds the default service user to the `dialout` and `gpio` groups so the service can access `/dev/ttyUSB0` and the GPIO pins. If serial or GPIO permissions still fail, reboot the Pi once after running the installer.
+The installer creates a backup, preserves the installed CAN map, installs dependencies, and verifies the service through `/api/latest`. It also adds the default service user to the `dialout`, `gpio`, and `netdev` groups. If serial, GPIO, or CAN permissions still fail, reboot the Pi once after running the installer.
 
 The installer disables older auto-start logger services if they exist:
 
@@ -602,7 +590,7 @@ Start/finish line crossings are still recorded when either GPS point around the 
 2. Confirm the VN-300 appears as `/dev/ttyUSB0`, or update the service file.
 3. Confirm the VN-300 serial baud rate is `921600`, or update the service file.
 4. Wire the log button to GPIO17/GND and the power button to GPIO27/GND.
-5. Copy this folder to the Pi and run `install_on_pi.sh`.
+5. Download and extract the `pi-logger` ZIP on the Pi, then run `sh Install_VN300_Logger.sh`.
 6. Boot with the flash drive inserted.
 7. Verify the service is idle, press the log button, watch `journalctl`, then press again to stop.
 8. Open `http://<pi-host>:8080/` from a laptop connected to the same router.
