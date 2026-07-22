@@ -31,15 +31,22 @@ from vn300_updater import (
     read_current_version,
     read_update_status,
     stage_branch_archive,
+    stage_release_installer,
     update_available,
 )
 
 
+IS_FROZEN = bool(getattr(sys, "frozen", False))
 APP_DIR = Path(__file__).resolve().parent
-REPO_ROOT = APP_DIR.parent
+REPO_ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else APP_DIR.parent
 STATE_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "VN300TeamTools"
 STATE_PATH = STATE_DIR / "desktop_state.json"
 CURRENT_VERSION = read_current_version(REPO_ROOT)
+DEFAULT_OUTPUT_ROOT = (
+    Path.home() / "Documents" / "VN300 Team Tools" / "Analysis"
+    if IS_FROZEN
+    else REPO_ROOT / "analysis_output" / "desktop_runs"
+)
 
 COLORS = {
     "ink": "#172027",
@@ -60,7 +67,7 @@ DEFAULT_STATE = {
     "pi_endpoint": "",
     "analysis": {
         "input_path": "",
-        "output_root": str(REPO_ROOT / "analysis_output" / "desktop_runs"),
+        "output_root": str(DEFAULT_OUTPUT_ROOT),
         "mode": "auto",
         "driver_order": "",
         "driver_order_offset": 0,
@@ -170,6 +177,12 @@ class VN300DesktopApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"VN300 Team Tools v{CURRENT_VERSION}")
+        icon_path = REPO_ROOT / "VN300TeamTools.ico"
+        if os.name == "nt" and icon_path.is_file():
+            try:
+                self.iconbitmap(default=str(icon_path))
+            except tk.TclError:
+                pass
         self.configure(bg=COLORS["soft"])
         self.minsize(1000, 650)
         self.state_data = load_state()
@@ -1009,7 +1022,7 @@ class VN300DesktopApp(tk.Tk):
                 elif event[0] == "update_error":
                     self._handle_update_error(str(event[1]), bool(event[2]))
                 elif event[0] == "update_staged":
-                    self._launch_update_and_close(Path(event[1]["source_root"]))
+                    self._launch_update_and_close(event[1])
                 elif event[0] == "update_stage_error":
                     self.update_button.configure(text=f"Install update v{self.update_available_version}", state="normal")
                     messagebox.showerror("Software update", f"Could not prepare the update:\n\n{event[1]}", parent=self)
@@ -1075,23 +1088,35 @@ class VN300DesktopApp(tk.Tk):
         ):
             return
         self.update_button.configure(text="Preparing update...", state="disabled")
-        if has_git_checkout(REPO_ROOT):
-            self._launch_update_and_close(None)
+        if not IS_FROZEN and has_git_checkout(REPO_ROOT):
+            self._launch_update_and_close({"mode": "git"})
             return
         threading.Thread(target=self._stage_update_worker, args=(version,), daemon=True).start()
 
     def _stage_update_worker(self, expected_version: str) -> None:
         try:
-            staged = stage_branch_archive(STATE_DIR, expected_version=expected_version)
+            if IS_FROZEN:
+                staged = stage_release_installer(STATE_DIR, expected_version=expected_version)
+            else:
+                staged = stage_branch_archive(STATE_DIR, expected_version=expected_version)
             self.events.put(("update_staged", staged))
         except Exception as exc:
             self.events.put(("update_stage_error", str(exc)))
 
-    def _launch_update_and_close(self, source_root: Path | None) -> None:
+    def _launch_update_and_close(self, staged: dict[str, Any]) -> None:
         self.state_data["geometry"] = self.geometry()
         try:
             save_state(self.state_data)
-            launch_update_helper(REPO_ROOT, STATE_DIR, source_root, os.getpid(), UPDATE_BRANCH)
+            source_root = Path(staged["source_root"]) if staged.get("source_root") else None
+            installer_path = Path(staged["installer_path"]) if staged.get("installer_path") else None
+            launch_update_helper(
+                REPO_ROOT,
+                STATE_DIR,
+                source_root,
+                os.getpid(),
+                UPDATE_BRANCH,
+                installer_path=installer_path,
+            )
         except OSError as exc:
             self.update_button.configure(text=f"Install update v{self.update_available_version}", state="normal")
             messagebox.showerror("Software update", f"Could not start the updater:\n\n{exc}", parent=self)

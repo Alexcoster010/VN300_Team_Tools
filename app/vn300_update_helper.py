@@ -70,13 +70,37 @@ def run_git_update(target: Path, branch: str) -> None:
     subprocess.run(["git", "pull", "--ff-only", "origin", branch], cwd=target, check=True, creationflags=flags)
 
 
+def run_installer_update(installer: Path) -> None:
+    if os.name != "nt" or not installer.is_file():
+        raise ValueError("The staged Windows installer is missing.")
+    subprocess.run(
+        [
+            str(installer),
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART",
+            "/CLOSEAPPLICATIONS",
+        ],
+        check=True,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+
+
 def write_status(state_dir: Path, ok: bool, message: str) -> None:
     state_dir.mkdir(parents=True, exist_ok=True)
     path = state_dir / "last_update.json"
     path.write_text(json.dumps({"ok": ok, "message": message}), encoding="utf-8")
 
 
-def restart_app(target: Path) -> None:
+def restart_app(target: Path, restart_executable: Path | None = None) -> None:
+    if os.name == "nt" and restart_executable is not None and restart_executable.is_file():
+        subprocess.Popen(
+            [str(restart_executable)],
+            cwd=str(restart_executable.parent),
+            creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+            close_fds=True,
+        )
+        return
     launcher = target / "Start_VN300_Team_Tools.bat"
     if os.name == "nt" and launcher.is_file():
         os.startfile(launcher)  # type: ignore[attr-defined]
@@ -90,10 +114,14 @@ def main() -> None:
     parser.add_argument("--branch", default="desktop-app")
     parser.add_argument("--source", type=Path)
     parser.add_argument("--git", action="store_true")
+    parser.add_argument("--installer", type=Path)
+    parser.add_argument("--restart-executable", type=Path)
     args = parser.parse_args()
     try:
         wait_for_process(args.pid)
-        if args.git:
+        if args.installer:
+            run_installer_update(args.installer)
+        elif args.git:
             run_git_update(args.target, args.branch)
         elif args.source:
             copy_archive_update(args.source, args.target, args.state_dir)
@@ -102,7 +130,7 @@ def main() -> None:
         write_status(args.state_dir, True, "VN300 Team Tools was updated successfully.")
     except Exception as exc:
         write_status(args.state_dir, False, f"Update failed: {exc}")
-    restart_app(args.target)
+    restart_app(args.target, args.restart_executable)
 
 
 if __name__ == "__main__":

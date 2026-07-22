@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -52,6 +53,37 @@ class UpdaterTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 updater.stage_branch_archive(root / "state", url=archive.as_uri())
             self.assertFalse((root / "outside.txt").exists())
+
+    def test_release_installer_requires_matching_checksum(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            installer = root / "setup.exe"
+            installer.write_bytes(b"MZ" + b"test installer payload")
+            checksum = root / "setup.exe.sha256"
+            checksum.write_text(f"{hashlib.sha256(installer.read_bytes()).hexdigest()}  setup.exe\n", encoding="ascii")
+            staged = updater.stage_release_installer(
+                root / "state",
+                "0.6.0",
+                installer_url=installer.as_uri(),
+                checksum_url=checksum.as_uri(),
+            )
+            self.assertEqual(staged["mode"], "installer")
+            self.assertEqual(Path(staged["installer_path"]).read_bytes(), installer.read_bytes())
+
+    def test_release_installer_rejects_checksum_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            installer = root / "setup.exe"
+            installer.write_bytes(b"MZinvalid")
+            checksum = root / "setup.exe.sha256"
+            checksum.write_text(f"{'0' * 64}  setup.exe\n", encoding="ascii")
+            with self.assertRaisesRegex(ValueError, "checksum does not match"):
+                updater.stage_release_installer(
+                    root / "state",
+                    "0.6.0",
+                    installer_url=installer.as_uri(),
+                    checksum_url=checksum.as_uri(),
+                )
 
     def test_archive_copy_creates_backup_for_replaced_file(self):
         with tempfile.TemporaryDirectory() as directory:

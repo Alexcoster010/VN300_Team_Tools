@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import urllib.error
 import urllib.request
 import uuid
@@ -26,6 +26,9 @@ BRANCH_ARCHIVE_URL = (
     f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPOSITORY}/archive/refs/heads/{UPDATE_BRANCH}.zip"
 )
 MAX_ARCHIVE_BYTES = 150 * 1024 * 1024
+MAX_INSTALLER_BYTES = 250 * 1024 * 1024
+RELEASE_TAG_PREFIX = "desktop-v"
+RELEASE_ASSET_TEMPLATE = "VN300-Team-Tools-Setup-{version}.exe"
 REQUIRED_UPDATE_FILES = (
     "APP_VERSION",
     "Start_VN300_Team_Tools.bat",
@@ -96,7 +99,7 @@ def fetch_remote_version(repo_root: Path | None = None, url: str = VERSION_API_U
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403, 404):
             raise RuntimeError(
-                "The GitHub update channel requires authentication. Install the private repository with Git to enable in-app updates."
+                "The public GitHub update channel is unavailable. Check the internet connection and try again."
             ) from exc
         raise
     version = body.decode("utf-8").strip()
@@ -178,22 +181,102 @@ def stage_branch_archive(
         raise
 
 
+def release_asset_urls(version: str) -> tuple[str, str]:
+    parse_version(version)
+    normalized = version.strip().removeprefix("v")
+    asset = RELEASE_ASSET_TEMPLATE.format(version=normalized)
+    base = (
+        f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPOSITORY}/releases/download/"
+        f"{RELEASE_TAG_PREFIX}{normalized}/{asset}"
+    )
+    return base, f"{base}.sha256"
+
+
+def _download_limited(url: str, destination: Path, maximum_bytes: int, timeout: float) -> None:
+    request = urllib.request.Request(url, headers={"User-Agent": "VN300DesktopUpdater/0.6"})
+    with urllib.request.urlopen(request, timeout=timeout) as response, destination.open("wb") as output:
+        content_length = response.headers.get("Content-Length")
+        if content_length and int(content_length) > maximum_bytes:
+            raise ValueError("The downloaded installer is unexpectedly large.")
+        downloaded = 0
+        while True:
+            block = response.read(1024 * 1024)
+            if not block:
+                break
+            downloaded += len(block)
+            if downloaded > maximum_bytes:
+                raise ValueError("The downloaded installer is unexpectedly large.")
+            output.write(block)
+
+
+def stage_release_installer(
+    state_dir: Path,
+    expected_version: str,
+    installer_url: str = "",
+    checksum_url: str = "",
+    timeout: float = 60.0,
+) -> dict[str, Any]:
+    normalized = expected_version.strip().removeprefix("v")
+    parse_version(normalized)
+    default_installer_url, default_checksum_url = release_asset_urls(normalized)
+    installer_url = installer_url or default_installer_url
+    checksum_url = checksum_url or default_checksum_url
+    updates_dir = state_dir / "updates"
+    updates_dir.mkdir(parents=True, exist_ok=True)
+    staging_root = updates_dir / f"installer_{uuid.uuid4().hex}"
+    staging_root.mkdir()
+    installer_path = staging_root / RELEASE_ASSET_TEMPLATE.format(version=normalized)
+    checksum_path = installer_path.with_suffix(installer_path.suffix + ".sha256")
+    try:
+        _download_limited(installer_url, installer_path, MAX_INSTALLER_BYTES, timeout)
+        _download_limited(checksum_url, checksum_path, 4096, timeout)
+        checksum_text = checksum_path.read_text(encoding="ascii").strip()
+        expected_hash = checksum_text.split()[0].lower() if checksum_text else ""
+        if len(expected_hash) != 64 or any(character not in "0123456789abcdef" for character in expected_hash):
+            raise ValueError("The installer checksum file is invalid.")
+        digest = hashlib.sha256()
+        with installer_path.open("rb") as installer_file:
+            header = installer_file.read(2)
+            digest.update(header)
+            while block := installer_file.read(1024 * 1024):
+                digest.update(block)
+        actual_hash = digest.hexdigest()
+        if actual_hash != expected_hash:
+            raise ValueError("The installer checksum does not match the published release.")
+        if header != b"MZ":
+            raise ValueError("The downloaded update is not a Windows installer.")
+        return {
+            "mode": "installer",
+            "installer_path": str(installer_path),
+            "staging_root": str(staging_root),
+            "version": normalized,
+        }
+    except Exception:
+        shutil.rmtree(staging_root, ignore_errors=True)
+        raise
+
+
 def launch_update_helper(
     repo_root: Path,
     state_dir: Path,
     source_root: Path | None,
     parent_pid: int,
     branch: str = UPDATE_BRANCH,
+    installer_path: Path | None = None,
 ) -> None:
-    helper_source = repo_root / "app" / "vn300_update_helper.py"
     helper_dir = state_dir / "updates" / f"helper_{uuid.uuid4().hex}"
     helper_dir.mkdir(parents=True, exist_ok=True)
-    helper_path = helper_dir / "vn300_update_helper.py"
+    packaged = bool(getattr(sys, "frozen", False))
+    if packaged:
+        helper_source = repo_root / "VN300UpdateHelper.exe"
+        helper_path = helper_dir / "VN300UpdateHelper.exe"
+    else:
+        helper_source = repo_root / "app" / "vn300_update_helper.py"
+        helper_path = helper_dir / "vn300_update_helper.py"
+    if not helper_source.is_file():
+        raise FileNotFoundError(f"Update helper is missing: {helper_source}")
     shutil.copy2(helper_source, helper_path)
-    command = [
-        sys.executable,
-        "-B",
-        str(helper_path),
+    command = ([str(helper_path)] if packaged else [sys.executable, "-B", str(helper_path)]) + [
         "--target",
         str(repo_root),
         "--state-dir",
@@ -203,7 +286,9 @@ def launch_update_helper(
         "--branch",
         branch,
     ]
-    if source_root is not None:
+    if installer_path is not None:
+        command.extend(("--installer", str(installer_path), "--restart-executable", str(repo_root / "VN300TeamTools.exe")))
+    elif source_root is not None:
         command.extend(("--source", str(source_root)))
     else:
         command.append("--git")

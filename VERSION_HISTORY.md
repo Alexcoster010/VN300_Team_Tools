@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.5.2`
+`v0.6.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,18 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.6.0 - 2026-07-21
+
+### Windows Installer
+
+- Added a per-user Windows installer that bundles Python and requires no separate Python or Git installation.
+- Added Windows Search and Start Menu registration, optional desktop shortcut creation, and Installed Apps uninstall support.
+- Packaged the lap analyzer and detached update helper as dedicated executables.
+- Moved the installed app's default analysis output to `Documents\VN300 Team Tools\Analysis`.
+- Added versioned GitHub release updates with SHA-256 verification and automatic restart.
+- Added PyInstaller and Inno Setup build definitions plus an automated GitHub release workflow.
+- Added a dedicated VN300 Team Tools Windows icon and packaging regression tests.
 
 ## v0.5.2 - 2026-07-21
 

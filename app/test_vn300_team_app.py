@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import vn300_team_app as app
 
@@ -43,6 +44,19 @@ class TeamAppTests(unittest.TestCase):
             self.assertIn("--no-gg-lap-prediction", command)
             self.assertIn("--include-ascii", command)
             self.assertEqual(settings["auto_sectors"], 4)
+
+    def test_frozen_build_launches_bundled_analyzer_executable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data = root / "data"
+            output = root / "output"
+            data.mkdir()
+            output.mkdir()
+            analyzer = root / "VN300Analyzer.exe"
+            with mock.patch.object(app, "IS_FROZEN", True), mock.patch.object(app, "ANALYZER_PATH", analyzer):
+                command, _ = app.build_analysis_command({"input_path": str(data)}, output)
+            self.assertEqual(command[0], str(analyzer))
+            self.assertEqual(command[1], str(data.resolve()))
 
     def test_result_files_prioritizes_reports(self):
         with tempfile.TemporaryDirectory() as directory:

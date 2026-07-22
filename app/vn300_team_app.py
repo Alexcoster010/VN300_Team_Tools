@@ -23,17 +23,23 @@ from pathlib import Path
 from typing import Any
 
 
+IS_FROZEN = bool(getattr(sys, "frozen", False))
 APP_DIR = Path(__file__).resolve().parent
-REPO_ROOT = APP_DIR.parent
+REPO_ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else APP_DIR.parent
 STATIC_DIR = APP_DIR / "static"
-ANALYZER_PATH = REPO_ROOT / "analysis" / "vn300_lap_analysis.py"
+ANALYZER_PATH = REPO_ROOT / "VN300Analyzer.exe" if IS_FROZEN else REPO_ROOT / "analysis" / "vn300_lap_analysis.py"
 STATE_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "VN300TeamTools"
 STATE_PATH = STATE_DIR / "app_state.json"
+DEFAULT_OUTPUT_ROOT = (
+    Path.home() / "Documents" / "VN300 Team Tools" / "Analysis"
+    if IS_FROZEN
+    else REPO_ROOT / "analysis_output" / "app_runs"
+)
 
 DEFAULT_SETTINGS = {
     "pi_url": "http://raspberrypi.local:8080/",
     "input_path": "",
-    "output_root": str(REPO_ROOT / "analysis_output" / "app_runs"),
+    "output_root": str(DEFAULT_OUTPUT_ROOT),
     "mode": "auto",
     "driver_order": "",
     "driver_order_offset": 0,
@@ -177,8 +183,7 @@ def build_analysis_command(payload: dict[str, Any], output_dir: Path) -> tuple[l
     )
 
     command = [
-        sys.executable,
-        str(ANALYZER_PATH),
+        *([str(ANALYZER_PATH)] if IS_FROZEN else [sys.executable, str(ANALYZER_PATH)]),
         str(input_path.resolve()),
         "--no-prompts",
         "--out",

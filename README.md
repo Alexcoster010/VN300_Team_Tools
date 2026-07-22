@@ -28,6 +28,7 @@ For change tracking, use `VERSION_HISTORY.md`.
 - `APP_VERSION`: desktop application version checked by the updater.
 - `app/vn300_desktop_app.py`: native Windows interface for running analysis, viewing result tables, and monitoring the Pi.
 - `app/vn300_team_app.py`: optional localhost web interface retained as an alternative.
+- `packaging/`: PyInstaller, Inno Setup, icon, and Windows installer build definitions.
 - `analysis/vn300_lap_analysis.py`: offline analysis, lap splitting, and overlay HTML generation from `*_BINARY.csv` or `*_VNINS.csv`.
 - `analysis/vn300_gg_analysis.py`: corrected per-driver G-G diagrams with data-quality filtering and directional grip envelopes.
 - `analysis_output/`, `folder_import_output/`, `lap_smoke_output/`: example generated outputs.
@@ -60,11 +61,11 @@ Generic placeholders used below:
 
 ## Unified App
 
-On Windows, double-click `Start_VN300_Team_Tools.bat`. This opens the native desktop application with three workspaces:
+Install the current Windows release, then open **VN300 Team Tools** from Windows Search or the Start Menu. Developers can also double-click `Start_VN300_Team_Tools.bat` in a source checkout. The app provides three workspaces:
 
 - **Data analysis**: select a VN300 boot/data folder, set timing and sector options, and run the existing offline analyzer with the measured car G-G lap prediction.
 - **Pi dashboard**: view live speed, G values, timing, GPS trace, lap history, log health, and Pi status without a browser.
-- **Results**: preview generated CSV outputs natively and open any generated report or output folder. Desktop-app output is placed in timestamped folders under `analysis_output/desktop_runs/` by default.
+- **Results**: preview generated CSV outputs natively and open any generated report or output folder. Installed-app output defaults to `Documents\VN300 Team Tools\Analysis`.
 
 The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\VN300TeamTools\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Use **Change address** in the Pi dashboard when the Pi address changes.
 
@@ -76,7 +77,7 @@ py -3 -B .\app\vn300_desktop_app.py
 
 The optional localhost web interface can still be started with `py -3 .\app\vn300_team_app.py`.
 
-The desktop app checks the public GitHub `desktop-app` branch for a newer `APP_VERSION`. Use the header update button to install an available version. Download ZIP installations update from a validated branch archive without Git; Git clones use a clean fast-forward. See `DESKTOP_APP_INSTALL.md` for the team workflow.
+The installed app checks the public GitHub `desktop-app` branch for a newer `APP_VERSION`. Use the header update button to download the matching versioned installer and SHA-256 checksum from GitHub Releases. Source ZIPs and Git clones retain their existing source-update paths. See `DESKTOP_APP_INSTALL.md` for installation and release details.
 
 ## Button Wiring
 

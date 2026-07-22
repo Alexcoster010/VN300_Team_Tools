@@ -7,3 +7,6 @@ Thumbs.db
 *.log
 analysis_output/app_runs/
 analysis_output/desktop_runs/
+.venv-build/
+build/
+dist/

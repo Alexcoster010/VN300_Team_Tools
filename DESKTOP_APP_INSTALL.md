@@ -1,65 +1,87 @@
 # VN300 Desktop App Install And Updates
 
-The supported desktop-app update channel is the `desktop-app` branch:
+The supported Windows application is published from the public `desktop-app` branch as a versioned GitHub release.
+
+Releases page:
 
 ```text
-https://github.com/Alexcoster010/VN300_Team_Tools/tree/desktop-app
+https://github.com/Alexcoster010/VN300_Team_Tools/releases/latest
 ```
 
 ## Requirements
 
-- Windows 10 or Windows 11
-- Python 3.10 or newer with the Windows `py` launcher
+- Windows 10 or Windows 11 on an x64-compatible computer
 - Wi-Fi or another network connection to the Raspberry Pi for live telemetry
-- Internet access when checking for software updates
+- Internet access when installing software updates
 
-## Recommended Install From GitHub ZIP
+Python and Git are not required for the installed application.
 
-1. Open the `desktop-app` branch link above.
-2. Select **Code**, then **Download ZIP**.
-3. Extract the ZIP to a writable folder such as `Documents\VN300_Team_Tools`.
-4. Double-click `Start_VN300_Team_Tools.bat`.
-5. Enter the Raspberry Pi IP address or hostname when prompted.
+## Install On A Team Laptop
 
-The Pi address is saved only after the first successful connection. Later launches reconnect automatically.
+1. Open the releases page.
+2. Download `VN300-Team-Tools-Setup-X.Y.Z.exe` from the release assets.
+3. Run the downloaded installer.
+4. Leave **Create a desktop shortcut** selected only when a desktop shortcut is wanted.
+5. Launch **VN300 Team Tools** from Windows Search or the Start Menu.
+6. Enter the Raspberry Pi IP address or hostname when prompted.
 
-Direct branch ZIP:
+The installer is per-user and does not require administrator access. It installs under:
 
 ```text
-https://github.com/Alexcoster010/VN300_Team_Tools/archive/refs/heads/desktop-app.zip
+%LOCALAPPDATA%\Programs\VN300 Team Tools
 ```
 
-ZIP installations receive automatic in-app updates directly from the public `desktop-app` branch and do not require Git.
+It also registers a Start Menu shortcut and an uninstall entry under Windows **Installed apps**.
 
-## Optional Install With Git
+The current installer is not code-signed. Windows SmartScreen may show an unrecognized-app warning until the project has a signing certificate. Confirm the download came from this repository's release page before choosing **More info**, then **Run anyway**. Every release includes a `.sha256` checksum file.
+
+## Saved Data
+
+The Pi address, window layout, and recent-run history are stored under:
+
+```text
+%LOCALAPPDATA%\VN300TeamTools
+```
+
+New installed-app analysis output defaults to:
+
+```text
+%USERPROFILE%\Documents\VN300 Team Tools\Analysis
+```
+
+Installing, updating, or uninstalling the program does not remove those folders.
+
+## Future Updates
+
+The app checks `APP_VERSION` on the public `desktop-app` branch at startup. The header displays **Install update vX.Y.Z** when a newer release is available.
+
+When an installed-app update is accepted:
+
+- the versioned installer and its SHA-256 file are downloaded from the matching GitHub release
+- the checksum and Windows executable header are validated
+- the app closes and a detached updater runs the installer silently
+- the new version restarts automatically and reports the result
+- saved settings and analysis output remain unchanged
+
+## Developer Source Launch
+
+Developers can still clone the branch and run the source application with Python:
 
 ```powershell
 git clone --branch desktop-app --single-branch `
   https://github.com/Alexcoster010/VN300_Team_Tools.git
+cd VN300_Team_Tools
+py -3 -B .\app\vn300_desktop_app.py
 ```
 
-Then run `Start_VN300_Team_Tools.bat` inside the cloned folder. This method is useful for team members who also work on the code.
-
-## Install Future Updates
-
-The app checks `APP_VERSION` on the GitHub `desktop-app` branch at startup. The header displays **Install update vX.Y.Z** when a newer version is available. The same check can be run manually with **Check updates**.
-
-When an update is accepted:
-
-- A clean Git checkout checks and fast-forwards from `origin/desktop-app`.
-- A Download ZIP installation downloads and validates the latest branch archive without Git.
-- The app closes, applies the update, restarts, and reports whether the update succeeded.
-- Archive-install files that will be replaced are backed up under `%LOCALAPPDATA%\VN300TeamTools\update_backups`.
-- Settings, saved Pi address, and recent-run history remain under `%LOCALAPPDATA%\VN300TeamTools` and are not replaced.
-
-A Git update stops if tracked files have local modifications. Commit, stash, or discard those edits before trying again.
+Clean Git checkouts keep the existing fast-forward source update behavior. Extracted source ZIPs keep the validated branch-archive behavior.
 
 ## Publish A Team Update
 
-1. Make changes on the `desktop-app` branch.
-2. Increase the version in `APP_VERSION` using `MAJOR.MINOR.PATCH` format.
-3. Add the version entry to `VERSION_HISTORY.md`.
-4. Run the app and analyzer tests.
-5. Commit and push the branch.
+1. Work on the `desktop-app` branch.
+2. Increase `APP_VERSION`; never reuse a released version number.
+3. Update `VERSION_HISTORY.md`.
+4. Run the app, analyzer, and packaging tests.
+5. Commit and push `desktop-app`.
 
-Team laptops will offer the new version the next time they have internet access and launch the application.
+The GitHub workflow builds the three bundled executables, compiles the installer, generates its checksum, and publishes release tag `desktop-vX.Y.Z`. Team laptops will then offer the new installer.
