@@ -23,6 +23,12 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
+from vn300_gg_lap_predictor import (
+    predict_car_gg_lap,
+    select_consistent_lap_records,
+    usable_sample_fraction,
+)
+
 
 EARTH_RADIUS_M = 6371000.0
 MAX_LIVE_DELTA_POS_UNCERTAINTY_M = 4.0
@@ -108,11 +114,9 @@ def project_xy(lat: float, lon: float, origin_lat: float, origin_lon: float) -> 
 
 
 def unwrap_angle_rad(previous: float, current: float) -> float:
-    while current - previous > math.pi:
-        current -= 2 * math.pi
-    while current - previous < -math.pi:
-        current += 2 * math.pi
-    return current
+    if not math.isfinite(previous) or not math.isfinite(current):
+        return previous
+    return previous + (current - previous + math.pi) % (2.0 * math.pi) - math.pi
 
 
 def inspect_csv_fieldnames(path: Path) -> list[str]:
@@ -693,12 +697,39 @@ def format_seconds(value) -> str:
     return f"{float(value):.3f}"
 
 
+def credible_sector_rows(rows: list[dict], sector_count: int = 3) -> tuple[list[dict], list[dict]]:
+    accepted = []
+    rejected = []
+    for row in rows:
+        duration = float(row.get("duration_s", 0.0) or 0.0)
+        distance = float(row.get("distance_m", 0.0) or 0.0)
+        max_speed = float(row.get("max_speed_mph", 0.0) or 0.0)
+        sectors = [float(row.get(f"sector_{number}_s", 0.0) or 0.0) for number in range(1, sector_count + 1)]
+        reason = ""
+        if not all(math.isfinite(value) for value in [duration, distance, max_speed, *sectors]):
+            reason = "non-finite lap or sector value"
+        elif duration <= 0.0 or distance <= 0.0 or not (0.0 < max_speed <= 120.0):
+            reason = "invalid duration, distance, or maximum speed"
+        elif abs(sum(sectors) - duration) > max(0.10, duration * 0.01):
+            reason = "sector sum does not match lap duration"
+        elif min(sectors) < duration * 0.05:
+            reason = "a sector is less than 5% of lap duration"
+        if reason:
+            rejected.append({**row, "reason": reason})
+        else:
+            accepted.append(row)
+    return accepted, rejected
+
+
 def write_lap_sector_outputs(
     out_dir: Path,
     rows: list[dict],
     excluded_rows: list[dict],
     sector_count: int = 3,
+    gg_prediction: dict | None = None,
 ):
+    rows, credibility_rejections = credible_sector_rows(rows, sector_count)
+    excluded_rows = [*excluded_rows, *credibility_rejections]
     if not rows:
         if excluded_rows:
             write_summary(out_dir / "lap_sector_excluded.csv", excluded_rows)
@@ -847,7 +878,17 @@ def write_lap_sector_outputs(
         )
 
     cards = []
-    cards.append(f"<div class=\"card\"><div class=\"note\">Overall Theoretical Best</div><div class=\"big\">{overall_theoretical:.3f} s</div></div>")
+    cards.append(f"<div class=\"card\"><div class=\"note\">Observed Sector Composite</div><div class=\"big\">{overall_theoretical:.3f} s</div></div>")
+    if gg_prediction:
+        prediction = gg_prediction["summary"]
+        prediction["observed_sector_composite_s"] = overall_theoretical
+        prediction["gg_prediction_vs_sector_composite_s"] = prediction["predicted_lap_time_s"] - overall_theoretical
+        cards.append(
+            "<div class=\"card\">"
+            "<div class=\"note\">Car G-G Mathematical Best</div>"
+            f"<div class=\"big\">{prediction['predicted_lap_time_s']:.3f} s</div>"
+            "</div>"
+        )
     for sector_number in range(1, sector_count + 1):
         row = best_sector[sector_number]
         cards.append(
@@ -881,16 +922,43 @@ th{{background:#eef2f6;position:sticky;top:0}}
 </style>
 </head>
 <body>
-<header><h1>VN300 Lap Times And Sector Splits</h1><div class="note">Three sectors are split by thirds of each segment's GPS trace distance. Purple highlights the overall fastest sector in each sector column.</div></header>
+<header><h1>VN300 Lap Times And Sector Splits</h1><div class="note">Sector composites show demonstrated execution. The car G-G prediction is a same-line mathematical lower bound from the measured directional envelope.</div></header>
 <main>
 <section class="cards">{''.join(cards)}</section>
+{gg_prediction_section(gg_prediction, overall_theoretical)}
 <section><h2>Overall Best Sectors</h2>{best_sector_table()}</section>
-<section><h2>Theoretical Best By Driver</h2>{theoretical_table()}</section>
+<section><h2>Sector Composite By Driver</h2>{theoretical_table()}</section>
 <section><h2>All Lap Times And Sector Splits</h2>{all_laps_table()}</section>
 </main>
 </body>
 </html>"""
     (out_dir / "lap_times_sector_splits.html").write_text(body, encoding="utf-8")
+
+
+def gg_prediction_section(gg_prediction: dict | None, sector_composite_s: float | None = None) -> str:
+    if not gg_prediction:
+        return ""
+    row = gg_prediction["summary"]
+    sector_row = (
+        f"<tr><td>Observed sector composite</td><td>{sector_composite_s:.3f} s</td></tr>"
+        if sector_composite_s is not None else ""
+    )
+    return (
+        "<section><h2>Car G-G Lap Prediction</h2>"
+        "<p class=\"note\"><strong>Mathematical lower bound, not an achievable-lap forecast.</strong> "
+        "The solver applies the best measured 98th-percentile car G-G and propulsion envelopes continuously around the fastest valid lap's recorded line. "
+        "Those envelopes stitch short peaks from different laps and drivers, so transient peaks are treated as sustainable.</p>"
+        "<table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>"
+        f"<tr><td>Car G-G mathematical best</td><td>{row['predicted_lap_time_s']:.3f} s</td></tr>"
+        f"{sector_row}"
+        f"<tr><td>Fastest recorded reference</td><td>{row['reference_recorded_lap_time_s']:.3f} s</td></tr>"
+        f"<tr><td>Reference</td><td>{html.escape(row['reference_driver'])} / {html.escape(row['reference_name'])}</td></tr>"
+        f"<tr><td>Pure lateral, left / right</td><td>{row['left_lateral_limit_g']:.3f} / {row['right_lateral_limit_g']:.3f} g</td></tr>"
+        f"<tr><td>Pure longitudinal, accel / brake</td><td>{row['acceleration_limit_g']:.3f} / {row['braking_limit_g']:.3f} g</td></tr>"
+        f"<tr><td>Predicted max speed</td><td>{row['predicted_max_speed_mph']:.1f} mph</td></tr>"
+        f"<tr><td>Envelope coverage</td><td>{row['populated_directions']} directions, {row['drivers_in_envelope']} source driver(s)</td></tr>"
+        "</tbody></table></section>"
+    )
 
 
 def write_summary(path: Path, summaries: list[dict]):
@@ -1052,7 +1120,13 @@ def html_table(rows: list[dict], columns: list[str], max_rows: int = 200) -> str
     return f"<table><thead><tr>{head}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
 
 
-def write_report_html(path: Path, summaries: list[dict], quality_reports: list[dict], segments: list[tuple[str, list[Sample]]]):
+def write_report_html(
+    path: Path,
+    summaries: list[dict],
+    quality_reports: list[dict],
+    segments: list[tuple[str, list[Sample]]],
+    gg_prediction: dict | None = None,
+):
     data = json.dumps(report_payload(segments))
     summary_columns = [
         "name", "segment_type", "segment_number", "duration_s", "distance_m",
@@ -1088,6 +1162,7 @@ canvas{{width:100%;height:360px;border:1px solid #ccd4db;border-radius:4px;backg
 <body>
 <header><h1>VN300 Vehicle Dynamics Report</h1><div class="note">Generated by vn300_lap_analysis.py</div></header>
 <main>
+{gg_prediction_section(gg_prediction)}
 <section><h2>Data Quality</h2>{html_table(quality_reports, quality_columns)}</section>
 <section><h2>Summary And Metadata</h2>{html_table(summaries, summary_columns)}</section>
 <section class="grid">
@@ -1391,7 +1466,29 @@ def main():
     parser.add_argument("--driver-order-offset", type=int, default=0, help="number of sorted input files to skip before applying --driver-order")
     parser.add_argument("--auto-sectors", type=int, default=3, help="automatically split each timed lap/run into this many sectors; use 0 to disable")
     parser.add_argument("--sector-report-min-seconds", type=float, default=20.0, help="minimum timed segment duration to include in lap sector/theoretical-best output")
+    parser.add_argument("--no-gg-lap-prediction", action="store_true", help="disable the measured car G-G same-line minimum-lap prediction")
+    parser.add_argument("--gg-envelope-percentile", type=float, default=0.98, help="directional car G-G percentile used by the lap predictor")
+    parser.add_argument("--gg-angle-bin-deg", type=int, default=10, help="directional G-G envelope bin width; must divide 360")
+    parser.add_argument("--gg-min-bin-points", type=int, default=12, help="minimum samples per driver and direction for the car G-G envelope")
+    parser.add_argument("--gg-speed-max-mph", type=float, default=60.0, help="maximum telemetry speed admitted to the car G-G envelope and reference-lap check")
+    parser.add_argument("--gg-gps-uncertainty-max-m", type=float, default=4.0, help="maximum GPS position uncertainty admitted to the car G-G predictor")
+    parser.add_argument("--gg-predictor-max-speed-mph", type=float, default=80.0, help="hard speed cap for the car G-G lap predictor")
+    parser.add_argument("--gg-predictor-grid-step-m", type=float, default=0.5, help="distance step for the car G-G lap solver")
+    parser.add_argument("--gg-predictor-curvature-smoothing-m", type=float, default=2.5, help="curvature smoothing distance for the car G-G lap solver")
     args = parser.parse_args()
+
+    if not (0.0 < args.gg_envelope_percentile <= 1.0):
+        raise SystemExit("--gg-envelope-percentile must be in the range (0, 1].")
+    if args.gg_angle_bin_deg <= 0 or 360 % args.gg_angle_bin_deg != 0:
+        raise SystemExit("--gg-angle-bin-deg must be a positive integer that divides 360.")
+    if args.gg_min_bin_points < 1:
+        raise SystemExit("--gg-min-bin-points must be positive.")
+    if args.gg_speed_max_mph <= args.min_speed_mph or args.gg_predictor_max_speed_mph <= 0.0:
+        raise SystemExit("G-G maximum telemetry and predictor speeds must be valid positive ranges.")
+    if args.gg_gps_uncertainty_max_m <= 0.0:
+        raise SystemExit("--gg-gps-uncertainty-max-m must be positive.")
+    if args.gg_predictor_grid_step_m <= 0.0 or args.gg_predictor_curvature_smoothing_m <= 0.0:
+        raise SystemExit("G-G predictor grid step and curvature smoothing must be positive.")
 
     args.out.mkdir(parents=True, exist_ok=True)
     csv_paths = expand_input_paths(args.csv_files, include_ascii=args.include_ascii)
@@ -1447,6 +1544,7 @@ def main():
     best_segment = None
     best_duration = None
     segment_count = 0
+    gg_prediction_segments = []
     for path_index, path in enumerate(csv_paths):
         fieldnames = inspect_csv_fieldnames(path)
         samples = load_vnins(path)
@@ -1523,6 +1621,32 @@ def main():
                     timing_warning,
                     path_metadata,
                 )
+                gg_usable_fraction = usable_sample_fraction(
+                    segment,
+                    args.min_speed_mph,
+                    args.gg_speed_max_mph,
+                    args.gg_gps_uncertainty_max_m,
+                )
+                sane_speed_fraction = sum(
+                    1 for sample in segment
+                    if math.isfinite(sample.speed_mph) and 0.0 <= sample.speed_mph <= args.gg_speed_max_mph
+                ) / len(segment)
+                if (
+                    valid_timing
+                    and mode == "lap"
+                    and gg_usable_fraction >= 0.75
+                    and sane_speed_fraction >= 0.98
+                ):
+                    gg_prediction_segments.append({
+                        "name": name,
+                        "display_name": f"{session_stem_from_name(path.name)} lap {local_segment_number}",
+                        "local_lap_number": local_segment_number,
+                        "driver": path_metadata.get("meta_driver", "") or "Unknown",
+                        "duration_s": duration,
+                        "gg_usable_fraction": gg_usable_fraction,
+                        "sane_speed_fraction": sane_speed_fraction,
+                        "samples": segment,
+                    })
             else:
                 lap_sector_excluded_rows.append({
                     "name": name,
@@ -1552,22 +1676,71 @@ def main():
                 best_duration = duration
                 best_segment = segment
 
+    gg_prediction = None
+    if not args.no_gg_lap_prediction and mode == "lap" and gg_prediction_segments:
+        try:
+            consistent_laps, course_distance_center = select_consistent_lap_records(
+                gg_prediction_segments,
+                args.gg_speed_max_mph,
+            )
+            reference_record = min(consistent_laps, key=lambda row: row["duration_s"])
+            gg_prediction = predict_car_gg_lap(
+                consistent_laps,
+                reference_record,
+                envelope_percentile=args.gg_envelope_percentile,
+                angle_bin_deg=args.gg_angle_bin_deg,
+                min_bin_points=args.gg_min_bin_points,
+                speed_min_mph=args.min_speed_mph,
+                speed_max_mph=args.gg_speed_max_mph,
+                gps_limit_m=args.gg_gps_uncertainty_max_m,
+                grid_step_m=args.gg_predictor_grid_step_m,
+                smoothing_m=args.gg_predictor_curvature_smoothing_m,
+                maximum_speed_mph=args.gg_predictor_max_speed_mph,
+            )
+            gg_prediction["summary"]["course_consistent_laps"] = len(consistent_laps)
+            gg_prediction["summary"]["course_distance_cluster_center_m"] = course_distance_center
+            valid_sector_rows, _ = credible_sector_rows(lap_sector_rows)
+            if valid_sector_rows:
+                sector_composite = sum(
+                    min(row[f"sector_{sector_number}_s"] for row in valid_sector_rows)
+                    for sector_number in range(1, 4)
+                )
+                gg_prediction["summary"]["observed_sector_composite_s"] = sector_composite
+                gg_prediction["summary"]["gg_prediction_vs_sector_composite_s"] = (
+                    gg_prediction["summary"]["predicted_lap_time_s"] - sector_composite
+                )
+            write_summary(args.out / "car_gg_lap_prediction.csv", [gg_prediction["summary"]])
+            write_summary(args.out / "car_gg_envelope.csv", gg_prediction["car_envelope"])
+            write_summary(args.out / "car_gg_driver_envelopes.csv", gg_prediction["driver_envelopes"])
+            write_summary(args.out / "car_gg_propulsion_envelope.csv", gg_prediction["propulsion_envelope"])
+            write_summary(args.out / "car_gg_lap_trace.csv", gg_prediction["trace"])
+        except ValueError as error:
+            print(f"Car G-G lap prediction skipped: {error}")
+
     write_summary(args.out / "summary.csv", summaries)
     write_summary(args.out / "data_quality.csv", quality_reports)
     if sector_summaries:
         write_sector_summary(args.out / "sector_summary.csv", sector_summaries)
-    write_lap_sector_outputs(args.out, lap_sector_rows, lap_sector_excluded_rows)
+    write_lap_sector_outputs(args.out, lap_sector_rows, lap_sector_excluded_rows, gg_prediction=gg_prediction)
     write_overlay_html(args.out / "overlay.html", overlay_laps)
-    write_report_html(args.out / "report.html", summaries, quality_reports, report_segments)
+    write_report_html(args.out / "report.html", summaries, quality_reports, report_segments, gg_prediction)
     print(f"Wrote {args.out / 'summary.csv'}")
     print(f"Wrote {args.out / 'data_quality.csv'}")
     if sector_summaries:
         print(f"Wrote {args.out / 'sector_summary.csv'}")
-    if lap_sector_rows:
+    if (args.out / "lap_times_sector_splits.html").exists():
         print(f"Wrote {args.out / 'lap_times_sector_splits.html'}")
         print(f"Wrote {args.out / 'lap_sector_splits.csv'}")
         print(f"Wrote {args.out / 'theoretical_best_by_driver.csv'}")
         print(f"Wrote {args.out / 'overall_best_sectors.csv'}")
+    if gg_prediction:
+        print(
+            f"Car G-G mathematical best: {gg_prediction['summary']['predicted_lap_time_s']:.3f} s "
+            f"on {gg_prediction['summary']['reference_name']}"
+        )
+        print(f"Wrote {args.out / 'car_gg_lap_prediction.csv'}")
+        print(f"Wrote {args.out / 'car_gg_envelope.csv'}")
+        print(f"Wrote {args.out / 'car_gg_lap_trace.csv'}")
     print(f"Wrote {args.out / 'overlay.html'}")
     print(f"Wrote {args.out / 'report.html'}")
 

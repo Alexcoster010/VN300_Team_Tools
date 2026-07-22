@@ -480,6 +480,18 @@ When timed laps/runs are found, the analyzer also writes a lap-time/sector repor
 
 The HTML report lists every lap/run time with driver name, sector splits, each driver's theoretical best, and the overall theoretical best. The fastest sector in each sector column is highlighted purple. Segments shorter than `20 s` are skipped from this report by default to keep false timing splits out; change that with `--sector-report-min-seconds`.
 
+For valid lap-mode data, the analyzer also calculates a same-line mathematical best from the measured car G-G diagram. It builds a 10-degree, 98th-percentile envelope for each driver, selects the strongest driver in each direction for the combined car envelope, and applies that boundary continuously around the fastest valid lap's recorded line. The lap report shows this result beside the observed sector composite and writes:
+
+```text
+<output-folder>\car_gg_lap_prediction.csv
+<output-folder>\car_gg_envelope.csv
+<output-folder>\car_gg_driver_envelopes.csv
+<output-folder>\car_gg_propulsion_envelope.csv
+<output-folder>\car_gg_lap_trace.csv
+```
+
+The car G-G result is a mathematical lower bound, not an achievable-lap forecast. It stitches short percentile peaks from different laps and drivers and assumes both the G-G and propulsion peaks can be repeated continuously. Timing splits shorter than the sector-report minimum, laps with insufficient usable telemetry, and laps outside the densest speed-integrated course-distance cluster are excluded. Use `--no-gg-lap-prediction` to disable it. The main controls are `--gg-envelope-percentile`, `--gg-angle-bin-deg`, `--gg-min-bin-points`, `--gg-speed-max-mph`, and `--gg-predictor-max-speed-mph`.
+
 ### Corrected G-G diagrams
 
 Use the G-G analyzer for per-driver lateral-vs-longitudinal acceleration plots:
@@ -500,6 +512,54 @@ That writes:
 ```
 
 The G-G diagram uses lateral G on the X axis and longitudinal G on the Y axis. It filters samples with GPS position uncertainty above `4.0 m`, filters obvious acceleration spikes, keeps an equal G scale on both axes, and draws a directional percentile envelope instead of a simple traction circle.
+
+### LC0 theoretical friction ellipse
+
+Compare the recorded driver envelopes to a fixed Hoosier 18x6-10 LC0 tire ceiling with:
+
+```powershell
+py -3 "<team-tools-folder>\analysis\lc0_theoretical_gg.py" `
+  "<gg-output-folder>\gg_envelope_by_driver.csv" `
+  --tir "<tire-model-folder>\fitted_tire\Hoosier_18x6-10_LC0_fitted.tir" `
+  --out "<output-folder>\lc0_theoretical_gg"
+```
+
+The command uses the TTC Round 6 B1654 data for the 18-inch outer diameter, 6-inch width, 10-inch wheel LC0 tire. The run schedule identifies the test roadway as a 120-grit 3Mite abrasive flat belt, stoned once. The command reads the pure-slip peak factors from the fitted MF6.1 file and applies a combined-slip friction ellipse. The report compares every driver and the best recorded car envelope to the same theoretical boundary. Use `--track-grip-scale` only when a defensible TTC-belt-to-track correlation factor is available.
+
+This is a tire-limited reference, not a complete vehicle limit. It does not model load transfer, downforce, temperature, power, gearing, differential behavior, brake balance, transient response, or track-surface loss.
+
+Compare matched-condition LC0 and R20 friction ellipses with:
+
+```powershell
+py -3 "<team-tools-folder>\analysis\tire_ellipse_comparison.py" `
+  --lc0-tir "<tire-model-folder>\fitted_tire\Hoosier_18x6-10_LC0_fitted.tir" `
+  --r20-tir "<tire-model-folder>\fitted_tire\Hoosier_18x6-10_R20_fitted.tir" `
+  --out "<output-folder>\lc0_vs_r20"
+```
+
+The default comparison uses the same `750 N` per-tire normal load, `12 psi` pressure, zero camber, and basic ellipse exponent for both tires. Pass the car's measured static or representative dynamic tire load with `--normal-load-n` when available.
+
+### LC0 same-line minimum lap
+
+Predict a quasi-steady-state minimum lap on a recorded line with:
+
+```powershell
+py -3 "<team-tools-folder>\analysis\lc0_minimum_lap.py" `
+  --reference-csv "<VN300_BINARY.csv>" `
+  --reference-start-row 40500 `
+  --reference-samples 3296 `
+  --reference-duration-s 33.391514 `
+  --reference-driver "Alex C" `
+  --reference-lap 3 `
+  --lap-summary "<analysis-folder>\lap_sector_splits.csv" `
+  --propulsion-root "<vn300-logs-folder>" `
+  --tir "<tire-model-folder>\fitted_tire\Hoosier_18x6-10_LC0_fitted.tir" `
+  --out "<output-folder>\lc0_minimum_lap"
+```
+
+The solver integrates the reference distance from measured speed, derives course curvature from smoothed yaw rate divided by speed, fits a power-limited acceleration cap from straight-line VN-300 data, and performs cyclic forward/backward speed passes. It writes an HTML report, surface-sensitivity summary, full theoretical traces, propulsion fit, recorded-lap validity audit, model JSON, and PNG preview.
+
+The report uses the best observed sector composite as its primary clean-run target. The friction-ellipse results are same-line mathematical lower bounds, not achievable-lap predictions: they do not optimize the racing line between cones and do not include individual-tire load transfer, aero, tire temperature, transient response, differential behavior, or changing surface conditions. Treat the grip-scale range as sensitivity analysis until the dusty-asphalt correlation is measured.
 
 If the dashboard metadata has the wrong driver names, pass the correct driver order. For example, if the first sorted file is a test run and the seven real runs follow it:
 

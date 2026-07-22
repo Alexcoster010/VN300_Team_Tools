@@ -371,8 +371,8 @@ def run_analysis(args: argparse.Namespace):
         envelope_peak = max((point[3] for point in envelope), default=0.0)
         max_accel = max((point[1] for point in points), default=0.0)
         max_brake = min((point[1] for point in points), default=0.0)
-        max_left = min((point[0] for point in points), default=0.0)
-        max_right = max((point[0] for point in points), default=0.0)
+        max_left = max((point[0] for point in points), default=0.0)
+        max_right = min((point[0] for point in points), default=0.0)
         excluded = excluded_by_driver[driver]
 
         points_csv = args.out / f"{driver.lower().replace(' ', '_')}_gg_points.csv"
