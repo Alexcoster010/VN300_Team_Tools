@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VN300 Team Tools</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">V3</div>
+        <div><strong>VN300</strong><span>TEAM TOOLS</span></div>
+      </div>
+      <nav aria-label="Workspace">
+        <button class="nav-button active" data-view="analysis" title="Data analysis">
+          <span class="nav-icon" aria-hidden="true">DA</span><span>Data analysis</span>
+        </button>
+        <button class="nav-button" data-view="dashboard" title="Pi dashboard">
+          <span class="nav-icon" aria-hidden="true">PI</span><span>Pi dashboard</span>
+        </button>
+        <button class="nav-button" data-view="results" title="Analysis results">
+          <span class="nav-icon" aria-hidden="true">R</span><span>Results</span>
+        </button>
+      </nav>
+      <div class="sidebar-status">
+        <span id="sidebarPiDot" class="status-dot neutral"></span>
+        <span id="sidebarPiText">Pi not checked</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="viewEyebrow">OFFLINE WORKSPACE</p>
+          <h1 id="viewTitle">Data analysis</h1>
+        </div>
+        <div id="jobBadge" class="job-badge idle"><span class="status-dot"></span><span>No active analysis</span></div>
+      </header>
+
+      <section id="analysisView" class="view active">
+        <form id="analysisForm" class="analysis-layout">
+          <div class="form-workspace">
+            <div class="section-heading">
+              <div><span class="section-index">01</span><h2>Data source</h2></div>
+              <span class="field-note">VN300 boot folder or CSV folder</span>
+            </div>
+            <div class="path-grid">
+              <label class="field path-field">
+                <span>Telemetry data</span>
+                <div class="input-action">
+                  <input id="inputPath" name="input_path" type="text" autocomplete="off" placeholder="Select a data folder" required>
+                  <button class="secondary-button" type="button" data-browse="inputPath">Browse</button>
+                </div>
+              </label>
+              <label class="field path-field">
+                <span>Output location</span>
+                <div class="input-action">
+                  <input id="outputRoot" name="output_root" type="text" autocomplete="off" placeholder="Select an output folder" required>
+                  <button class="secondary-button" type="button" data-browse="outputRoot">Browse</button>
+                </div>
+              </label>
+            </div>
+
+            <div class="section-heading divided">
+              <div><span class="section-index">02</span><h2>Analysis setup</h2></div>
+            </div>
+            <div class="field-grid three-up">
+              <fieldset class="field mode-field">
+                <legend>Timing mode</legend>
+                <div class="segmented" role="radiogroup" aria-label="Timing mode">
+                  <label><input type="radio" name="mode" value="auto" checked><span>Auto</span></label>
+                  <label><input type="radio" name="mode" value="lap"><span>Lap</span></label>
+                  <label><input type="radio" name="mode" value="autocross"><span>Autocross</span></label>
+                </div>
+              </fieldset>
+              <label class="field compact-field"><span>Automatic sectors</span><input id="autoSectors" name="auto_sectors" type="number" min="0" max="20" step="1" value="3"></label>
+              <label class="field compact-field"><span>Minimum timed segment</span><div class="unit-input"><input id="sectorMinimum" name="sector_report_min_seconds" type="number" min="0" max="3600" step="0.1" value="20"><span>s</span></div></label>
+            </div>
+
+            <div class="toggle-row">
+              <label class="toggle-control">
+                <input id="ggEnabled" name="gg_enabled" type="checkbox" checked>
+                <span class="switch" aria-hidden="true"></span>
+                <span><strong>Measured G-G lap prediction</strong><small>Car envelope mathematical best</small></span>
+              </label>
+              <label class="toggle-control">
+                <input id="includeAscii" name="include_ascii" type="checkbox">
+                <span class="switch" aria-hidden="true"></span>
+                <span><strong>Include matching ASCII logs</strong><small>Binary remains preferred by default</small></span>
+              </label>
+            </div>
+
+            <details class="advanced">
+              <summary>Driver mapping</summary>
+              <div class="advanced-grid">
+                <label class="field"><span>Sorted driver order</span><input id="driverOrder" name="driver_order" type="text" placeholder="Jimmy, Mercer, Caleb, Alex C"></label>
+                <label class="field"><span>Files to skip</span><input id="driverOffset" name="driver_order_offset" type="number" min="0" max="10000" step="1" value="0"></label>
+              </div>
+            </details>
+          </div>
+
+          <aside class="run-panel">
+            <div class="run-panel-header">
+              <p class="eyebrow">ANALYZER</p>
+              <h2>Run status</h2>
+            </div>
+            <div id="runEmpty" class="empty-run">
+              <span class="empty-glyph" aria-hidden="true">G-G</span>
+              <strong>Ready</strong>
+              <span>Waiting for telemetry data</span>
+            </div>
+            <div id="runActive" class="run-active hidden">
+              <div class="run-state"><span id="runDot" class="status-dot"></span><strong id="runStatus">Queued</strong><time id="runTime"></time></div>
+              <div class="run-path"><span>INPUT</span><strong id="runInput"></strong></div>
+              <pre id="runLog" tabindex="0"></pre>
+              <div id="quickResults" class="quick-results"></div>
+            </div>
+            <div id="formError" class="form-error hidden" role="alert"></div>
+            <div class="run-actions">
+              <button id="cancelRun" class="danger-button hidden" type="button">Cancel</button>
+              <button id="startRun" class="primary-button" type="submit">Run analysis</button>
+            </div>
+          </aside>
+        </form>
+      </section>
+
+      <section id="dashboardView" class="view dashboard-view">
+        <div class="dashboard-toolbar">
+          <label class="field dashboard-url"><span>Pi dashboard address</span><input id="piUrl" type="url" spellcheck="false"></label>
+          <div class="dashboard-actions">
+            <button id="checkPi" class="secondary-button" type="button">Check</button>
+            <button id="reloadPi" class="secondary-button" type="button">Reload</button>
+            <button id="openPi" class="primary-button" type="button">Open tab</button>
+          </div>
+          <div id="piConnection" class="connection-state neutral"><span class="status-dot"></span><span>Not checked</span></div>
+        </div>
+        <div class="iframe-shell">
+          <iframe id="piFrame" title="Raspberry Pi VN300 live dashboard"></iframe>
+          <div id="piFrameEmpty" class="frame-empty"><span class="frame-monogram">PI</span><strong>Dashboard not loaded</strong><span>Enter the Pi address and check the connection.</span></div>
+        </div>
+      </section>
+
+      <section id="resultsView" class="view results-view">
+        <div class="results-browser">
+          <div class="results-list-pane">
+            <div class="section-heading"><div><span class="section-index">20</span><h2>Recent runs</h2></div></div>
+            <div id="historyList" class="history-list"></div>
+          </div>
+          <div class="result-detail">
+            <div id="resultToolbar" class="result-toolbar hidden">
+              <div><strong id="resultTitle">Analysis report</strong><span id="resultMeta"></span></div>
+              <div>
+                <button id="openOutput" class="secondary-button" type="button">Open folder</button>
+                <button id="openResultTab" class="primary-button" type="button">Open tab</button>
+              </div>
+            </div>
+            <div id="resultFiles" class="result-files hidden" aria-label="Result files"></div>
+            <div class="iframe-shell result-frame-shell">
+              <iframe id="resultFrame" title="Generated VN300 analysis report"></iframe>
+              <div id="resultEmpty" class="frame-empty"><span class="frame-monogram">R</span><strong>No result selected</strong><span>Completed analyses appear in the run list.</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

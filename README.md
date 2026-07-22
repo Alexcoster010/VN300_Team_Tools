@@ -23,6 +23,11 @@ For change tracking, use `VERSION_HISTORY.md`.
 - `pi/vn300-shutdown-sudoers`: allows the service user to shut down the Pi from the power button.
 - `pi/requirements-pi.txt`: Python packages needed on the Pi.
 - `pi/motec_can_signal_map.csv`: Pi-side CAN signal map used by optional Phase 2 CAN logging.
+- `Start_VN300_Team_Tools.bat`: Windows launcher for the native analysis and Pi dashboard app.
+- `DESKTOP_APP_INSTALL.md`: teammate install, GitHub download, and automatic-update instructions.
+- `APP_VERSION`: desktop application version checked by the updater.
+- `app/vn300_desktop_app.py`: native Windows interface for running analysis, viewing result tables, and monitoring the Pi.
+- `app/vn300_team_app.py`: optional localhost web interface retained as an alternative.
 - `analysis/vn300_lap_analysis.py`: offline analysis, lap splitting, and overlay HTML generation from `*_BINARY.csv` or `*_VNINS.csv`.
 - `analysis/vn300_gg_analysis.py`: corrected per-driver G-G diagrams with data-quality filtering and directional grip envelopes.
 - `analysis_output/`, `folder_import_output/`, `lap_smoke_output/`: example generated outputs.
@@ -52,6 +57,26 @@ Generic placeholders used below:
 - `<pi-user>`: Pi login username, usually `vectornav`.
 - `<pi-host>`: Pi hostname or IP address, for example `raspberrypi.local` or `192.168.1.25`.
 - `<flash-drive-log-folder>`: copied Pi log folder, usually a `VN300_BOOT_YYYY-MM-DD_HH-MM-SS` folder.
+
+## Unified App
+
+On Windows, double-click `Start_VN300_Team_Tools.bat`. This opens the native desktop application with three workspaces:
+
+- **Data analysis**: select a VN300 boot/data folder, set timing and sector options, and run the existing offline analyzer with the measured car G-G lap prediction.
+- **Pi dashboard**: view live speed, G values, timing, GPS trace, lap history, log health, and Pi status without a browser.
+- **Results**: preview generated CSV outputs natively and open any generated report or output folder. Desktop-app output is placed in timestamped folders under `analysis_output/desktop_runs/` by default.
+
+The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\VN300TeamTools\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Use **Change address** in the Pi dashboard when the Pi address changes.
+
+To start the native app from PowerShell:
+
+```powershell
+py -3 -B .\app\vn300_desktop_app.py
+```
+
+The optional localhost web interface can still be started with `py -3 .\app\vn300_team_app.py`.
+
+The desktop app checks the GitHub `desktop-app` branch for a newer `APP_VERSION`. Use the header update button to install an available version. Git clones update with a clean fast-forward; Download ZIP installations download and validate a new branch archive. See `DESKTOP_APP_INSTALL.md` for the team workflow.
 
 ## Button Wiring
 

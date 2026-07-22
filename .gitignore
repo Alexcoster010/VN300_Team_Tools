@@ -5,3 +5,5 @@ __pycache__/
 Thumbs.db
 *.tmp
 *.log
+analysis_output/app_runs/
+analysis_output/desktop_runs/
