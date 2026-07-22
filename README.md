@@ -1,12 +1,50 @@
 # VN300 Team Tools
 
-This folder is a transfer-ready package for Raspberry Pi logging, live dashboard viewing, and laptop/offline VN-300 data analysis.
+VN300 Team Tools combines Raspberry Pi telemetry logging, live dashboard monitoring, offline lap analysis, G-G diagrams, and measured car-envelope lap prediction for the SRT26 program.
 
-For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
+## Download And Install
 
-For Pi software updates and post-update checks, use `INSTALLER_UPDATE_CHECKLIST.md`.
+### Windows Desktop App - v0.6.0
 
-For change tracking, use `VERSION_HISTORY.md`.
+[**Download VN300 Team Tools Setup**](https://github.com/Alexcoster010/VN300_Team_Tools/releases/download/desktop-v0.6.0/VN300-Team-Tools-Setup-0.6.0.exe)
+
+The installer bundles Python and the analyzer, so team laptops do not need Python or Git. After installation, open **VN300 Team Tools** through Windows Search or the Start Menu.
+
+The desktop app provides:
+
+- offline VN300 data analysis and generated report previews
+- measured car G-G envelope and ideal-lap prediction
+- live Pi telemetry, GPS trace, timing, lap history, and logger health
+- saved Pi IP/hostname with automatic reconnection on the same network
+- installer-based updates from GitHub Releases with SHA-256 verification
+
+The current release is not code-signed, so Windows SmartScreen may show an unrecognized-app warning. Confirm the download came from this repository, select **More info**, and then select **Run anyway**.
+
+[Release notes and checksum](https://github.com/Alexcoster010/VN300_Team_Tools/releases/tag/desktop-v0.6.0) | [Desktop installation guide](https://github.com/Alexcoster010/VN300_Team_Tools/blob/desktop-app/DESKTOP_APP_INSTALL.md)
+
+### Raspberry Pi Logger - v0.5.0
+
+[**Download Pi Logger ZIP**](https://github.com/Alexcoster010/VN300_Team_Tools/archive/refs/heads/pi-logger.zip)
+
+Extract the ZIP on the Raspberry Pi, open a terminal in the extracted folder, and run:
+
+```sh
+sh Install_VN300_Logger.sh
+```
+
+The installer handles fresh installations and updates. It installs dependencies, preserves the CAN map, creates a timestamped backup, restarts the systemd service, checks `/api/latest`, and restores the previous logger if the new version fails its health check.
+
+[Pi logger installation guide](https://github.com/Alexcoster010/VN300_Team_Tools/blob/pi-logger/PI_LOGGER_INSTALL.md)
+
+## Release Channels
+
+| Channel | Purpose |
+| --- | --- |
+| [`main`](https://github.com/Alexcoster010/VN300_Team_Tools/tree/main) | Shared source, analysis tools, and project documentation |
+| [`desktop-app`](https://github.com/Alexcoster010/VN300_Team_Tools/tree/desktop-app) | Windows desktop application and installer release source |
+| [`pi-logger`](https://github.com/Alexcoster010/VN300_Team_Tools/tree/pi-logger) | Versioned Raspberry Pi logger ZIP distribution |
+
+For the original beginner setup reference, see `ONE_PAGE_SETUP_GUIDE.md`. For change tracking, see `VERSION_HISTORY.md`.
 
 ## Folder Contents
 
@@ -89,51 +127,28 @@ git checkout v0.4.0
 
 Use that tag if the team needs the stable logger/dashboard before the Phase 2 CAN work is ready.
 
-## Copy Tools To The Pi
+## Install Or Update The Pi Logger
 
-From Windows PowerShell, after your laptop and Pi are on the same network:
-
-```powershell
-scp -r "<team-tools-folder>" <pi-user>@<pi-host>:/home/<pi-user>/
-```
-
-Examples:
-
-```powershell
-scp -r "C:\Path\To\VN300_Team_Tools" vectornav@raspberrypi.local:/home/vectornav/
-scp -r "C:\Path\To\VN300_Team_Tools" vectornav@192.168.1.25:/home/vectornav/
-```
-
-Then SSH into the Pi:
-
-```powershell
-ssh <pi-user>@<pi-host>
-```
-
-Install on the Pi:
+Use the current public [`pi-logger` ZIP](https://github.com/Alexcoster010/VN300_Team_Tools/archive/refs/heads/pi-logger.zip), not an old copy of the `main` branch. After extracting it on the Pi, run from the extracted root folder:
 
 ```sh
-cd /home/<pi-user>/VN300_Team_Tools/pi
-chmod +x install_on_pi.sh
-./install_on_pi.sh
+sh Install_VN300_Logger.sh
 ```
 
-With the default user, that is:
+To validate the package without changing the installed service:
 
 ```sh
-cd /home/vectornav/VN300_Team_Tools/pi
-chmod +x install_on_pi.sh
-./install_on_pi.sh
+sh Install_VN300_Logger.sh --check
 ```
 
-The installer adds the default service user to the `dialout` and `gpio` groups so the service can access `/dev/ttyUSB0` and the GPIO pins. If serial or GPIO permissions still fail, reboot the Pi once after running the installer.
+The installer adds the default service user to the `dialout`, `gpio`, and `netdev` groups. If hardware permissions still fail after the first installation, reboot the Pi once.
 
 The installer disables older auto-start logger services if they exist:
 
 - `vn300-logger.service`
 - `vn300-dual-logger.service`
 
-Then it enables and starts:
+It then enables and starts:
 
 - `vn300-button-logger.service`
 
