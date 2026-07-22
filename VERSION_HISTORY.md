@@ -35,8 +35,8 @@ Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboa
 - Added the console-free `Start_VN300_Team_Tools.bat` launcher.
 - Added the versioned `desktop-app` GitHub update channel.
 - Added automatic and manual update checks using `APP_VERSION`.
-- Clean Git clones update with a fast-forward from `origin/desktop-app`.
-- Download ZIP installations validate and apply the latest branch archive without requiring Git.
+- Authenticated Git clones update with a fast-forward from `origin/desktop-app`, including private-repository access through Git Credential Manager.
+- Public-repository Download ZIP installations can validate and apply the latest branch archive without requiring Git.
 - Added detached update application, automatic restart, update status reporting, and backups for replaced ZIP-install files.
 - Added `DESKTOP_APP_INSTALL.md` for teammate installation and future updates.
 

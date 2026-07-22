@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.request
 import uuid
 import zipfile
@@ -57,10 +58,40 @@ def read_current_version(repo_root: Path) -> str:
         return "0.0.0"
 
 
-def fetch_remote_version(url: str = RAW_VERSION_URL, timeout: float = 5.0) -> str:
+def _git_flags() -> int:
+    return subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+
+
+def fetch_remote_version(repo_root: Path | None = None, url: str = RAW_VERSION_URL, timeout: float = 5.0) -> str:
+    if repo_root is not None and has_git_checkout(repo_root):
+        subprocess.run(
+            ["git", "fetch", "--quiet", "origin", UPDATE_BRANCH],
+            cwd=repo_root,
+            check=True,
+            timeout=max(timeout, 15.0),
+            creationflags=_git_flags(),
+        )
+        version = subprocess.run(
+            ["git", "show", "FETCH_HEAD:APP_VERSION"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=max(timeout, 15.0),
+            creationflags=_git_flags(),
+        ).stdout.strip()
+        parse_version(version)
+        return version
     request = urllib.request.Request(url, headers={"User-Agent": "VN300DesktopUpdater/0.5"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        body = response.read(128)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            body = response.read(128)
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403, 404):
+            raise RuntimeError(
+                "The GitHub update channel requires authentication. Install the private repository with Git to enable in-app updates."
+            ) from exc
+        raise
     version = body.decode("utf-8").strip()
     parse_version(version)
     return version

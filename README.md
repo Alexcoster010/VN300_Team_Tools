@@ -76,7 +76,7 @@ py -3 -B .\app\vn300_desktop_app.py
 
 The optional localhost web interface can still be started with `py -3 .\app\vn300_team_app.py`.
 
-The desktop app checks the GitHub `desktop-app` branch for a newer `APP_VERSION`. Use the header update button to install an available version. Git clones update with a clean fast-forward; Download ZIP installations download and validate a new branch archive. See `DESKTOP_APP_INSTALL.md` for the team workflow.
+The desktop app checks the GitHub `desktop-app` branch for a newer `APP_VERSION`. Use the header update button to install an available version. Because the team repository is private, use an authenticated Git clone for automatic checks and clean fast-forward updates. See `DESKTOP_APP_INSTALL.md` for the team workflow.
 
 ## Button Wiring
 

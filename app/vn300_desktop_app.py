@@ -1032,7 +1032,7 @@ class VN300DesktopApp(tk.Tk):
 
     def _check_update_worker(self, manual: bool) -> None:
         try:
-            remote = fetch_remote_version()
+            remote = fetch_remote_version(REPO_ROOT)
             self.events.put(("update_check", remote, manual))
         except Exception as exc:
             self.events.put(("update_error", str(exc), manual))

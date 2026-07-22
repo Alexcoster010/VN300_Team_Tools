@@ -13,7 +13,18 @@ https://github.com/Alexcoster010/VN300_Team_Tools/tree/desktop-app
 - Wi-Fi or another network connection to the Raspberry Pi for live telemetry
 - Internet access when checking for software updates
 
-## Install From GitHub ZIP
+## Recommended Install With Git
+
+This repository is private. Use an authenticated Git clone for automatic updates:
+
+```powershell
+git clone --branch desktop-app --single-branch `
+  https://github.com/Alexcoster010/VN300_Team_Tools.git
+```
+
+Git will use Git Credential Manager to sign in to a GitHub account that has access to the team repository. Then run `Start_VN300_Team_Tools.bat` inside the cloned folder.
+
+## Download From GitHub ZIP
 
 1. Open the `desktop-app` branch link above.
 2. Select **Code**, then **Download ZIP**.
@@ -29,14 +40,7 @@ Direct branch ZIP:
 https://github.com/Alexcoster010/VN300_Team_Tools/archive/refs/heads/desktop-app.zip
 ```
 
-## Install With Git
-
-```powershell
-git clone --branch desktop-app --single-branch `
-  https://github.com/Alexcoster010/VN300_Team_Tools.git
-```
-
-Then run `Start_VN300_Team_Tools.bat` inside the cloned folder.
+Because the GitHub repository is private, a ZIP installation cannot silently authenticate for later downloads. Use the authenticated Git installation above when automatic in-app updates are required. ZIP users can still download and extract future versions manually while signed in on github.com.
 
 ## Install Future Updates
 
@@ -44,10 +48,10 @@ The app checks `APP_VERSION` on the GitHub `desktop-app` branch at startup. The 
 
 When an update is accepted:
 
-- A clean Git checkout fast-forwards from `origin/desktop-app`.
-- A Download ZIP installation downloads and validates the latest `desktop-app` branch archive.
+- A clean authenticated Git checkout checks and fast-forwards from `origin/desktop-app`.
+- A public-repository Download ZIP installation can download and validate the latest branch archive without Git.
 - The app closes, applies the update, restarts, and reports whether the update succeeded.
-- ZIP-install files that will be replaced are backed up under `%LOCALAPPDATA%\VN300TeamTools\update_backups`.
+- Archive-install files that will be replaced are backed up under `%LOCALAPPDATA%\VN300TeamTools\update_backups`.
 - Settings, saved Pi address, and recent-run history remain under `%LOCALAPPDATA%\VN300TeamTools` and are not replaced.
 
 A Git update stops if tracked files have local modifications. Commit, stash, or discard those edits before trying again.
