@@ -109,24 +109,6 @@ Power button behavior:
 
 - Hold about 2 seconds: stop logging, flush files, and shut down the Pi.
 
-## Stable v0.4.0 Install From GitHub
-
-The last VN300-only version before Phase 2 work is tagged:
-
-```text
-v0.4.0
-```
-
-On a Pi or laptop with Git installed, that exact version can be checked out with:
-
-```sh
-git clone https://github.com/Alexcoster010/VN300_Team_Tools.git
-cd VN300_Team_Tools
-git checkout v0.4.0
-```
-
-Use that tag if the team needs the stable logger/dashboard before the Phase 2 CAN work is ready.
-
 ## Copy Tools To The Pi
 
 From Windows PowerShell, after your laptop and Pi are on the same network:
