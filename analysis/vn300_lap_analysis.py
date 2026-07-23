@@ -21,6 +21,7 @@ import html
 import json
 import math
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from vn300_gg_lap_predictor import (
@@ -36,6 +37,10 @@ G_MPS2 = 9.80665
 ACTIVE_SPEED_MPH = 5.0
 LAT_G_THRESHOLD = 0.8
 BRAKE_G_THRESHOLD = 0.5
+MAX_PLAUSIBLE_SPEED_MPH = 120.0
+MAX_PLAUSIBLE_G = 5.0
+MAX_PLAUSIBLE_POS_UNCERTAINTY_M = 10000.0
+MAX_PLAUSIBLE_YAW_RATE_DPS = 720.0
 
 
 @dataclass
@@ -79,6 +84,12 @@ def first_existing_float(row: dict, names: list[str]):
         if value is not None:
             return value
     return None
+
+
+def plausible_g(value: float | None) -> float | None:
+    if value is None or not math.isfinite(value) or abs(value) > MAX_PLAUSIBLE_G:
+        return None
+    return value
 
 
 def sample_step(items: list, max_points: int = 1600) -> int:
@@ -138,6 +149,21 @@ def load_vnins(path: Path) -> list[Sample]:
             ve = parse_float(row, "Vel_E_mps")
             vd = parse_float(row, "Vel_D_mps")
             speed_mps = math.sqrt(vn * vn + ve * ve + vd * vd)
+            sample_time = parse_float(row, "Pi_Elapsed_Time_s")
+            latitude = parse_float(row, "Latitude_deg")
+            longitude = parse_float(row, "Longitude_deg")
+            position_uncertainty = parse_float(row, "PosUncertainty_m")
+            core_values = (sample_time, latitude, longitude, speed_mps, position_uncertainty)
+            if not all(math.isfinite(value) for value in core_values):
+                continue
+            if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0):
+                continue
+            if latitude == 0.0 and longitude == 0.0:
+                continue
+            if speed_mps * 2.2369362921 > MAX_PLAUSIBLE_SPEED_MPH:
+                continue
+            if not (0.0 <= position_uncertainty <= MAX_PLAUSIBLE_POS_UNCERTAINTY_M):
+                continue
             longitudinal_g = first_existing_float(row, [
                 "Longitudinal_G",
                 "Common_Accel_X_g",
@@ -174,19 +200,26 @@ def load_vnins(path: Path) -> list[Sample]:
                     "Common_Imu_Accel_Z_mps2",
                 ])
                 vertical_g = None if accel is None else accel / G_MPS2
+            longitudinal_g = plausible_g(longitudinal_g)
+            lateral_g = plausible_g(lateral_g)
+            vertical_g = plausible_g(vertical_g)
+            yaw_deg = parse_float(row, "Yaw_deg")
+            if not math.isfinite(yaw_deg):
+                yaw_deg = 0.0
+            yaw_deg = (yaw_deg + 180.0) % 360.0 - 180.0
             rows.append(Sample(
                 source=path.name,
                 row_index=i,
-                t=parse_float(row, "Pi_Elapsed_Time_s"),
-                lat=parse_float(row, "Latitude_deg"),
-                lon=parse_float(row, "Longitude_deg"),
+                t=sample_time,
+                lat=latitude,
+                lon=longitude,
                 alt_m=parse_float(row, "Altitude_m"),
-                yaw_deg=parse_float(row, "Yaw_deg"),
+                yaw_deg=yaw_deg,
                 pitch_deg=parse_float(row, "Pitch_deg"),
                 roll_deg=parse_float(row, "Roll_deg"),
                 speed_mps=speed_mps,
                 speed_mph=speed_mps * 2.2369362921,
-                pos_uncertainty_m=parse_float(row, "PosUncertainty_m"),
+                pos_uncertainty_m=position_uncertainty,
                 longitudinal_g=longitudinal_g,
                 lateral_g=lateral_g,
                 vertical_g=vertical_g,
@@ -212,6 +245,19 @@ def load_vnins(path: Path) -> list[Sample]:
             sample.t = gps_time + day_offset - base_time
             last_time = gps_time + day_offset
 
+    filtered_rows = [rows[0]]
+    for sample in rows[1:]:
+        previous = filtered_rows[-1]
+        step_distance = haversine_m(previous.lat, previous.lon, sample.lat, sample.lon)
+        dt = sample.t - previous.t
+        allowed_distance = max(
+            100.0,
+            max(previous.speed_mps, sample.speed_mps) * max(dt, 0.0) * 4.0 + 25.0,
+        )
+        if math.isfinite(step_distance) and step_distance <= allowed_distance:
+            filtered_rows.append(sample)
+    rows = filtered_rows
+
     origin_lat = rows[0].lat
     origin_lon = rows[0].lon
     rows[0].x_m, rows[0].y_m = project_xy(rows[0].lat, rows[0].lon, origin_lat, origin_lon)
@@ -223,8 +269,10 @@ def load_vnins(path: Path) -> list[Sample]:
             prev_yaw = math.radians(prev.yaw_deg)
             cur_yaw = unwrap_angle_rad(prev_yaw, math.radians(cur.yaw_deg))
             yaw_rate_rps = (cur_yaw - prev_yaw) / dt
-            cur.yaw_rate_dps = math.degrees(yaw_rate_rps)
-            cur.curvature_1pm = yaw_rate_rps / max(cur.speed_mps, 0.1)
+            yaw_rate_dps = math.degrees(yaw_rate_rps)
+            if abs(yaw_rate_dps) <= MAX_PLAUSIBLE_YAW_RATE_DPS:
+                cur.yaw_rate_dps = yaw_rate_dps
+                cur.curvature_1pm = yaw_rate_rps / max(cur.speed_mps, 0.1)
             if cur.longitudinal_g is None:
                 derived_long_g = (cur.speed_mps - prev.speed_mps) / dt / G_MPS2
                 cur.longitudinal_g = derived_long_g if abs(derived_long_g) <= 3.0 else None
@@ -1287,6 +1335,18 @@ def load_metadata(path: Path | None) -> tuple[dict[str, dict], list[str]]:
     return metadata, [f"meta_{name}" for name in fieldnames]
 
 
+def load_metadata_files(paths: list[Path]) -> tuple[dict[str, dict], list[str]]:
+    combined = {}
+    columns = []
+    for path in paths:
+        metadata, metadata_columns = load_metadata(path)
+        combined.update(metadata)
+        for column in metadata_columns:
+            if column not in columns:
+                columns.append(column)
+    return combined, columns
+
+
 def metadata_for_path(metadata: dict[str, dict], path: Path) -> dict:
     for key in metadata_keys_for_path(path):
         if key in metadata:
@@ -1389,17 +1449,25 @@ def latest_dashboard_config(paths: list[Path]):
             if candidate.exists():
                 config_paths.append(candidate)
 
-    config_paths = sorted(set(config_paths), key=lambda p: p.stat().st_mtime)
+    config_paths = sorted(set(config_paths))
     if not config_paths:
         return None
 
-    latest_row = None
-    latest_path = config_paths[-1]
-    with latest_path.open(newline="") as f:
-        for row in csv.DictReader(f):
-            latest_row = row
-    if not latest_row:
+    candidates = []
+    for config_path in config_paths:
+        with config_path.open(newline="") as f:
+            for row_index, row in enumerate(csv.DictReader(f)):
+                configured_at = str(row.get("Configured_At_Local") or "").strip()
+                try:
+                    recorded_timestamp = datetime.fromisoformat(
+                        configured_at.replace("Z", "+00:00")
+                    ).timestamp()
+                except ValueError:
+                    recorded_timestamp = config_path.stat().st_mtime
+                candidates.append((recorded_timestamp, row_index, config_path, row))
+    if not candidates:
         return None
+    _, _, latest_path, latest_row = max(candidates, key=lambda item: (item[0], item[1], str(item[2])))
 
     def line(prefix: str):
         lat1 = latest_row.get(f"{prefix}_Lat_1")
@@ -1408,7 +1476,19 @@ def latest_dashboard_config(paths: list[Path]):
         lon2 = latest_row.get(f"{prefix}_Lon_2")
         if "" in (lat1, lon1, lat2, lon2) or None in (lat1, lon1, lat2, lon2):
             return None
-        return (float(lat1), float(lon1), float(lat2), float(lon2))
+        try:
+            values = (float(lat1), float(lon1), float(lat2), float(lon2))
+        except (TypeError, ValueError):
+            return None
+        if not all(math.isfinite(value) for value in values):
+            return None
+        if not all(-90.0 <= value <= 90.0 for value in (values[0], values[2])):
+            return None
+        if not all(-180.0 <= value <= 180.0 for value in (values[1], values[3])):
+            return None
+        if values[:2] == values[2:]:
+            return None
+        return values
 
     return {
         "path": latest_path,
@@ -1420,7 +1500,7 @@ def latest_dashboard_config(paths: list[Path]):
     }
 
 
-def latest_run_metadata_path(paths: list[Path]):
+def run_metadata_paths(paths: list[Path]) -> list[Path]:
     metadata_paths = []
     for path in paths:
         if path.is_dir():
@@ -1431,7 +1511,11 @@ def latest_run_metadata_path(paths: list[Path]):
             candidate = path.parent / "VN300_run_metadata.csv"
             if candidate.exists():
                 metadata_paths.append(candidate)
-    metadata_paths = sorted(set(metadata_paths), key=lambda p: p.stat().st_mtime)
+    return sorted(set(metadata_paths), key=lambda path: str(path).lower())
+
+
+def latest_run_metadata_path(paths: list[Path]):
+    metadata_paths = run_metadata_paths(paths)
     return metadata_paths[-1] if metadata_paths else None
 
 
@@ -1494,9 +1578,9 @@ def main():
     csv_paths = expand_input_paths(args.csv_files, include_ascii=args.include_ascii)
     if not csv_paths:
         raise SystemExit("No *_VNINS.csv or *_BINARY.csv files found in the selected input path(s).")
-    metadata_path = args.metadata or latest_run_metadata_path(args.csv_files)
-    metadata, _metadata_columns = load_metadata(metadata_path)
-    if metadata_path:
+    metadata_paths = [args.metadata] if args.metadata else run_metadata_paths(args.csv_files)
+    metadata, _metadata_columns = load_metadata_files(metadata_paths)
+    for metadata_path in metadata_paths:
         print(f"Loaded metadata: {metadata_path}")
     driver_map = load_driver_map(args.driver_map)
     driver_order = [item.strip() for item in (args.driver_order or "").split(",") if item.strip()]

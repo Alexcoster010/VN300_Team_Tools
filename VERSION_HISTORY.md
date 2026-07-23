@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.7.0`
+`v0.7.1`
 
 Stable Pi install tag:
 
@@ -25,6 +25,16 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.7.1 - 2026-07-22
+
+### Multi-Boot Analysis Graph Fix
+
+- Fixed top-level `vn300_logs` analysis selecting an older timing configuration because backup file timestamps changed.
+- Timing configurations now use their recorded `Configured_At_Local` time and reject zero-length GPS lines.
+- Added telemetry sanitation before distance, lap-crossing, G-G, and graph calculations so corrupt decoder rows cannot flatten plot axes.
+- Merged run metadata from every selected boot folder so driver names remain attached to the correct sessions.
+- Added regression tests for copied timing files, invalid timing lines, corrupt telemetry samples, and multi-boot metadata.
 
 ## v0.7.0 - 2026-07-22
 
