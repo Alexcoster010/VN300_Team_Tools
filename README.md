@@ -2,6 +2,16 @@
 
 This folder is a transfer-ready package for Raspberry Pi logging, live dashboard viewing, and laptop/offline VN-300 data analysis.
 
+## Download The Windows App
+
+Team members should use the packaged installer rather than downloading the repository ZIP:
+
+[Download the latest VN300 Team Tools release](https://github.com/Alexcoster010/VN300_Team_Tools/releases/latest)
+
+Download `VN300-Team-Tools-Setup-X.Y.Z.exe`, run it, and launch **VN300 Team Tools** from Windows Search or the Start Menu. The installer includes Python, the analyzer, the native trackside dashboard, and the report viewer; no separate Python or Git installation is required. Windows may display an unsigned-app warning because the installer is not code-signed.
+
+The current desktop release is `v0.8.0`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
+
 For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
 
 For Pi software updates and post-update checks, use `INSTALLER_UPDATE_CHECKLIST.md`.
