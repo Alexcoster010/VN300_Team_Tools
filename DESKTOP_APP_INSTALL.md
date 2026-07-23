@@ -86,7 +86,8 @@ Developers can still clone the branch and run the source application with Python
 git clone --branch desktop-app --single-branch `
   https://github.com/Alexcoster010/VN300_Team_Tools.git
 cd VN300_Team_Tools
-py -3 -B .\app\vn300_desktop_app.py
+py -3 -m pip install PySide6
+py -3 -B .\app\vn300_qt_app.py
 ```
 
 Clean Git checkouts keep the existing fast-forward source update behavior. Extracted source ZIPs keep the validated branch-archive behavior.

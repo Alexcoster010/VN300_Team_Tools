@@ -33,6 +33,7 @@ REQUIRED_UPDATE_FILES = (
     "APP_VERSION",
     "Start_VN300_Team_Tools.bat",
     "app/vn300_desktop_app.py",
+    "app/vn300_qt_app.py",
     "app/vn300_update_helper.py",
 )
 

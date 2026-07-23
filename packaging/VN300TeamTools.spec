@@ -51,6 +51,6 @@ def executable(script, name, console):
     )
 
 
-desktop = executable(APP_DIR / "vn300_desktop_app.py", "VN300TeamTools", False)
+desktop = executable(APP_DIR / "vn300_qt_app.py", "VN300TeamTools", False)
 analyzer = executable(APP_DIR / "vn300_analyzer_entry.py", "VN300Analyzer", True)
 updater = executable(APP_DIR / "vn300_update_helper.py", "VN300UpdateHelper", False)

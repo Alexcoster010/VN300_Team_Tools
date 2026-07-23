@@ -26,7 +26,8 @@ For change tracking, use `VERSION_HISTORY.md`.
 - `Start_VN300_Team_Tools.bat`: Windows launcher for the native analysis and Pi dashboard app.
 - `DESKTOP_APP_INSTALL.md`: teammate install, GitHub download, and automatic-update instructions.
 - `APP_VERSION`: desktop application version checked by the updater.
-- `app/vn300_desktop_app.py`: native Windows interface for running analysis, viewing result tables, and monitoring the Pi.
+- `app/vn300_qt_app.py`: supported PySide6 Windows interface for trackside monitoring, analysis, and embedded reports.
+- `app/vn300_desktop_app.py`: legacy Tk interface and shared desktop backend helpers.
 - `app/vn300_team_app.py`: optional localhost web interface retained as an alternative.
 - `packaging/`: PyInstaller, Inno Setup, icon, and Windows installer build definitions.
 - `analysis/vn300_lap_analysis.py`: offline analysis, lap splitting, and overlay HTML generation from `*_BINARY.csv` or `*_VNINS.csv`.
@@ -63,16 +64,17 @@ Generic placeholders used below:
 
 Install the current Windows release, then open **VN300 Team Tools** from Windows Search or the Start Menu. Developers can also double-click `Start_VN300_Team_Tools.bat` in a source checkout. The app provides three workspaces:
 
+- **Live dashboard**: monitor speed, G values, timing, GPS and speed traces, completed laps, logger state, system health, and network latency in a dense trackside layout. The app checks the connected logger version and offers an SSH update when the Pi is behind.
 - **Data analysis**: select a VN300 boot/data folder, set timing and sector options, and run the existing offline analyzer with the measured car G-G lap prediction.
-- **Pi dashboard**: view live speed, G values, timing, GPS trace, lap history, log health, and Pi status without a browser. The app checks the connected logger version and offers an SSH update when the Pi is behind.
-- **Results**: preview generated CSV outputs natively and open any generated report or output folder. Installed-app output defaults to `Documents\VN300 Team Tools\Analysis`.
+- **Reports**: render generated HTML reports inside the desktop app, preview CSV outputs, and open any result or output folder. Installed-app output defaults to `Documents\VN300 Team Tools\Analysis`.
 
-The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\VN300TeamTools\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Use **Change address** in the Pi dashboard when the Pi address changes.
+The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\VN300TeamTools\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Edit **Pi address** on the live dashboard when the address changes.
 
 To start the native app from PowerShell:
 
 ```powershell
-py -3 -B .\app\vn300_desktop_app.py
+py -3 -m pip install PySide6
+py -3 -B .\app\vn300_qt_app.py
 ```
 
 The optional localhost web interface can still be started with `py -3 .\app\vn300_team_app.py`.

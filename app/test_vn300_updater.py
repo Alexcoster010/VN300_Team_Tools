@@ -14,6 +14,7 @@ def build_update_zip(path: Path, version: str = "0.6.0") -> None:
         "VN300_Team_Tools-desktop-app/APP_VERSION": f"{version}\n",
         "VN300_Team_Tools-desktop-app/Start_VN300_Team_Tools.bat": "@echo off\n",
         "VN300_Team_Tools-desktop-app/app/vn300_desktop_app.py": "print('desktop')\n",
+        "VN300_Team_Tools-desktop-app/app/vn300_qt_app.py": "print('qt desktop')\n",
         "VN300_Team_Tools-desktop-app/app/vn300_update_helper.py": "print('helper')\n",
     }
     with zipfile.ZipFile(path, "w") as bundle:
@@ -43,6 +44,7 @@ class UpdaterTests(unittest.TestCase):
             source = Path(staged["source_root"])
             self.assertEqual(staged["version"], "0.6.0")
             self.assertTrue((source / "app" / "vn300_desktop_app.py").is_file())
+            self.assertTrue((source / "app" / "vn300_qt_app.py").is_file())
 
     def test_archive_path_traversal_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

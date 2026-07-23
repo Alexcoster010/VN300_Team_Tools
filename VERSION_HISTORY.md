@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.7.1`
+`v0.8.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,17 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.8.0 - 2026-07-22
+
+### Trackside Desktop Interface
+
+- Rebuilt the Windows application in PySide6 with a professional, scalable desktop layout.
+- Added a trackside-focused live dashboard with dense telemetry metrics, lap timing, GPS and speed traces, lap history, logger status, system health, and connection latency.
+- Added a dedicated analysis workspace with validated controls, progress output, cancellation, and automatic report handoff.
+- Added an embedded report archive that renders HTML reports inside the app and previews CSV results.
+- Preserved saved Pi connections, one-password logger updates, app updates, analysis history, and existing Pi API compatibility.
+- Updated the source launcher and Windows installer build to ship the new Qt application.
 
 ## v0.7.1 - 2026-07-22
 

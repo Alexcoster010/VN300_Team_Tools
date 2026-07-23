@@ -32,6 +32,14 @@ class WindowsPackagingTests(unittest.TestCase):
         ):
             self.assertTrue((ROOT / relative).is_file(), relative)
 
+    def test_installer_build_uses_qt_desktop_shell(self):
+        spec = (ROOT / "packaging" / "VN300TeamTools.spec").read_text(encoding="utf-8")
+        requirements = (ROOT / "packaging" / "requirements-build.txt").read_text(encoding="utf-8")
+        launcher = (ROOT / "Start_VN300_Team_Tools.bat").read_text(encoding="utf-8")
+        self.assertIn('APP_DIR / "vn300_qt_app.py"', spec)
+        self.assertIn("PySide6", requirements)
+        self.assertIn(r"app\vn300_qt_app.py", launcher)
+
 
 if __name__ == "__main__":
     unittest.main()
