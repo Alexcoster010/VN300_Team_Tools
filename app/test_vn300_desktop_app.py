@@ -13,7 +13,12 @@ class SnapshotHandler(BaseHTTPRequestHandler):
         if self.path != "/api/latest":
             self.send_error(404)
             return
-        body = json.dumps({"status": "idle", "logging": False, "fields": {"Speed_mph": 12.5}}).encode("utf-8")
+        body = json.dumps({
+            "logger_version": "0.5.0",
+            "status": "idle",
+            "logging": False,
+            "fields": {"Speed_mph": 12.5},
+        }).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -41,10 +46,12 @@ class DesktopAppTests(unittest.TestCase):
             path = Path(directory) / "desktop_state.json"
             state = desktop.load_state(path)
             state["pi_endpoint"] = "http://10.0.0.7:8080/"
+            state["pi_ssh_user"] = "vectornav"
             state["analysis"]["auto_sectors"] = 4
             desktop.save_state(state, path)
             loaded = desktop.load_state(path)
             self.assertEqual(loaded["pi_endpoint"], "http://10.0.0.7:8080/")
+            self.assertEqual(loaded["pi_ssh_user"], "vectornav")
             self.assertEqual(loaded["analysis"]["auto_sectors"], 4)
 
     def test_fetch_pi_snapshot_reads_dashboard_api(self):
@@ -57,6 +64,7 @@ class DesktopAppTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
         self.assertEqual(payload["status"], "idle")
+        self.assertEqual(payload["logger_version"], "0.5.0")
         self.assertEqual(payload["fields"]["Speed_mph"], 12.5)
 
     def test_lap_time_format(self):

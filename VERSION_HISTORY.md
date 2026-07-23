@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.6.0`
+`v0.7.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,19 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.7.0 - 2026-07-22
+
+### Pi Logger Updates From The Desktop App
+
+- Added automatic Pi logger version checks after a successful dashboard connection.
+- Added an update prompt when `/api/latest` reports an older or unversioned logger.
+- Added a Pi dashboard control for manual logger update checks.
+- Added a visible Windows OpenSSH update terminal so passwords are never captured or stored by the app.
+- Reused the supported Pi ZIP installer with backups, CAN-map preservation, health validation, and rollback.
+- Added post-update API polling that verifies the installed logger version before reporting success.
+- Blocked logger installation while a logging session is active.
+- Added SSH command, version-check, input-validation, and launcher tests.
 
 ## v0.6.0 - 2026-07-21
 

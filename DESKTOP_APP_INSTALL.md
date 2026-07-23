@@ -63,6 +63,21 @@ When an installed-app update is accepted:
 - the new version restarts automatically and reports the result
 - saved settings and analysis output remain unchanged
 
+## Raspberry Pi Logger Updates
+
+Whenever the desktop app connects to the Pi, it compares the `logger_version` reported by `/api/latest` with the current public `pi-logger` version. If the Pi is behind, the app offers to update it.
+
+Accepting a Pi logger update opens a visible SSH terminal. Enter the Pi SSH password and sudo password when requested. The password is handled by Windows OpenSSH and is never read or stored by VN300 Team Tools.
+
+The remote update uses the same supported Pi installer, including dependency checks, timestamped backup, CAN-map preservation, service/API health checks, and rollback. The desktop app reconnects afterward and verifies the installed logger version.
+
+Requirements:
+
+- stop any active logging session before updating
+- enable SSH on the Raspberry Pi
+- keep the laptop, Pi, and internet-connected network available during the update
+- install Windows OpenSSH Client
+
 ## Developer Source Launch
 
 Developers can still clone the branch and run the source application with Python:
@@ -84,4 +99,4 @@ Clean Git checkouts keep the existing fast-forward source update behavior. Extra
 4. Run the app, analyzer, and packaging tests.
 5. Commit and push `desktop-app`.
 
-The GitHub workflow builds the three bundled executables, compiles the installer, generates its checksum, and publishes release tag `desktop-vX.Y.Z`. Team laptops will then offer the new installer.
+The GitHub workflow builds the three bundled executables, compiles the installer, generates its checksum, and publishes release tag `desktop-vX.Y.Z`. Team laptops will then offer the new installer. Pi logger releases remain independently versioned on the `pi-logger` branch.

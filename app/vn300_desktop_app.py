@@ -23,6 +23,12 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Any
 
 from vn300_team_app import build_analysis_command, result_files
+from vn300_pi_updater import (
+    fetch_latest_pi_logger_version,
+    launch_pi_logger_update,
+    logger_update_available,
+    validate_ssh_username,
+)
 from vn300_updater import (
     UPDATE_BRANCH,
     fetch_remote_version,
@@ -65,6 +71,7 @@ COLORS = {
 
 DEFAULT_STATE = {
     "pi_endpoint": "",
+    "pi_ssh_user": "vectornav",
     "analysis": {
         "input_path": "",
         "output_root": str(DEFAULT_OUTPUT_ROOT),
@@ -93,7 +100,7 @@ def load_state(path: Path = STATE_PATH) -> dict[str, Any]:
         state["analysis"].update(loaded["analysis"])
     if isinstance(loaded.get("history"), list):
         state["history"] = loaded["history"][:20]
-    for key in ("pi_endpoint", "geometry"):
+    for key in ("pi_endpoint", "pi_ssh_user", "geometry"):
         if isinstance(loaded.get(key), str):
             state[key] = loaded[key]
     return state
@@ -205,6 +212,13 @@ class VN300DesktopApp(tk.Tk):
         self.pi_poll_generation = 0
         self.pi_speed_history: list[float] = []
         self.pi_last_snapshot: dict[str, Any] = {}
+        self.pi_installed_logger_version = "unknown"
+        self.pi_logger_latest_version = ""
+        self.pi_logger_version_check_in_progress = False
+        self.pi_logger_update_in_progress = False
+        self.pi_logger_update_process: subprocess.Popen[Any] | None = None
+        self.pi_logger_prompted_versions: set[str] = set()
+        self.pi_logger_auto_check_key = ""
         self.update_check_in_progress = False
         self.update_available_version = ""
 
@@ -430,8 +444,16 @@ class VN300DesktopApp(tk.Tk):
         self.pi_address_entry.grid(row=0, column=1, sticky="ew", padx=(0, 8))
         ttk.Button(toolbar, text="Connect", style="Primary.TButton", command=self.connect_pi).grid(row=0, column=2, padx=(0, 7))
         ttk.Button(toolbar, text="Change address", style="Secondary.TButton", command=self.prompt_pi_address).grid(row=0, column=3, padx=(0, 12))
+        self.pi_logger_update_button = ttk.Button(
+            toolbar,
+            text="Check logger",
+            style="Secondary.TButton",
+            command=lambda: self.check_pi_logger_update(manual=True),
+            state="disabled",
+        )
+        self.pi_logger_update_button.grid(row=0, column=4, padx=(0, 7))
         self.pi_status_label = tk.Label(toolbar, text="Not connected", width=16, bg="#ffffff", fg=COLORS["muted"], relief="solid", bd=1, padx=9, pady=7, font=("Segoe UI", 8, "bold"))
-        self.pi_status_label.grid(row=0, column=4)
+        self.pi_status_label.grid(row=0, column=5)
 
         metrics = tk.Frame(view, bg=COLORS["soft"], padx=24)
         metrics.grid(row=1, column=0, sticky="ew")
@@ -441,7 +463,7 @@ class VN300DesktopApp(tk.Tk):
         for column, (key, label, unit) in enumerate((
             ("speed", "Speed", "mph"),
             ("lat_g", "Lateral", "g"),
-            ("long_g", "Longitudinal", "g"),
+            ("long_g", "Long accel", "g"),
             ("yaw", "Yaw", "deg"),
             ("current", "Current", ""),
             ("best", "Best", ""),
@@ -491,6 +513,8 @@ class VN300DesktopApp(tk.Tk):
         self.pi_session_label.pack(side="left", padx=15)
         self.pi_health_label = tk.Label(footer, text="Log: --", bg=COLORS["paper"], fg=COLORS["muted"], font=("Segoe UI", 8))
         self.pi_health_label.pack(side="left", padx=15)
+        self.pi_logger_label = tk.Label(footer, text="Logger: --", bg=COLORS["paper"], fg=COLORS["muted"], font=("Segoe UI", 8))
+        self.pi_logger_label.pack(side="left", padx=15)
         self.pi_cpu_label = tk.Label(footer, text="Pi CPU: --", bg=COLORS["paper"], fg=COLORS["muted"], font=("Segoe UI", 8))
         self.pi_cpu_label.pack(side="right", padx=15)
 
@@ -735,6 +759,7 @@ class VN300DesktopApp(tk.Tk):
         self.pi_address_var.set(endpoint)
         self.pi_pending_endpoint = endpoint
         self.pi_connected = False
+        self.pi_logger_auto_check_key = ""
         self.pi_poll_generation += 1
         self._set_pi_status("Connecting", "connecting")
         self._schedule_pi_poll(0, self.pi_poll_generation)
@@ -764,6 +789,7 @@ class VN300DesktopApp(tk.Tk):
         if generation != self.pi_poll_generation:
             self._schedule_pi_poll(0, self.pi_poll_generation)
             return
+        newly_connected = not self.pi_connected
         first_success = endpoint != self.pi_endpoint
         self.pi_connected = True
         self.pi_pending_endpoint = endpoint
@@ -773,6 +799,15 @@ class VN300DesktopApp(tk.Tk):
             self._save_state_safely()
         self._set_pi_status("Logging" if snapshot.get("logging") else "Online", "online")
         self._update_pi_dashboard(snapshot, latency)
+        self.pi_logger_update_button.configure(state="normal")
+        check_key = f"{endpoint}|{self.pi_installed_logger_version}"
+        if (
+            newly_connected
+            and not self.pi_logger_update_in_progress
+            and check_key != self.pi_logger_auto_check_key
+        ):
+            self.pi_logger_auto_check_key = check_key
+            self.after(250, lambda: self.check_pi_logger_update(manual=False))
         self._schedule_pi_poll(500, generation)
 
     def _handle_pi_error(self, generation: int, endpoint: str, error: str) -> None:
@@ -781,6 +816,8 @@ class VN300DesktopApp(tk.Tk):
             self._schedule_pi_poll(0, self.pi_poll_generation)
             return
         self.pi_connected = False
+        if not self.pi_logger_update_in_progress:
+            self.pi_logger_update_button.configure(state="disabled", text="Check logger", style="Secondary.TButton")
         self._set_pi_status("Offline", "offline")
         self.sidebar_pi_text.configure(text="Pi offline")
         self.pi_health_label.configure(text=f"Connection: {error[:90]}")
@@ -821,7 +858,123 @@ class VN300DesktopApp(tk.Tk):
         destination = snapshot.get("log_destination") or "--"
         free_mb = snapshot.get("free_space_mb")
         self.pi_health_label.configure(text=f"Log: {destination} / {health} / {format_number(free_mb, 0)} MB free")
+        self.pi_installed_logger_version = str(snapshot.get("logger_version") or "unknown")
+        self.pi_logger_label.configure(text=f"Logger: v{self.pi_installed_logger_version}" if self.pi_installed_logger_version != "unknown" else "Logger: unknown")
         self.pi_cpu_label.configure(text=f"Pi CPU: {format_number(snapshot.get('cpu_temp_c'), 1)} C")
+
+    def check_pi_logger_update(self, manual: bool = True) -> None:
+        if not self.pi_connected:
+            if manual:
+                messagebox.showwarning("Pi logger update", "Connect to the Raspberry Pi before checking its logger.", parent=self)
+            return
+        if self.pi_logger_version_check_in_progress or self.pi_logger_update_in_progress:
+            return
+        self.pi_logger_version_check_in_progress = True
+        self.pi_logger_update_button.configure(text="Checking logger...", state="disabled", style="Secondary.TButton")
+        threading.Thread(target=self._pi_logger_version_worker, args=(manual,), daemon=True).start()
+
+    def _pi_logger_version_worker(self, manual: bool) -> None:
+        try:
+            version = fetch_latest_pi_logger_version()
+            self.events.put(("pi_logger_version", version, manual))
+        except Exception as exc:
+            self.events.put(("pi_logger_version_error", str(exc), manual))
+
+    def _handle_pi_logger_version(self, available: str, manual: bool) -> None:
+        self.pi_logger_version_check_in_progress = False
+        self.pi_logger_latest_version = available
+        installed = self.pi_installed_logger_version
+        if logger_update_available(installed, available):
+            self.pi_logger_update_button.configure(text=f"Update logger v{available}", state="normal", style="Primary.TButton")
+            if not manual and available in self.pi_logger_prompted_versions:
+                return
+            self.pi_logger_prompted_versions.add(available)
+            if messagebox.askyesno(
+                "Pi logger update available",
+                f"Installed Pi logger: {installed}\nAvailable Pi logger: {available}\n\n"
+                "Update the Raspberry Pi now? Logging must be stopped. A secure SSH terminal will open for the Pi password.",
+                parent=self,
+            ):
+                self._start_pi_logger_update(available)
+            return
+        self.pi_logger_update_button.configure(text=f"Logger v{installed} current", state="normal", style="Secondary.TButton")
+        if manual:
+            messagebox.showinfo("Pi logger update", f"The Pi logger is current at v{installed}.", parent=self)
+
+    def _handle_pi_logger_version_error(self, error: str, manual: bool) -> None:
+        self.pi_logger_version_check_in_progress = False
+        self.pi_logger_update_button.configure(text="Check logger", state="normal", style="Secondary.TButton")
+        if manual:
+            messagebox.showerror("Pi logger update", f"Could not check the public Pi logger version:\n\n{error}", parent=self)
+
+    def _start_pi_logger_update(self, available: str) -> None:
+        if self.pi_last_snapshot.get("logging"):
+            messagebox.showwarning("Pi logger update", "Stop the active logging session before updating the Pi.", parent=self)
+            return
+        username = simpledialog.askstring(
+            "Pi SSH account",
+            "Raspberry Pi SSH username:",
+            initialvalue=str(self.state_data.get("pi_ssh_user") or "vectornav"),
+            parent=self,
+        )
+        if not username:
+            return
+        try:
+            username = validate_ssh_username(username)
+            process = launch_pi_logger_update(self.pi_endpoint, username, STATE_DIR, available)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Pi logger update", f"Could not start the SSH updater:\n\n{exc}", parent=self)
+            return
+        self.state_data["pi_ssh_user"] = username
+        self._save_state_safely()
+        self.pi_logger_update_in_progress = True
+        self.pi_logger_update_process = process
+        self.pi_logger_update_button.configure(text="Updating logger...", state="disabled", style="Primary.TButton")
+        threading.Thread(target=self._wait_for_pi_logger_update, args=(process, available), daemon=True).start()
+
+    def _wait_for_pi_logger_update(self, process: subprocess.Popen[Any], available: str) -> None:
+        exit_code = process.wait()
+        self.events.put(("pi_logger_update_finished", exit_code, available))
+
+    def _handle_pi_logger_update_finished(self, exit_code: int, available: str) -> None:
+        self.pi_logger_update_process = None
+        if exit_code != 0:
+            self.pi_logger_update_in_progress = False
+            self.pi_logger_update_button.configure(text=f"Update logger v{available}", state="normal", style="Primary.TButton")
+            messagebox.showerror("Pi logger update", "The SSH update did not complete. Review the update terminal output and try again.", parent=self)
+            return
+        self.pi_logger_update_button.configure(text="Verifying logger...", state="disabled", style="Primary.TButton")
+        threading.Thread(target=self._verify_pi_logger_update, args=(available,), daemon=True).start()
+
+    def _verify_pi_logger_update(self, available: str) -> None:
+        deadline = time.monotonic() + 60.0
+        observed = "unknown"
+        while time.monotonic() < deadline:
+            try:
+                snapshot = fetch_pi_snapshot(self.pi_endpoint, timeout=3.0)
+                observed = str(snapshot.get("logger_version") or "unknown")
+                if not logger_update_available(observed, available):
+                    self.events.put(("pi_logger_verify_finished", True, observed, available))
+                    return
+            except Exception:
+                pass
+            time.sleep(2.0)
+        self.events.put(("pi_logger_verify_finished", False, observed, available))
+
+    def _handle_pi_logger_verify_finished(self, ok: bool, observed: str, available: str) -> None:
+        self.pi_logger_update_in_progress = False
+        if ok:
+            self.pi_installed_logger_version = observed
+            self.pi_logger_label.configure(text=f"Logger: v{observed}")
+            self.pi_logger_update_button.configure(text=f"Logger v{observed} current", state="normal", style="Secondary.TButton")
+            messagebox.showinfo("Pi logger update", f"The Raspberry Pi logger was updated successfully to v{observed}.", parent=self)
+            return
+        self.pi_logger_update_button.configure(text=f"Check logger", state="normal", style="Secondary.TButton")
+        messagebox.showerror(
+            "Pi logger update",
+            f"The SSH installer finished, but the desktop app could not verify logger v{available}. Last reported version: {observed}.",
+            parent=self,
+        )
 
     def _draw_speed_trace(self) -> None:
         canvas = self.speed_canvas
@@ -1017,6 +1170,14 @@ class VN300DesktopApp(tk.Tk):
                     self._handle_pi_snapshot(int(event[1]), str(event[2]), event[3], float(event[4]))
                 elif event[0] == "pi_error":
                     self._handle_pi_error(int(event[1]), str(event[2]), str(event[3]))
+                elif event[0] == "pi_logger_version":
+                    self._handle_pi_logger_version(str(event[1]), bool(event[2]))
+                elif event[0] == "pi_logger_version_error":
+                    self._handle_pi_logger_version_error(str(event[1]), bool(event[2]))
+                elif event[0] == "pi_logger_update_finished":
+                    self._handle_pi_logger_update_finished(int(event[1]), str(event[2]))
+                elif event[0] == "pi_logger_verify_finished":
+                    self._handle_pi_logger_verify_finished(bool(event[1]), str(event[2]), str(event[3]))
                 elif event[0] == "update_check":
                     self._handle_update_check(str(event[1]), bool(event[2]))
                 elif event[0] == "update_error":

@@ -64,7 +64,7 @@ Generic placeholders used below:
 Install the current Windows release, then open **VN300 Team Tools** from Windows Search or the Start Menu. Developers can also double-click `Start_VN300_Team_Tools.bat` in a source checkout. The app provides three workspaces:
 
 - **Data analysis**: select a VN300 boot/data folder, set timing and sector options, and run the existing offline analyzer with the measured car G-G lap prediction.
-- **Pi dashboard**: view live speed, G values, timing, GPS trace, lap history, log health, and Pi status without a browser.
+- **Pi dashboard**: view live speed, G values, timing, GPS trace, lap history, log health, and Pi status without a browser. The app checks the connected logger version and offers an SSH update when the Pi is behind.
 - **Results**: preview generated CSV outputs natively and open any generated report or output folder. Installed-app output defaults to `Documents\VN300 Team Tools\Analysis`.
 
 The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\VN300TeamTools\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Use **Change address** in the Pi dashboard when the Pi address changes.
@@ -77,7 +77,7 @@ py -3 -B .\app\vn300_desktop_app.py
 
 The optional localhost web interface can still be started with `py -3 .\app\vn300_team_app.py`.
 
-The installed app checks the public GitHub `desktop-app` branch for a newer `APP_VERSION`. Use the header update button to download the matching versioned installer and SHA-256 checksum from GitHub Releases. Source ZIPs and Git clones retain their existing source-update paths. See `DESKTOP_APP_INSTALL.md` for installation and release details.
+The installed app checks the public GitHub `desktop-app` branch for a newer `APP_VERSION`. Use the header update button to download the matching versioned installer and SHA-256 checksum from GitHub Releases. When the app connects to a Pi, it also compares the Pi's reported logger version with the public `pi-logger` branch and offers a secure SSH update when needed. Source ZIPs and Git clones retain their existing source-update paths. See `DESKTOP_APP_INSTALL.md` for installation and release details.
 
 ## Button Wiring
 
