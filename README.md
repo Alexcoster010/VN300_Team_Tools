@@ -4,9 +4,9 @@ VN300 Team Tools combines Raspberry Pi telemetry logging, live dashboard monitor
 
 ## Download And Install
 
-### Windows Desktop App - v0.6.0
+### Windows Desktop App - v0.7.0
 
-[**Download VN300 Team Tools Setup**](https://github.com/Alexcoster010/VN300_Team_Tools/releases/download/desktop-v0.6.0/VN300-Team-Tools-Setup-0.6.0.exe)
+[**Download VN300 Team Tools Setup**](https://github.com/Alexcoster010/VN300_Team_Tools/releases/download/desktop-v0.7.0/VN300-Team-Tools-Setup-0.7.0.exe)
 
 The installer bundles Python and the analyzer, so team laptops do not need Python or Git. After installation, open **VN300 Team Tools** through Windows Search or the Start Menu.
 
@@ -16,11 +16,12 @@ The desktop app provides:
 - measured car G-G envelope and ideal-lap prediction
 - live Pi telemetry, GPS trace, timing, lap history, and logger health
 - saved Pi IP/hostname with automatic reconnection on the same network
+- automatic Pi logger version checks and prompted updates through secure SSH
 - installer-based updates from GitHub Releases with SHA-256 verification
 
 The current release is not code-signed, so Windows SmartScreen may show an unrecognized-app warning. Confirm the download came from this repository, select **More info**, and then select **Run anyway**.
 
-[Release notes and checksum](https://github.com/Alexcoster010/VN300_Team_Tools/releases/tag/desktop-v0.6.0) | [Desktop installation guide](https://github.com/Alexcoster010/VN300_Team_Tools/blob/desktop-app/DESKTOP_APP_INSTALL.md)
+[Release notes and checksum](https://github.com/Alexcoster010/VN300_Team_Tools/releases/tag/desktop-v0.7.0) | [Desktop installation guide](https://github.com/Alexcoster010/VN300_Team_Tools/blob/desktop-app/DESKTOP_APP_INSTALL.md)
 
 ### Raspberry Pi Logger - v0.5.0
 
@@ -42,7 +43,9 @@ The installer handles fresh installations and updates. It installs dependencies,
 | --- | --- |
 | [`main`](https://github.com/Alexcoster010/VN300_Team_Tools/tree/main) | Shared source, analysis tools, and project documentation |
 | [`desktop-app`](https://github.com/Alexcoster010/VN300_Team_Tools/tree/desktop-app) | Windows desktop application and installer release source |
-| [`pi-logger`](https://github.com/Alexcoster010/VN300_Team_Tools/tree/pi-logger) | Versioned Raspberry Pi logger ZIP distribution |
+| [`pi-logger`](https://github.com/Alexcoster010/VN300_Team_Tools/tree/pi-logger) | Independent Pi logger update source used by the desktop app |
+
+The desktop app reads `PI_LOGGER_VERSION` from `pi-logger` after connecting to a Pi. When that version is newer than the Pi's `/api/latest` response, the app offers to install the current `pi-logger` ZIP through SSH. This keeps Pi logger releases independent from Windows desktop releases.
 
 For the original beginner setup reference, see `ONE_PAGE_SETUP_GUIDE.md`. For change tracking, see `VERSION_HISTORY.md`.
 
