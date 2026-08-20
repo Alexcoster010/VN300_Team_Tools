@@ -48,6 +48,7 @@ REPO_ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else APP_DIR.pare
 STATE_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "VN300TeamTools"
 STATE_PATH = STATE_DIR / "desktop_state.json"
 CURRENT_VERSION = read_current_version(REPO_ROOT)
+NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 DEFAULT_OUTPUT_ROOT = (
     Path.home() / "Documents" / "VN300 Team Tools" / "Analysis"
     if IS_FROZEN
@@ -132,7 +133,7 @@ def normalize_pi_endpoint(value: str) -> str:
 def fetch_pi_snapshot(endpoint: str, timeout: float = 2.5) -> dict[str, Any]:
     url = urllib.parse.urljoin(endpoint, "api/latest")
     request = urllib.request.Request(url, headers={"User-Agent": "VN300DesktopApp/0.1"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with NO_PROXY_OPENER.open(request, timeout=timeout) as response:
         body = response.read(2_000_000)
     payload = json.loads(body.decode("utf-8"))
     if not isinstance(payload, dict):

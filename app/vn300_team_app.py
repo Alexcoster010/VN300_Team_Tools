@@ -48,6 +48,8 @@ DEFAULT_SETTINGS = {
     "gg_enabled": True,
     "include_ascii": False,
 }
+DEFAULT_PI_DASHBOARD_PORT = 8080
+NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 RESULT_LABELS = {
     "report.html": "Analysis report",
@@ -98,8 +100,20 @@ def normalize_pi_url(value: str) -> str:
     parsed = urllib.parse.urlparse(value)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         raise ValueError("Pi dashboard URL must use http:// or https://.")
+    netloc = parsed.netloc
+    if parsed.port is None:
+        host = parsed.hostname
+        if host and ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        userinfo = ""
+        if parsed.username:
+            userinfo = urllib.parse.quote(parsed.username)
+            if parsed.password:
+                userinfo += f":{urllib.parse.quote(parsed.password)}"
+            userinfo += "@"
+        netloc = f"{userinfo}{host}:{DEFAULT_PI_DASHBOARD_PORT}"
     base_path = parsed.path if parsed.path.endswith("/") else f"{parsed.path}/"
-    return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, base_path, "", "", ""))
+    return urllib.parse.urlunparse((parsed.scheme, netloc, base_path, "", "", ""))
 
 
 def path_is_within(candidate: Path, root: Path) -> bool:
@@ -476,7 +490,7 @@ class AppHandler(BaseHTTPRequestHandler):
             api_url = urllib.parse.urljoin(base_url, "api/latest")
             request = urllib.request.Request(api_url, headers={"User-Agent": self.server_version})
             started = time.monotonic()
-            with urllib.request.urlopen(request, timeout=2.5) as response:
+            with NO_PROXY_OPENER.open(request, timeout=2.5) as response:
                 raw = response.read(1_000_000)
             data = json.loads(raw.decode("utf-8"))
             self.send_json({

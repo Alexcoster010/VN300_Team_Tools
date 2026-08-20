@@ -8,7 +8,9 @@ import vn300_team_app as app
 
 class TeamAppTests(unittest.TestCase):
     def test_normalize_pi_url(self):
+        self.assertEqual(app.normalize_pi_url("192.168.1.25"), "http://192.168.1.25:8080/")
         self.assertEqual(app.normalize_pi_url("raspberrypi.local:8080"), "http://raspberrypi.local:8080/")
+        self.assertEqual(app.normalize_pi_url("http://raspberrypi.local"), "http://raspberrypi.local:8080/")
         self.assertEqual(app.normalize_pi_url("https://10.0.0.4:8080/live"), "https://10.0.0.4:8080/live/")
         with self.assertRaises(ValueError):
             app.normalize_pi_url("file:///tmp/dashboard")

@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.8.0`
+`v0.8.1`
 
 Stable Pi install tag:
 
@@ -25,6 +25,14 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.8.1 - 2026-08-20
+
+### Desktop App Pi Connection Fix
+
+- Fixed desktop app Pi health checks using Windows/Python proxy settings instead of connecting directly to the local Pi dashboard.
+- Added default `:8080` normalization to the browser-based team app path when a user enters only a Pi hostname or IP address.
+- Added frontend request timeouts so the app reports a connection failure instead of staying on `Checking...`.
 
 ## v0.8.0 - 2026-07-22
 

@@ -15,14 +15,25 @@ const $ = (id) => document.getElementById(id);
 const terminalStatuses = new Set(["completed", "failed", "cancelled"]);
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-  });
-  let data = {};
-  try { data = await response.json(); } catch (_) { /* empty error response */ }
-  if (!response.ok) throw new Error(data.error || `${response.status} ${response.statusText}`);
-  return data;
+  const timeoutMs = options.timeoutMs ?? 8000;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(path, {
+      ...options,
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      signal: controller.signal,
+    });
+    let data = {};
+    try { data = await response.json(); } catch (_) { /* empty error response */ }
+    if (!response.ok) throw new Error(data.error || `${response.status} ${response.statusText}`);
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("Request timed out.");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function showToast(message, isError = false) {
