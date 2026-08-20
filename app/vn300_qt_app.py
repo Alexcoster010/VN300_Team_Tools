@@ -66,6 +66,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QSplitter,
     QStackedWidget,
+    QTabWidget,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
@@ -85,6 +86,7 @@ from vn300_desktop_app import (
     format_number,
     load_state,
     normalize_pi_endpoint,
+    pi_api_request,
     save_state,
 )
 from vn300_pi_updater import (
@@ -104,6 +106,58 @@ from vn300_updater import (
     stage_release_installer,
     update_available,
 )
+
+
+RUN_METADATA_GROUPS = (
+    (
+        "Run details",
+        (
+            ("driver", "Driver"),
+            ("test_location", "Test location"),
+            ("test_type", "Test type"),
+            ("course", "Course"),
+        ),
+    ),
+    (
+        "Tires and conditions",
+        (
+            ("tire_compound", "Tire compound"),
+            ("cold_fl_psi", "Cold FL pressure (psi)"),
+            ("cold_fr_psi", "Cold FR pressure (psi)"),
+            ("cold_rl_psi", "Cold RL pressure (psi)"),
+            ("cold_rr_psi", "Cold RR pressure (psi)"),
+            ("hot_fl_psi", "Hot FL pressure (psi)"),
+            ("hot_fr_psi", "Hot FR pressure (psi)"),
+            ("hot_rl_psi", "Hot RL pressure (psi)"),
+            ("hot_rr_psi", "Hot RR pressure (psi)"),
+            ("ambient_temp_f", "Ambient temperature (F)"),
+            ("track_temp_f", "Track temperature (F)"),
+        ),
+    ),
+    (
+        "Vehicle setup",
+        (
+            ("car_config", "Car configuration"),
+            ("front_camber_deg", "Front camber (deg)"),
+            ("rear_camber_deg", "Rear camber (deg)"),
+            ("front_toe_deg", "Front toe (deg)"),
+            ("rear_toe_deg", "Rear toe (deg)"),
+            ("ride_height_front_mm", "Front ride height (mm)"),
+            ("ride_height_rear_mm", "Rear ride height (mm)"),
+            ("damper_front", "Front damper setting"),
+            ("damper_rear", "Rear damper setting"),
+            ("anti_roll_bar_front", "Front anti-roll bar"),
+            ("anti_roll_bar_rear", "Rear anti-roll bar"),
+            ("brake_bias", "Brake bias"),
+            ("aero_config", "Aero configuration"),
+            ("battery_or_fuel_state", "Battery or fuel state"),
+        ),
+    ),
+)
+
+EDITABLE_RUN_METADATA_FIELDS = tuple(
+    key for _group, fields in RUN_METADATA_GROUPS for key, _label in fields
+) + ("valid_run", "notes")
 
 
 APP_STYLE = """
@@ -268,6 +322,27 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
 }
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {
     border: 1px solid #00877f;
+}
+QTabWidget::pane {
+    border: 0;
+    border-top: 1px solid #ccd7da;
+    background: #eef2f3;
+}
+QTabBar::tab {
+    min-width: 150px;
+    min-height: 34px;
+    padding: 0 14px;
+    background: #e3e9eb;
+    color: #52636a;
+    border: 1px solid #ccd7da;
+    border-bottom: 0;
+    font-size: 10px;
+    font-weight: 700;
+}
+QTabBar::tab:selected {
+    background: #ffffff;
+    color: #007d75;
+    border-top: 2px solid #00877f;
 }
 QCheckBox {
     spacing: 8px;
@@ -560,6 +635,15 @@ class VN300QtApp(QMainWindow):
         self.pi_last_snapshot: dict[str, Any] = {}
         self.pi_latency_ms = 0.0
         self.pi_speed_history: list[float] = []
+        self.run_metadata_inputs: dict[str, QWidget] = {}
+        self.timing_gate_inputs: dict[str, QLineEdit] = {}
+        self.run_metadata_dirty = False
+        self.timing_setup_dirty = False
+        self.last_run_metadata_snapshot: dict[str, Any] = {}
+        self.last_timing_config_snapshot: dict[str, Any] = {}
+        self.metadata_save_active = False
+        self.timing_save_active = False
+        self.timing_reset_active = False
         self.installed_logger_version = "unknown"
         self.available_logger_version = ""
         self.logger_check_active = False
@@ -714,6 +798,12 @@ class VN300QtApp(QMainWindow):
         connection_layout.addWidget(self.connection_status)
         content_layout.addWidget(connection)
 
+        self.dashboard_tabs = QTabWidget()
+        live_tab = QWidget()
+        live_layout = QVBoxLayout(live_tab)
+        live_layout.setContentsMargins(0, 12, 0, 0)
+        live_layout.setSpacing(12)
+
         metrics = QGridLayout()
         metrics.setHorizontalSpacing(8)
         metrics.setVerticalSpacing(8)
@@ -733,7 +823,7 @@ class VN300QtApp(QMainWindow):
             metrics.addWidget(card, 0, column)
             metrics.setColumnStretch(column, 1)
             self.metric_cards[key] = card
-        content_layout.addLayout(metrics)
+        live_layout.addLayout(metrics)
 
         trace_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.track_plot = TrackTraceWidget()
@@ -741,7 +831,7 @@ class VN300QtApp(QMainWindow):
         trace_splitter.addWidget(self.track_plot)
         trace_splitter.addWidget(self.speed_plot)
         trace_splitter.setSizes([650, 470])
-        content_layout.addWidget(trace_splitter, 1)
+        live_layout.addWidget(trace_splitter, 1)
 
         lower = QSplitter(Qt.Orientation.Horizontal)
         laps_panel = QFrame()
@@ -792,9 +882,220 @@ class VN300QtApp(QMainWindow):
         health_layout.addStretch()
         lower.addWidget(health)
         lower.setSizes([780, 330])
-        content_layout.addWidget(lower, 1)
+        live_layout.addWidget(lower, 1)
+        self.dashboard_tabs.addTab(live_tab, "LIVE TELEMETRY")
+        self.dashboard_tabs.addTab(self.build_drive_day_setup_tab(), "DRIVE DAY SETUP")
+        content_layout.addWidget(self.dashboard_tabs, 1)
         layout.addWidget(content, 1)
         return page
+
+    def setup_panel(self, title: str) -> tuple[QFrame, QVBoxLayout]:
+        panel = QFrame()
+        panel.setProperty("panel", True)
+        panel_layout = QVBoxLayout(panel)
+        panel_layout.setContentsMargins(14, 12, 14, 14)
+        panel_layout.setSpacing(10)
+        heading = QLabel(title.upper())
+        heading.setProperty("section", True)
+        panel_layout.addWidget(heading)
+        return panel, panel_layout
+
+    def metadata_input(self, key: str) -> QWidget:
+        field = QLineEdit()
+        field.setPlaceholderText("Optional")
+        field.textEdited.connect(self.mark_run_metadata_dirty)
+        self.run_metadata_inputs[key] = field
+        return field
+
+    def metadata_form(self, fields: tuple[tuple[str, str], ...]) -> QFormLayout:
+        form = QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setHorizontalSpacing(10)
+        form.setVerticalSpacing(7)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        for key, label in fields:
+            form.addRow(label, self.metadata_input(key))
+        return form
+
+    def build_drive_day_setup_tab(self) -> QWidget:
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 12, 0, 0)
+        tab_layout.setSpacing(0)
+
+        scroll = QScrollArea()
+        self.drive_day_scroll = scroll
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        host = QWidget()
+        self.drive_day_host = host
+        host.setMinimumWidth(0)
+        host.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        host_layout = QVBoxLayout(host)
+        host_layout.setContentsMargins(0, 0, 0, 4)
+        host_layout.setSpacing(12)
+
+        columns = QHBoxLayout()
+        columns.setSpacing(12)
+
+        run_column = QVBoxLayout()
+        run_column.setSpacing(12)
+        run_panel, run_layout = self.setup_panel("Run details")
+        identity_form = QFormLayout()
+        identity_form.setContentsMargins(0, 0, 0, 0)
+        identity_form.setHorizontalSpacing(10)
+        identity_form.setVerticalSpacing(7)
+        self.setup_date_label = QLabel("--")
+        self.setup_date_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.next_run_label = QLabel("--")
+        self.next_run_label.setStyleSheet("font-weight:700;color:#007d75;")
+        self.next_run_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        identity_form.addRow("Date", self.setup_date_label)
+        identity_form.addRow("Next run", self.next_run_label)
+        run_layout.addLayout(identity_form)
+        run_layout.addLayout(self.metadata_form(RUN_METADATA_GROUPS[0][1]))
+        run_column.addWidget(run_panel)
+
+        review_panel, review_layout = self.setup_panel("Run review")
+        review_form = QFormLayout()
+        review_form.setContentsMargins(0, 0, 0, 0)
+        review_form.setHorizontalSpacing(10)
+        review_form.setVerticalSpacing(7)
+        self.valid_run_input = QComboBox()
+        self.valid_run_input.addItems(["yes", "no", "review"])
+        self.valid_run_input.currentTextChanged.connect(self.mark_run_metadata_dirty)
+        self.run_metadata_inputs["valid_run"] = self.valid_run_input
+        review_form.addRow("Valid run", self.valid_run_input)
+        review_layout.addLayout(review_form)
+        notes_label = QLabel("Notes")
+        notes_label.setStyleSheet("color:#4f6068;")
+        review_layout.addWidget(notes_label)
+        self.run_notes_input = QTextEdit()
+        self.run_notes_input.setPlaceholderText("Driver comments, setup observations, incidents, or test notes")
+        self.run_notes_input.setMinimumHeight(105)
+        self.run_notes_input.textChanged.connect(self.mark_run_metadata_dirty)
+        self.run_metadata_inputs["notes"] = self.run_notes_input
+        review_layout.addWidget(self.run_notes_input)
+        self.metadata_save_status = QLabel("Connect to the Pi to load setup")
+        self.metadata_save_status.setWordWrap(True)
+        self.metadata_save_status.setStyleSheet("color:#687980;")
+        review_layout.addWidget(self.metadata_save_status)
+        self.metadata_save_button = QPushButton("SAVE RUN INFO")
+        self.metadata_save_button.setProperty("role", "primary")
+        self.metadata_save_button.setEnabled(False)
+        self.metadata_save_button.clicked.connect(self.save_run_metadata)
+        review_layout.addWidget(self.metadata_save_button)
+
+        tires_panel, tires_layout = self.setup_panel("Tires and conditions")
+        tires_layout.addLayout(self.metadata_form(RUN_METADATA_GROUPS[1][1]))
+        tires_layout.addStretch()
+
+        vehicle_panel, vehicle_layout = self.setup_panel("Vehicle setup")
+        vehicle_layout.addLayout(self.metadata_form(RUN_METADATA_GROUPS[2][1]))
+        vehicle_layout.addStretch()
+        run_column.addWidget(vehicle_panel)
+        run_column.addStretch()
+
+        conditions_column = QVBoxLayout()
+        conditions_column.setSpacing(12)
+        conditions_column.addWidget(tires_panel)
+        conditions_column.addWidget(review_panel)
+        conditions_column.addStretch()
+        columns.addLayout(run_column, 1)
+        columns.addLayout(conditions_column, 1)
+        host_layout.addLayout(columns)
+
+        timing_panel, timing_layout = self.setup_panel("Timing setup")
+        timing_head = QHBoxLayout()
+        timing_head.setSpacing(10)
+        mode_label = QLabel("Track mode")
+        mode_label.setStyleSheet("color:#4f6068;")
+        timing_head.addWidget(mode_label)
+        self.timing_mode_input = QComboBox()
+        self.timing_mode_input.addItem("Lap", "lap")
+        self.timing_mode_input.addItem("Autocross", "autocross")
+        self.timing_mode_input.currentIndexChanged.connect(self.timing_mode_changed)
+        timing_head.addWidget(self.timing_mode_input)
+        timing_head.addStretch()
+        self.timing_config_status = QLabel("Not configured")
+        self.timing_config_status.setStyleSheet("color:#687980;font-weight:600;")
+        timing_head.addWidget(self.timing_config_status)
+        timing_layout.addLayout(timing_head)
+
+        gates = QGridLayout()
+        gates.setHorizontalSpacing(10)
+        gates.setVerticalSpacing(7)
+        for column, title in enumerate(("GATE POINT", "LATITUDE", "LONGITUDE")):
+            label = QLabel(title)
+            label.setProperty("section", True)
+            gates.addWidget(label, 0, column)
+        gate_rows = (
+            ("Start point 1", "start_lat1", "start_lon1"),
+            ("Start point 2", "start_lat2", "start_lon2"),
+            ("Finish point 1", "finish_lat1", "finish_lon1"),
+            ("Finish point 2", "finish_lat2", "finish_lon2"),
+        )
+        for row, (label_text, latitude_key, longitude_key) in enumerate(gate_rows, start=1):
+            gates.addWidget(QLabel(label_text), row, 0)
+            for column, key in ((1, latitude_key), (2, longitude_key)):
+                field = QLineEdit()
+                field.setPlaceholderText("0.00000000")
+                field.textEdited.connect(self.mark_timing_setup_dirty)
+                self.timing_gate_inputs[key] = field
+                gates.addWidget(field, row, column)
+        gates.setColumnStretch(1, 1)
+        gates.setColumnStretch(2, 1)
+        timing_layout.addLayout(gates)
+
+        thresholds = QHBoxLayout()
+        thresholds.setSpacing(10)
+        thresholds.addWidget(QLabel("Minimum speed"))
+        self.timing_min_speed_input = QDoubleSpinBox()
+        self.timing_min_speed_input.setRange(0.0, 200.0)
+        self.timing_min_speed_input.setDecimals(1)
+        self.timing_min_speed_input.setSingleStep(0.5)
+        self.timing_min_speed_input.setSuffix(" mph")
+        self.timing_min_speed_input.setValue(5.0)
+        self.timing_min_speed_input.valueChanged.connect(self.mark_timing_setup_dirty)
+        thresholds.addWidget(self.timing_min_speed_input)
+        thresholds.addWidget(QLabel("Minimum crossing gap"))
+        self.timing_min_gap_input = QDoubleSpinBox()
+        self.timing_min_gap_input.setRange(0.5, 600.0)
+        self.timing_min_gap_input.setDecimals(1)
+        self.timing_min_gap_input.setSingleStep(0.5)
+        self.timing_min_gap_input.setSuffix(" s")
+        self.timing_min_gap_input.setValue(8.0)
+        self.timing_min_gap_input.valueChanged.connect(self.mark_timing_setup_dirty)
+        thresholds.addWidget(self.timing_min_gap_input)
+        thresholds.addStretch()
+        timing_layout.addLayout(thresholds)
+
+        timing_actions = QHBoxLayout()
+        timing_actions.setSpacing(10)
+        self.timing_save_status = QLabel("Connect to the Pi to load timing setup")
+        self.timing_save_status.setStyleSheet("color:#687980;")
+        timing_actions.addWidget(self.timing_save_status)
+        timing_actions.addStretch()
+        self.timing_reset_button = QPushButton("RESET TIMING")
+        self.timing_reset_button.setProperty("role", "danger")
+        self.timing_reset_button.setEnabled(False)
+        self.timing_reset_button.clicked.connect(self.reset_timing)
+        timing_actions.addWidget(self.timing_reset_button)
+        self.timing_save_button = QPushButton("SAVE TIMING")
+        self.timing_save_button.setProperty("role", "primary")
+        self.timing_save_button.setEnabled(False)
+        self.timing_save_button.clicked.connect(self.save_timing_setup)
+        timing_actions.addWidget(self.timing_save_button)
+        timing_layout.addLayout(timing_actions)
+        host_layout.addWidget(timing_panel)
+        host_layout.addStretch()
+
+        scroll.setWidget(host)
+        tab_layout.addWidget(scroll)
+        self.timing_mode_changed()
+        return tab
 
     def build_analysis_page(self) -> QWidget:
         page = QWidget()
@@ -1019,6 +1320,285 @@ class VN300QtApp(QMainWindow):
     def release_worker(self, worker: Worker) -> None:
         self.active_workers.discard(worker)
 
+    def mark_run_metadata_dirty(self, *_args: Any) -> None:
+        self.run_metadata_dirty = True
+        self.metadata_save_status.setText("Unsaved run information")
+        self.metadata_save_status.setStyleSheet("color:#9a6400;")
+
+    def mark_timing_setup_dirty(self, *_args: Any) -> None:
+        self.timing_setup_dirty = True
+        self.timing_save_status.setText("Unsaved timing changes")
+        self.timing_save_status.setStyleSheet("color:#9a6400;")
+
+    def timing_mode_changed(self, index: int = -1) -> None:
+        autocross = self.timing_mode_input.currentData() == "autocross"
+        for key, field in self.timing_gate_inputs.items():
+            if key.startswith("finish_"):
+                field.setEnabled(autocross)
+        if index >= 0:
+            self.mark_timing_setup_dirty()
+
+    def set_drive_day_controls_enabled(self, enabled: bool) -> None:
+        self.metadata_save_button.setEnabled(enabled and not self.metadata_save_active)
+        timing_busy = self.timing_save_active or self.timing_reset_active
+        self.timing_save_button.setEnabled(enabled and not timing_busy)
+        self.timing_reset_button.setEnabled(enabled and not timing_busy)
+
+    @staticmethod
+    def metadata_widget_value(widget: QWidget) -> str:
+        if isinstance(widget, QLineEdit):
+            return widget.text().strip()
+        if isinstance(widget, QComboBox):
+            return widget.currentText().strip()
+        if isinstance(widget, QTextEdit):
+            return widget.toPlainText().strip()
+        return ""
+
+    @staticmethod
+    def set_metadata_widget_value(widget: QWidget, value: Any) -> None:
+        text = "" if value is None else str(value)
+        widget.blockSignals(True)
+        try:
+            if isinstance(widget, QLineEdit):
+                widget.setText(text)
+            elif isinstance(widget, QComboBox):
+                index = widget.findText(text)
+                widget.setCurrentIndex(index if index >= 0 else 0)
+            elif isinstance(widget, QTextEdit):
+                widget.setPlainText(text)
+        finally:
+            widget.blockSignals(False)
+
+    def run_metadata_payload(self) -> dict[str, str]:
+        return {
+            key: self.metadata_widget_value(self.run_metadata_inputs[key])
+            for key in EDITABLE_RUN_METADATA_FIELDS
+        }
+
+    def populate_run_metadata(self, payload: dict[str, Any]) -> None:
+        metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else payload
+        for key in EDITABLE_RUN_METADATA_FIELDS:
+            self.set_metadata_widget_value(self.run_metadata_inputs[key], metadata.get(key, ""))
+        self.setup_date_label.setText(str(payload.get("date") or "--"))
+        self.next_run_label.setText(str(payload.get("next_run_id") or "--"))
+        self.last_run_metadata_snapshot = {
+            "metadata": {key: metadata.get(key, "") for key in EDITABLE_RUN_METADATA_FIELDS},
+            "date": payload.get("date"),
+            "next_run_id": payload.get("next_run_id"),
+        }
+        self.run_metadata_dirty = False
+        self.metadata_save_status.setText("Loaded from Pi")
+        self.metadata_save_status.setStyleSheet("color:#187557;")
+
+    def populate_timing_setup(self, payload: dict[str, Any]) -> None:
+        timing = payload.get("timing") if isinstance(payload.get("timing"), dict) else payload
+        config = timing.get("config") if isinstance(timing.get("config"), dict) else payload.get("config")
+        config = config if isinstance(config, dict) else {}
+        mode = str(config.get("mode") or "lap")
+        mode_index = self.timing_mode_input.findData(mode)
+        self.timing_mode_input.blockSignals(True)
+        self.timing_mode_input.setCurrentIndex(mode_index if mode_index >= 0 else 0)
+        self.timing_mode_input.blockSignals(False)
+        for prefix in ("start", "finish"):
+            line = config.get(f"{prefix}_line")
+            line = line if isinstance(line, dict) else {}
+            for coordinate in ("lat1", "lon1", "lat2", "lon2"):
+                field = self.timing_gate_inputs[f"{prefix}_{coordinate}"]
+                value = line.get(coordinate)
+                field.blockSignals(True)
+                field.setText("" if value is None else str(value))
+                field.blockSignals(False)
+        self.timing_min_speed_input.blockSignals(True)
+        self.timing_min_gap_input.blockSignals(True)
+        try:
+            self.timing_min_speed_input.setValue(float(config.get("min_speed_mph", 5.0)))
+            self.timing_min_gap_input.setValue(float(config.get("min_gap_s", 8.0)))
+        except (TypeError, ValueError):
+            self.timing_min_speed_input.setValue(5.0)
+            self.timing_min_gap_input.setValue(8.0)
+        finally:
+            self.timing_min_speed_input.blockSignals(False)
+            self.timing_min_gap_input.blockSignals(False)
+        self.timing_mode_changed()
+        self.last_timing_config_snapshot = json.loads(json.dumps(config))
+        configured = bool(timing.get("configured"))
+        self.timing_config_status.setText(str(timing.get("status") or ("Configured" if configured else "Not configured")))
+        self.timing_setup_dirty = False
+        self.timing_save_status.setText("Loaded from Pi" if configured else "Enter gate coordinates")
+        self.timing_save_status.setStyleSheet("color:#187557;" if configured else "color:#687980;")
+
+    def update_drive_day_setup(self, snapshot: dict[str, Any], force: bool = False) -> None:
+        run_metadata = snapshot.get("run_metadata")
+        if isinstance(run_metadata, dict):
+            self.setup_date_label.setText(str(run_metadata.get("date") or "--"))
+            self.next_run_label.setText(str(run_metadata.get("next_run_id") or "--"))
+            metadata = run_metadata.get("metadata") if isinstance(run_metadata.get("metadata"), dict) else run_metadata
+            run_signature = {
+                "metadata": {key: metadata.get(key, "") for key in EDITABLE_RUN_METADATA_FIELDS},
+                "date": run_metadata.get("date"),
+                "next_run_id": run_metadata.get("next_run_id"),
+            }
+            if force or (not self.run_metadata_dirty and run_signature != self.last_run_metadata_snapshot):
+                self.populate_run_metadata(run_metadata)
+        timing = snapshot.get("timing")
+        if isinstance(timing, dict):
+            self.timing_config_status.setText(str(timing.get("status") or "Not configured"))
+            config = timing.get("config") if isinstance(timing.get("config"), dict) else {}
+            if force or (not self.timing_setup_dirty and config != self.last_timing_config_snapshot):
+                self.populate_timing_setup(timing)
+
+    def save_run_metadata(self) -> None:
+        if not self.pi_connected:
+            QMessageBox.warning(self, "Drive day setup", "Connect to the Raspberry Pi before saving run information.")
+            return
+        if self.metadata_save_active:
+            return
+        self.metadata_save_active = True
+        self.set_drive_day_controls_enabled(True)
+        self.metadata_save_status.setText("Saving run information...")
+        self.metadata_save_status.setStyleSheet("color:#687980;")
+        generation = self.pi_generation
+        worker = Worker(
+            pi_api_request,
+            self.pi_endpoint,
+            "api/run_metadata",
+            "POST",
+            self.run_metadata_payload(),
+            5.0,
+        )
+        worker.signals.result.connect(partial(self.run_metadata_saved, generation))
+        worker.signals.error.connect(partial(self.run_metadata_save_failed, generation))
+        self.start_worker(worker)
+
+    def run_metadata_saved(self, generation: int, result: object) -> None:
+        self.metadata_save_active = False
+        self.set_drive_day_controls_enabled(self.pi_connected)
+        if generation != self.pi_generation or not isinstance(result, dict):
+            return
+        self.populate_run_metadata(result)
+        next_run = str(result.get("next_run_id") or "next run")
+        self.metadata_save_status.setText(f"Saved for {next_run}")
+        self.metadata_save_status.setStyleSheet("color:#187557;font-weight:600;")
+
+    def run_metadata_save_failed(self, generation: int, error: str) -> None:
+        self.metadata_save_active = False
+        self.set_drive_day_controls_enabled(self.pi_connected)
+        if generation != self.pi_generation:
+            return
+        self.metadata_save_status.setText("Run information save failed")
+        self.metadata_save_status.setStyleSheet("color:#ad3e37;")
+        QMessageBox.critical(self, "Drive day setup", f"Could not save run information:\n\n{error}")
+
+    def timing_setup_payload(self) -> dict[str, Any]:
+        mode = str(self.timing_mode_input.currentData())
+
+        def coordinate(key: str, minimum: float, maximum: float) -> float:
+            text = self.timing_gate_inputs[key].text().strip()
+            if not text:
+                raise ValueError(f"Enter {key.replace('_', ' ')}.")
+            value = float(text)
+            if not minimum <= value <= maximum:
+                raise ValueError(f"{key.replace('_', ' ').title()} must be between {minimum:g} and {maximum:g}.")
+            return value
+
+        payload: dict[str, Any] = {
+            "mode": mode,
+            "start_lat1": coordinate("start_lat1", -90.0, 90.0),
+            "start_lon1": coordinate("start_lon1", -180.0, 180.0),
+            "start_lat2": coordinate("start_lat2", -90.0, 90.0),
+            "start_lon2": coordinate("start_lon2", -180.0, 180.0),
+            "min_speed_mph": self.timing_min_speed_input.value(),
+            "min_gap_s": self.timing_min_gap_input.value(),
+        }
+        if payload["start_lat1"] == payload["start_lat2"] and payload["start_lon1"] == payload["start_lon2"]:
+            raise ValueError("Start gate points must be different.")
+        if mode == "autocross":
+            payload.update({
+                "finish_lat1": coordinate("finish_lat1", -90.0, 90.0),
+                "finish_lon1": coordinate("finish_lon1", -180.0, 180.0),
+                "finish_lat2": coordinate("finish_lat2", -90.0, 90.0),
+                "finish_lon2": coordinate("finish_lon2", -180.0, 180.0),
+            })
+            if payload["finish_lat1"] == payload["finish_lat2"] and payload["finish_lon1"] == payload["finish_lon2"]:
+                raise ValueError("Finish gate points must be different.")
+        return payload
+
+    def save_timing_setup(self) -> None:
+        if not self.pi_connected:
+            QMessageBox.warning(self, "Timing setup", "Connect to the Raspberry Pi before saving timing setup.")
+            return
+        if self.timing_save_active:
+            return
+        try:
+            payload = self.timing_setup_payload()
+        except ValueError as exc:
+            QMessageBox.warning(self, "Timing setup", str(exc))
+            return
+        self.timing_save_active = True
+        self.set_drive_day_controls_enabled(True)
+        self.timing_save_status.setText("Saving timing setup...")
+        self.timing_save_status.setStyleSheet("color:#687980;")
+        generation = self.pi_generation
+        worker = Worker(pi_api_request, self.pi_endpoint, "api/config", "POST", payload, 5.0)
+        worker.signals.result.connect(partial(self.timing_setup_saved, generation))
+        worker.signals.error.connect(partial(self.timing_setup_save_failed, generation))
+        self.start_worker(worker)
+
+    def timing_setup_saved(self, generation: int, result: object) -> None:
+        self.timing_save_active = False
+        self.set_drive_day_controls_enabled(self.pi_connected)
+        if generation != self.pi_generation or not isinstance(result, dict):
+            return
+        self.populate_timing_setup(result)
+        self.timing_save_status.setText("Timing setup saved")
+        self.timing_save_status.setStyleSheet("color:#187557;font-weight:600;")
+
+    def timing_setup_save_failed(self, generation: int, error: str) -> None:
+        self.timing_save_active = False
+        self.set_drive_day_controls_enabled(self.pi_connected)
+        if generation != self.pi_generation:
+            return
+        self.timing_save_status.setText("Timing setup save failed")
+        self.timing_save_status.setStyleSheet("color:#ad3e37;")
+        QMessageBox.critical(self, "Timing setup", f"Could not save timing setup:\n\n{error}")
+
+    def reset_timing(self) -> None:
+        if not self.pi_connected or self.timing_reset_active:
+            return
+        answer = QMessageBox.question(
+            self,
+            "Reset timing",
+            "Reset the current lap count, best lap, and timing traces?\n\nThe saved start and finish gates will remain configured.",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.timing_reset_active = True
+        self.set_drive_day_controls_enabled(True)
+        self.timing_save_status.setText("Resetting timing data...")
+        generation = self.pi_generation
+        worker = Worker(pi_api_request, self.pi_endpoint, "api/reset_timing", "POST", {}, 5.0)
+        worker.signals.result.connect(partial(self.timing_reset_finished, generation))
+        worker.signals.error.connect(partial(self.timing_reset_failed, generation))
+        self.start_worker(worker)
+
+    def timing_reset_finished(self, generation: int, result: object) -> None:
+        self.timing_reset_active = False
+        self.set_drive_day_controls_enabled(self.pi_connected)
+        if generation != self.pi_generation or not isinstance(result, dict):
+            return
+        self.populate_timing_setup(result)
+        self.timing_save_status.setText("Timing laps and traces reset")
+        self.timing_save_status.setStyleSheet("color:#187557;font-weight:600;")
+
+    def timing_reset_failed(self, generation: int, error: str) -> None:
+        self.timing_reset_active = False
+        self.set_drive_day_controls_enabled(self.pi_connected)
+        if generation != self.pi_generation:
+            return
+        self.timing_save_status.setText("Timing reset failed")
+        self.timing_save_status.setStyleSheet("color:#ad3e37;")
+        QMessageBox.critical(self, "Timing setup", f"Could not reset timing data:\n\n{error}")
+
     def initial_pi_connect(self) -> None:
         if self.pi_endpoint:
             self.pi_address.setText(self.pi_endpoint)
@@ -1048,9 +1628,11 @@ class VN300QtApp(QMainWindow):
         self.pi_endpoint = endpoint
         self.pi_address.setText(endpoint)
         self.pi_generation += 1
+        self.pi_request_active = False
         self.pi_connected = False
         self.pi_next_poll_at = 0.0
         self.set_pi_status("Connecting", "working")
+        self.set_drive_day_controls_enabled(False)
         self.maybe_poll_pi()
 
     def maybe_poll_pi(self) -> None:
@@ -1068,9 +1650,9 @@ class VN300QtApp(QMainWindow):
         self.start_worker(worker)
 
     def handle_pi_snapshot(self, generation: int, endpoint: str, started: float, snapshot: object) -> None:
-        self.pi_request_active = False
         if generation != self.pi_generation or not isinstance(snapshot, dict):
             return
+        self.pi_request_active = False
         newly_connected = not self.pi_connected
         self.pi_connected = True
         self.pi_next_poll_at = time.monotonic() + 0.45
@@ -1082,16 +1664,19 @@ class VN300QtApp(QMainWindow):
         self.set_pi_status("Logging" if snapshot.get("logging") else "Online", "online")
         self.logger_button.setEnabled(not self.logger_update_active)
         self.update_dashboard(snapshot)
+        self.update_drive_day_setup(snapshot, force=newly_connected)
+        self.set_drive_day_controls_enabled(True)
         if newly_connected and not self.logger_update_active:
             QTimer.singleShot(350, partial(self.check_logger_update, False))
 
     def handle_pi_error(self, generation: int, error: str) -> None:
-        self.pi_request_active = False
         if generation != self.pi_generation:
             return
+        self.pi_request_active = False
         self.pi_connected = False
         self.pi_next_poll_at = time.monotonic() + 2.5
         self.set_pi_status("Offline", "offline")
+        self.set_drive_day_controls_enabled(False)
         if not self.logger_update_active:
             self.logger_button.setEnabled(False)
             self.logger_button.setText("CHECK LOGGER")

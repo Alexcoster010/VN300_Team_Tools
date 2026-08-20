@@ -10,7 +10,7 @@ Team members should use the packaged installer rather than downloading the repos
 
 Download `VN300-Team-Tools-Setup-X.Y.Z.exe`, run it, and launch **VN300 Team Tools** from Windows Search or the Start Menu. The installer includes Python, the analyzer, the native trackside dashboard, and the report viewer; no separate Python or Git installation is required. Windows may display an unsigned-app warning because the installer is not code-signed.
 
-The current desktop release is `v0.8.2`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
+The current desktop release is `v0.9.0`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
 
 For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
 
@@ -74,11 +74,13 @@ Generic placeholders used below:
 
 Install the current Windows release, then open **VN300 Team Tools** from Windows Search or the Start Menu. Developers can also double-click `Start_VN300_Team_Tools.bat` in a source checkout. The app provides three workspaces:
 
-- **Live dashboard**: monitor speed, G values, timing, GPS and speed traces, completed laps, logger state, system health, and network latency in a dense trackside layout. The app checks the connected logger version and offers an SSH update when the Pi is behind.
+- **Live dashboard**: monitor speed, G values, timing, GPS and speed traces, completed laps, logger state, system health, and network latency. Its **Drive Day Setup** tab writes complete run metadata and lap/autocross timing gates to the connected Pi. The app checks the connected logger version and offers an SSH update when the Pi is behind.
 - **Data analysis**: select a VN300 boot/data folder, set timing and sector options, and run the existing offline analyzer with the measured car G-G lap prediction.
 - **Reports**: render generated HTML reports inside the desktop app, preview CSV outputs, and open any result or output folder. Installed-app output defaults to `Documents\VN300 Team Tools\Analysis`.
 
 The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\VN300TeamTools\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Edit **Pi address** on the live dashboard when the address changes.
+
+The dashboard contains **Live Telemetry** and **Drive Day Setup** tabs. Drive Day Setup edits the next run's complete metadata record and configures lap or autocross timing. Save and reset actions remain disabled while the Pi is offline, and live telemetry refreshes do not overwrite unsaved setup edits.
 
 To start the native app from PowerShell:
 

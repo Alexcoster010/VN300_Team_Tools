@@ -166,7 +166,11 @@ Do this after every Windows desktop release.
 4. Enter `http://<pi-host>:8080/` in the desktop app and press **Connect**.
 5. Confirm the app changes from **Connecting** to **Online** or **Logging**.
 6. Confirm session, storage, logger version, Pi temperature, and network latency appear under **System Health**.
-7. Leave the app connected for at least 30 seconds and confirm telemetry continues refreshing.
+7. Open **Drive Day Setup** and confirm the date, next run ID, metadata, and timing setup load from the Pi.
+8. Enter a driver and test note, click **Save Run Info**, and confirm the next-run message appears.
+9. Enter valid start-gate coordinates, click **Save Timing**, and confirm the timing status changes to waiting for start.
+10. Open `http://<pi-host>:8080/api/latest` and confirm the saved values appear under `run_metadata` and `timing.config`.
+11. Leave the app connected for at least 30 seconds and confirm telemetry continues refreshing without overwriting unsaved setup edits.
 
 ## Current Update Notes
 
@@ -185,6 +189,7 @@ Last documented update:
 - Logger writes `VN300_run_metadata.csv`.
 - Analyzer automatically loads `VN300_run_metadata.csv` from a Pi boot folder.
 - Desktop `v0.8.2` retains Qt background workers until their result signals are delivered, fixing live dashboard connections stuck on `CONNECTING`.
+- Desktop `v0.9.0` adds the complete Drive Day Setup metadata and timing workflow to the native dashboard.
 
 ## Files Usually Updated
 

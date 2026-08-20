@@ -9,6 +9,8 @@ import vn300_desktop_app as desktop
 
 
 class SnapshotHandler(BaseHTTPRequestHandler):
+    received_payload = None
+
     def do_GET(self):
         if self.path != "/api/latest":
             self.send_error(404)
@@ -18,6 +20,23 @@ class SnapshotHandler(BaseHTTPRequestHandler):
             "status": "idle",
             "logging": False,
             "fields": {"Speed_mph": 12.5},
+        }).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        if self.path != "/api/run_metadata":
+            self.send_error(404)
+            return
+        length = int(self.headers.get("Content-Length", "0"))
+        type(self).received_payload = json.loads(self.rfile.read(length).decode("utf-8"))
+        body = json.dumps({
+            "ok": True,
+            "metadata": type(self).received_payload,
+            "next_run_id": "VN300_2026-08-20_RUN002",
         }).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -66,6 +85,24 @@ class DesktopAppTests(unittest.TestCase):
         self.assertEqual(payload["status"], "idle")
         self.assertEqual(payload["logger_version"], "0.5.0")
         self.assertEqual(payload["fields"]["Speed_mph"], 12.5)
+
+    def test_pi_api_request_posts_json_without_proxy(self):
+        SnapshotHandler.received_payload = None
+        server = ThreadingHTTPServer(("127.0.0.1", 0), SnapshotHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            payload = desktop.pi_api_request(
+                f"http://127.0.0.1:{server.server_port}/",
+                "api/run_metadata",
+                "POST",
+                {"driver": "Alex C", "valid_run": "yes"},
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+        self.assertEqual(SnapshotHandler.received_payload, {"driver": "Alex C", "valid_run": "yes"})
+        self.assertEqual(payload["next_run_id"], "VN300_2026-08-20_RUN002")
 
     def test_lap_time_format(self):
         self.assertEqual(desktop.format_lap_time(31.2478), "0:31.248")

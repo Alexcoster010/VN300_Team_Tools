@@ -131,14 +131,28 @@ def normalize_pi_endpoint(value: str) -> str:
 
 
 def fetch_pi_snapshot(endpoint: str, timeout: float = 2.5) -> dict[str, Any]:
-    url = urllib.parse.urljoin(endpoint, "api/latest")
-    request = urllib.request.Request(url, headers={"User-Agent": "VN300DesktopApp/0.1"})
+    return pi_api_request(endpoint, "api/latest", timeout=timeout)
+
+
+def pi_api_request(
+    endpoint: str,
+    path: str,
+    method: str = "GET",
+    payload: dict[str, Any] | None = None,
+    timeout: float = 2.5,
+) -> dict[str, Any]:
+    url = urllib.parse.urljoin(endpoint, path.lstrip("/"))
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    headers = {"User-Agent": "VN300DesktopApp/0.2", "Accept": "application/json"}
+    if data is not None:
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, headers=headers, method=method.upper())
     with NO_PROXY_OPENER.open(request, timeout=timeout) as response:
         body = response.read(2_000_000)
-    payload = json.loads(body.decode("utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError("The Pi returned an invalid dashboard response.")
-    return payload
+    response_payload = json.loads(body.decode("utf-8"))
+    if not isinstance(response_payload, dict):
+        raise ValueError("The Pi returned an invalid API response.")
+    return response_payload
 
 
 def format_number(value: Any, digits: int = 1, suffix: str = "") -> str:

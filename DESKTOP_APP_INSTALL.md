@@ -51,6 +51,15 @@ New installed-app analysis output defaults to:
 
 Installing, updating, or uninstalling the program does not remove those folders.
 
+## Dashboard Setup
+
+The dashboard contains two tabs:
+
+- **Live Telemetry** is the read-focused trackside display.
+- **Drive Day Setup** edits the next run's driver, test, tire, chassis, environmental, and review metadata. It also configures lap or autocross start/finish gates and timing thresholds through the connected Pi.
+
+Setup save and reset buttons remain disabled while the Pi is offline. Unsaved form edits are preserved while live telemetry continues refreshing.
+
 ## Future Updates
 
 The app checks `APP_VERSION` on the public `desktop-app` branch at startup. The header displays **Install update vX.Y.Z** when a newer release is available.

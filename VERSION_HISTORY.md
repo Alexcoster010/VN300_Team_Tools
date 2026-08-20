@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.8.2`
+`v0.9.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,17 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.9.0 - 2026-08-20
+
+### Drive Day Setup
+
+- Added **Live Telemetry** and **Drive Day Setup** tabs inside the desktop dashboard workspace.
+- Added all 31 editable Pi run-metadata fields, including driver, course, tire pressures, temperatures, alignment, ride heights, dampers, anti-roll bars, brake bias, aero, battery/fuel state, validity, and notes.
+- Added lap and autocross timing setup with two-point start/finish gates, minimum speed, and minimum crossing gap.
+- Added asynchronous metadata save, timing save, and timing reset actions through the existing Pi API.
+- Preserved unsaved operator edits while live telemetry refreshes and disabled setup writes while the Pi is offline.
+- Added API write and metadata-schema regression tests plus responsive minimum-window layout verification.
 
 ## v0.8.2 - 2026-08-20
 
