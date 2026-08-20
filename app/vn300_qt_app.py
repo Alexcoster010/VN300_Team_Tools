@@ -330,6 +330,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 class TaskSignals(QObject):
     result = Signal(object)
     error = Signal(str)
+    finished = Signal(object)
 
 
 class Worker(QRunnable):
@@ -344,6 +345,8 @@ class Worker(QRunnable):
             self.signals.result.emit(self.function(*self.args))
         except Exception as exc:
             self.signals.error.emit(str(exc))
+        finally:
+            self.signals.finished.emit(self)
 
 
 class StatusPill(QLabel):
@@ -545,6 +548,7 @@ class VN300QtApp(QMainWindow):
 
         self.state_data = load_state()
         self.thread_pool = QThreadPool.globalInstance()
+        self.active_workers: set[Worker] = set()
         self.analysis_process: QProcess | None = None
         self.analysis_job: dict[str, Any] | None = None
         self.analysis_cancelled = False
@@ -1007,6 +1011,14 @@ class VN300QtApp(QMainWindow):
         except OSError as exc:
             QMessageBox.critical(self, "Settings", f"Could not save desktop settings:\n\n{exc}")
 
+    def start_worker(self, worker: Worker) -> None:
+        self.active_workers.add(worker)
+        worker.signals.finished.connect(self.release_worker)
+        self.thread_pool.start(worker)
+
+    def release_worker(self, worker: Worker) -> None:
+        self.active_workers.discard(worker)
+
     def initial_pi_connect(self) -> None:
         if self.pi_endpoint:
             self.pi_address.setText(self.pi_endpoint)
@@ -1039,6 +1051,7 @@ class VN300QtApp(QMainWindow):
         self.pi_connected = False
         self.pi_next_poll_at = 0.0
         self.set_pi_status("Connecting", "working")
+        self.maybe_poll_pi()
 
     def maybe_poll_pi(self) -> None:
         if not self.pi_endpoint or self.pi_request_active or time.monotonic() < self.pi_next_poll_at:
@@ -1052,7 +1065,7 @@ class VN300QtApp(QMainWindow):
             lambda snapshot: self.handle_pi_snapshot(generation, endpoint, started, snapshot)
         )
         worker.signals.error.connect(lambda error: self.handle_pi_error(generation, error))
-        self.thread_pool.start(worker)
+        self.start_worker(worker)
 
     def handle_pi_snapshot(self, generation: int, endpoint: str, started: float, snapshot: object) -> None:
         self.pi_request_active = False
@@ -1169,7 +1182,7 @@ class VN300QtApp(QMainWindow):
         worker = Worker(fetch_latest_pi_logger_version)
         worker.signals.result.connect(partial(self.handle_logger_version, manual))
         worker.signals.error.connect(partial(self.handle_logger_version_error, manual))
-        self.thread_pool.start(worker)
+        self.start_worker(worker)
 
     def handle_logger_version(self, manual: bool, version: object) -> None:
         self.logger_check_active = False
@@ -1226,7 +1239,7 @@ class VN300QtApp(QMainWindow):
         worker = Worker(process.wait)
         worker.signals.result.connect(partial(self.logger_update_finished, available))
         worker.signals.error.connect(lambda error: self.logger_update_failed(available, error))
-        self.thread_pool.start(worker)
+        self.start_worker(worker)
 
     def logger_update_finished(self, available: str, exit_code: object) -> None:
         if int(exit_code) != 0:
@@ -1236,7 +1249,7 @@ class VN300QtApp(QMainWindow):
         worker = Worker(self.verify_logger_update, available)
         worker.signals.result.connect(self.logger_verify_finished)
         worker.signals.error.connect(lambda error: self.logger_update_failed(available, error))
-        self.thread_pool.start(worker)
+        self.start_worker(worker)
 
     def verify_logger_update(self, available: str) -> tuple[bool, str, str]:
         deadline = time.monotonic() + 60.0
@@ -1539,7 +1552,7 @@ class VN300QtApp(QMainWindow):
         worker = Worker(fetch_remote_version, REPO_ROOT)
         worker.signals.result.connect(partial(self.handle_app_update_check, manual))
         worker.signals.error.connect(partial(self.handle_app_update_error, manual))
-        self.thread_pool.start(worker)
+        self.start_worker(worker)
 
     def handle_app_update_check(self, manual: bool, remote: object) -> None:
         self.update_check_active = False
@@ -1595,7 +1608,7 @@ class VN300QtApp(QMainWindow):
         worker = Worker(function, STATE_DIR, version)
         worker.signals.result.connect(self.launch_update_and_close)
         worker.signals.error.connect(self.app_update_stage_failed)
-        self.thread_pool.start(worker)
+        self.start_worker(worker)
 
     def app_update_stage_failed(self, error: str) -> None:
         self.app_update_button.setText(f"INSTALL v{self.available_app_version}")

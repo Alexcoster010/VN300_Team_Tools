@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.8.1`
+`v0.8.2`
 
 Stable Pi install tag:
 
@@ -25,6 +25,16 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.8.2 - 2026-08-20
+
+### Desktop Background Task Reliability
+
+- Fixed the Qt desktop app dropping background workers before their result or error signals could reach the interface.
+- Fixed the live dashboard remaining on `CONNECTING` even when the Pi dashboard API was reachable.
+- Retained background workers for Pi polling, logger checks, software update checks, and update staging until completion.
+- Started a Pi health request immediately when the operator presses **Connect**.
+- Added a regression test for queued Qt worker result delivery.
 
 ## v0.8.1 - 2026-08-20
 

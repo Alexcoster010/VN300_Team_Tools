@@ -156,6 +156,18 @@ Do this after analyzer changes.
 4. Open `report.html`.
 5. Confirm the run metadata appears in the report if `VN300_run_metadata.csv` was present.
 
+## Desktop App Test After Update
+
+Do this after every Windows desktop release.
+
+1. Confirm the app header shows the expected desktop version.
+2. Connect the laptop to the same router as the Raspberry Pi.
+3. Open `http://<pi-host>:8080/api/latest` and confirm the browser displays JSON data.
+4. Enter `http://<pi-host>:8080/` in the desktop app and press **Connect**.
+5. Confirm the app changes from **Connecting** to **Online** or **Logging**.
+6. Confirm session, storage, logger version, Pi temperature, and network latency appear under **System Health**.
+7. Leave the app connected for at least 30 seconds and confirm telemetry continues refreshing.
+
 ## Current Update Notes
 
 Last documented update:
@@ -172,6 +184,7 @@ Last documented update:
 - Rebooting the Pi during the same day should continue with the next unused run number.
 - Logger writes `VN300_run_metadata.csv`.
 - Analyzer automatically loads `VN300_run_metadata.csv` from a Pi boot folder.
+- Desktop `v0.8.2` retains Qt background workers until their result signals are delivered, fixing live dashboard connections stuck on `CONNECTING`.
 
 ## Files Usually Updated
 
