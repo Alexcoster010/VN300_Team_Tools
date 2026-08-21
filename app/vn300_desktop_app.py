@@ -62,15 +62,15 @@ DEFAULT_OUTPUT_ROOT = (
 )
 
 COLORS = {
-    "ink": "#172027",
-    "muted": "#68767d",
-    "line": "#d5dde0",
-    "soft": "#f2f5f5",
+    "ink": "#171717",
+    "muted": "#696969",
+    "line": "#d7d7d7",
+    "soft": "#f2f2f2",
     "paper": "#ffffff",
-    "sidebar": "#172126",
-    "sidebar_active": "#23363d",
-    "teal": "#00877f",
-    "teal_dark": "#006b65",
+    "sidebar": "#080808",
+    "sidebar_active": "#281315",
+    "teal": "#d71920",
+    "teal_dark": "#ad1117",
     "green": "#16845b",
     "amber": "#c87a16",
     "red": "#b43c36",
@@ -292,18 +292,18 @@ class VN300DesktopApp(tk.Tk):
         style.configure("Muted.TLabel", foreground=COLORS["muted"], font=("Segoe UI", 8))
         style.configure("Heading.TLabel", font=("Segoe UI", 12, "bold"))
         style.configure("Section.TLabel", foreground=COLORS["teal"], font=("Segoe UI", 8, "bold"))
-        style.configure("TEntry", fieldbackground="#ffffff", bordercolor="#bfcacd", padding=7)
-        style.configure("TCombobox", fieldbackground="#ffffff", bordercolor="#bfcacd", padding=6)
-        style.configure("TSpinbox", fieldbackground="#ffffff", bordercolor="#bfcacd", padding=6)
+        style.configure("TEntry", fieldbackground="#ffffff", bordercolor="#bfbfbf", padding=7)
+        style.configure("TCombobox", fieldbackground="#ffffff", bordercolor="#bfbfbf", padding=6)
+        style.configure("TSpinbox", fieldbackground="#ffffff", bordercolor="#bfbfbf", padding=6)
         style.configure("Primary.TButton", background=COLORS["teal"], foreground="#ffffff", borderwidth=0, padding=(15, 9), font=("Segoe UI", 9, "bold"))
-        style.map("Primary.TButton", background=[("active", COLORS["teal_dark"]), ("disabled", "#87aaa6")])
-        style.configure("Secondary.TButton", background="#ffffff", foreground=COLORS["ink"], bordercolor="#bfcacd", padding=(12, 8), font=("Segoe UI", 9, "bold"))
-        style.map("Secondary.TButton", background=[("active", "#eef3f2")])
+        style.map("Primary.TButton", background=[("active", COLORS["teal_dark"]), ("disabled", "#b5b5b5")])
+        style.configure("Secondary.TButton", background="#ffffff", foreground=COLORS["ink"], bordercolor="#bfbfbf", padding=(12, 8), font=("Segoe UI", 9, "bold"))
+        style.map("Secondary.TButton", background=[("active", "#f7eeee")])
         style.configure("Danger.TButton", background="#ffffff", foreground=COLORS["red"], bordercolor="#d4aaa7", padding=(12, 8), font=("Segoe UI", 9, "bold"))
         style.configure("Treeview", rowheight=28, background="#ffffff", fieldbackground="#ffffff", bordercolor=COLORS["line"], font=("Segoe UI", 9))
-        style.configure("Treeview.Heading", background="#e8eeee", foreground=COLORS["ink"], bordercolor=COLORS["line"], font=("Segoe UI", 8, "bold"))
-        style.map("Treeview", background=[("selected", "#d8eeeb")], foreground=[("selected", COLORS["ink"])])
-        style.configure("Horizontal.TProgressbar", background=COLORS["teal"], troughcolor="#d9e2e1")
+        style.configure("Treeview.Heading", background="#e9e9e9", foreground=COLORS["ink"], bordercolor=COLORS["line"], font=("Segoe UI", 8, "bold"))
+        style.map("Treeview", background=[("selected", "#f5d9da")], foreground=[("selected", COLORS["ink"])])
+        style.configure("Horizontal.TProgressbar", background=COLORS["teal"], troughcolor="#dedede")
 
     def _build_shell(self) -> None:
         self.grid_rowconfigure(0, weight=1)
@@ -315,12 +315,12 @@ class VN300DesktopApp(tk.Tk):
         brand = tk.Frame(sidebar, bg=COLORS["sidebar"], height=86)
         brand.pack(fill="x", padx=16, pady=(12, 20))
         brand.pack_propagate(False)
-        mark = tk.Label(brand, text="V3", width=3, height=2, bg="#17a69b", fg="#ffffff", font=("Segoe UI", 11, "bold"))
+        mark = tk.Label(brand, text="SRT", width=3, height=2, bg="#050505", fg="#ffffff", highlightbackground="#d71920", highlightthickness=2, font=("Segoe UI", 10, "bold"))
         mark.pack(side="left", pady=14)
         brand_text = tk.Frame(brand, bg=COLORS["sidebar"])
         brand_text.pack(side="left", padx=10, pady=16)
-        tk.Label(brand_text, text="VN300", bg=COLORS["sidebar"], fg="#ffffff", font=("Segoe UI", 11, "bold")).pack(anchor="w")
-        tk.Label(brand_text, text="TEAM TOOLS", bg=COLORS["sidebar"], fg="#91a5ac", font=("Segoe UI", 7, "bold")).pack(anchor="w")
+        tk.Label(brand_text, text="SOONER RACING", bg=COLORS["sidebar"], fg="#ffffff", font=("Segoe UI", 9, "bold")).pack(anchor="w")
+        tk.Label(brand_text, text="TELEMETRY", bg=COLORS["sidebar"], fg="#e31b23", font=("Segoe UI", 7, "bold")).pack(anchor="w")
 
         for name, label, short in (
             ("analysis", "Data analysis", "DA"),
@@ -336,7 +336,7 @@ class VN300DesktopApp(tk.Tk):
                 padx=12,
                 pady=12,
                 bg=COLORS["sidebar"],
-                fg="#b3c1c5",
+                fg="#d0d0d0",
                 activebackground=COLORS["sidebar_active"],
                 activeforeground="#ffffff",
                 font=("Segoe UI", 9, "bold"),
@@ -345,9 +345,9 @@ class VN300DesktopApp(tk.Tk):
             button.pack(fill="x", padx=10, pady=2)
             self.nav_buttons[name] = button
 
-        self.sidebar_pi_dot = tk.Label(sidebar, text="●", bg=COLORS["sidebar"], fg="#839197", font=("Segoe UI", 8))
+        self.sidebar_pi_dot = tk.Label(sidebar, text="●", bg=COLORS["sidebar"], fg="#909090", font=("Segoe UI", 8))
         self.sidebar_pi_dot.pack(side="bottom", anchor="w", padx=17, pady=(0, 18))
-        self.sidebar_pi_text = tk.Label(sidebar, text="Pi not connected", bg=COLORS["sidebar"], fg="#96a7ad", font=("Segoe UI", 8))
+        self.sidebar_pi_text = tk.Label(sidebar, text="Pi not connected", bg=COLORS["sidebar"], fg="#aaaaaa", font=("Segoe UI", 8))
         self.sidebar_pi_text.place(x=34, rely=1.0, y=-29, anchor="sw")
 
         workspace = tk.Frame(self, bg=COLORS["soft"])
@@ -385,7 +385,7 @@ class VN300DesktopApp(tk.Tk):
             self.views[name].grid()
         for key, button in self.nav_buttons.items():
             active = key == name
-            button.configure(bg=COLORS["sidebar_active"] if active else COLORS["sidebar"], fg="#ffffff" if active else "#b3c1c5")
+            button.configure(bg=COLORS["sidebar_active"] if active else COLORS["sidebar"], fg="#ffffff" if active else "#d0d0d0")
         self.current_view = name
         self.header_eyebrow.configure(text=titles[name][0])
         self.header_title.configure(text=titles[name][1])
@@ -403,7 +403,7 @@ class VN300DesktopApp(tk.Tk):
         tk.Label(frame, text=title, bg=COLORS["paper"], fg=COLORS["ink"], font=("Segoe UI", 11, "bold")).pack(side="left", padx=9)
 
     def _labeled_entry(self, parent: tk.Misc, label: str, variable: tk.Variable, row: int, browse: Any = None) -> ttk.Entry:
-        tk.Label(parent, text=label, bg=COLORS["paper"], fg="#435159", font=("Segoe UI", 8, "bold")).grid(row=row, column=0, sticky="w", pady=(0, 5))
+        tk.Label(parent, text=label, bg=COLORS["paper"], fg="#484848", font=("Segoe UI", 8, "bold")).grid(row=row, column=0, sticky="w", pady=(0, 5))
         entry = ttk.Entry(parent, textvariable=variable)
         entry.grid(row=row + 1, column=0, sticky="ew", pady=(0, 13))
         if browse:
@@ -442,11 +442,11 @@ class VN300DesktopApp(tk.Tk):
         options.grid(row=7, column=0, columnspan=2, sticky="ew")
         for column in range(3):
             options.grid_columnconfigure(column, weight=1)
-        tk.Label(options, text="Timing mode", bg=COLORS["paper"], fg="#435159", font=("Segoe UI", 8, "bold")).grid(row=0, column=0, sticky="w")
+        tk.Label(options, text="Timing mode", bg=COLORS["paper"], fg="#484848", font=("Segoe UI", 8, "bold")).grid(row=0, column=0, sticky="w")
         ttk.Combobox(options, textvariable=self.analysis_vars["mode"], values=("auto", "lap", "autocross"), state="readonly").grid(row=1, column=0, sticky="ew", padx=(0, 10), pady=(5, 14))
-        tk.Label(options, text="Automatic sectors", bg=COLORS["paper"], fg="#435159", font=("Segoe UI", 8, "bold")).grid(row=0, column=1, sticky="w")
+        tk.Label(options, text="Automatic sectors", bg=COLORS["paper"], fg="#484848", font=("Segoe UI", 8, "bold")).grid(row=0, column=1, sticky="w")
         ttk.Spinbox(options, textvariable=self.analysis_vars["auto_sectors"], from_=0, to=20).grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=(5, 14))
-        tk.Label(options, text="Minimum timed segment (s)", bg=COLORS["paper"], fg="#435159", font=("Segoe UI", 8, "bold")).grid(row=0, column=2, sticky="w")
+        tk.Label(options, text="Minimum timed segment (s)", bg=COLORS["paper"], fg="#484848", font=("Segoe UI", 8, "bold")).grid(row=0, column=2, sticky="w")
         ttk.Spinbox(options, textvariable=self.analysis_vars["sector_report_min_seconds"], from_=0, to=3600, increment=.5).grid(row=1, column=2, sticky="ew", pady=(5, 14))
         ttk.Checkbutton(options, text="Measured G-G lap prediction", variable=self.analysis_vars["gg_enabled"]).grid(row=2, column=0, columnspan=2, sticky="w", pady=5)
         ttk.Checkbutton(options, text="Include matching ASCII logs", variable=self.analysis_vars["include_ascii"]).grid(row=2, column=2, sticky="w", pady=5)
@@ -455,25 +455,25 @@ class VN300DesktopApp(tk.Tk):
         driver.grid(row=8, column=0, columnspan=2, sticky="ew", pady=(18, 0))
         driver.grid_columnconfigure(0, weight=1)
         driver.grid_columnconfigure(1, minsize=110)
-        tk.Label(driver, text="Sorted driver order", bg=COLORS["paper"], fg="#435159", font=("Segoe UI", 8, "bold")).grid(row=0, column=0, sticky="w")
+        tk.Label(driver, text="Sorted driver order", bg=COLORS["paper"], fg="#484848", font=("Segoe UI", 8, "bold")).grid(row=0, column=0, sticky="w")
         ttk.Entry(driver, textvariable=self.analysis_vars["driver_order"]).grid(row=1, column=0, sticky="ew", padx=(0, 10), pady=(5, 0))
-        tk.Label(driver, text="Files to skip", bg=COLORS["paper"], fg="#435159", font=("Segoe UI", 8, "bold")).grid(row=0, column=1, sticky="w")
+        tk.Label(driver, text="Files to skip", bg=COLORS["paper"], fg="#484848", font=("Segoe UI", 8, "bold")).grid(row=0, column=1, sticky="w")
         ttk.Spinbox(driver, textvariable=self.analysis_vars["driver_order_offset"], from_=0, to=10000).grid(row=1, column=1, sticky="ew", pady=(5, 0))
 
-        status = tk.Frame(view, bg="#edf2f1", padx=22, pady=24, highlightbackground=COLORS["line"], highlightthickness=1)
+        status = tk.Frame(view, bg="#eeeeee", padx=22, pady=24, highlightbackground=COLORS["line"], highlightthickness=1)
         status.grid(row=0, column=1, sticky="nsew")
         status.grid_rowconfigure(4, weight=1)
         status.grid_columnconfigure(0, weight=1)
-        tk.Label(status, text="ANALYZER", bg="#edf2f1", fg=COLORS["teal"], font=("Segoe UI", 7, "bold")).grid(row=0, column=0, sticky="w")
-        self.analysis_status_label = tk.Label(status, text="Ready", bg="#edf2f1", fg=COLORS["ink"], font=("Segoe UI", 13, "bold"))
+        tk.Label(status, text="ANALYZER", bg="#eeeeee", fg=COLORS["teal"], font=("Segoe UI", 7, "bold")).grid(row=0, column=0, sticky="w")
+        self.analysis_status_label = tk.Label(status, text="Ready", bg="#eeeeee", fg=COLORS["ink"], font=("Segoe UI", 13, "bold"))
         self.analysis_status_label.grid(row=1, column=0, sticky="w", pady=(3, 10))
         self.analysis_progress = ttk.Progressbar(status, mode="indeterminate")
         self.analysis_progress.grid(row=2, column=0, sticky="ew", pady=(0, 12))
-        self.analysis_source_label = tk.Label(status, text="Waiting for telemetry data", bg="#edf2f1", fg=COLORS["muted"], anchor="w", font=("Segoe UI", 8))
+        self.analysis_source_label = tk.Label(status, text="Waiting for telemetry data", bg="#eeeeee", fg=COLORS["muted"], anchor="w", font=("Segoe UI", 8))
         self.analysis_source_label.grid(row=3, column=0, sticky="ew", pady=(0, 8))
-        self.analysis_log = tk.Text(status, height=16, bg="#142026", fg="#c7dad8", insertbackground="#ffffff", relief="flat", padx=10, pady=10, wrap="word", font=("Consolas", 8), state="disabled")
+        self.analysis_log = tk.Text(status, height=16, bg="#0b0b0b", fg="#dedede", insertbackground="#ffffff", relief="flat", padx=10, pady=10, wrap="word", font=("Consolas", 8), state="disabled")
         self.analysis_log.grid(row=4, column=0, sticky="nsew")
-        action_row = tk.Frame(status, bg="#edf2f1")
+        action_row = tk.Frame(status, bg="#eeeeee")
         action_row.grid(row=5, column=0, sticky="ew", pady=(14, 0))
         self.cancel_analysis_button = ttk.Button(action_row, text="Cancel", style="Danger.TButton", command=self.cancel_analysis, state="disabled")
         self.cancel_analysis_button.pack(side="left")
@@ -532,12 +532,12 @@ class VN300DesktopApp(tk.Tk):
         track_frame = tk.Frame(body, bg=COLORS["paper"], highlightbackground=COLORS["line"], highlightthickness=1)
         track_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 7), pady=(0, 7))
         tk.Label(track_frame, text="TIMING TRACE", bg=COLORS["paper"], fg=COLORS["muted"], font=("Segoe UI", 8, "bold")).pack(anchor="w", padx=12, pady=(10, 0))
-        self.track_canvas = tk.Canvas(track_frame, bg="#f8faf9", bd=0, highlightthickness=0)
+        self.track_canvas = tk.Canvas(track_frame, bg="#f8f8f8", bd=0, highlightthickness=0)
         self.track_canvas.pack(fill="both", expand=True, padx=10, pady=8)
         speed_frame = tk.Frame(body, bg=COLORS["paper"], highlightbackground=COLORS["line"], highlightthickness=1)
         speed_frame.grid(row=0, column=1, sticky="nsew", padx=(7, 0), pady=(0, 7))
         tk.Label(speed_frame, text="LIVE SPEED", bg=COLORS["paper"], fg=COLORS["muted"], font=("Segoe UI", 8, "bold")).pack(anchor="w", padx=12, pady=(10, 0))
-        self.speed_canvas = tk.Canvas(speed_frame, bg="#f8faf9", bd=0, highlightthickness=0)
+        self.speed_canvas = tk.Canvas(speed_frame, bg="#f8f8f8", bd=0, highlightthickness=0)
         self.speed_canvas.pack(fill="both", expand=True, padx=10, pady=8)
 
         lap_frame = tk.Frame(body, bg=COLORS["paper"], highlightbackground=COLORS["line"], highlightthickness=1)
@@ -572,11 +572,11 @@ class VN300DesktopApp(tk.Tk):
         view.grid_rowconfigure(0, weight=1)
         view.grid_columnconfigure(0, minsize=290)
         view.grid_columnconfigure(1, weight=1)
-        history_pane = tk.Frame(view, bg="#f8faf9", padx=16, pady=18, highlightbackground=COLORS["line"], highlightthickness=1)
+        history_pane = tk.Frame(view, bg="#f8f8f8", padx=16, pady=18, highlightbackground=COLORS["line"], highlightthickness=1)
         history_pane.grid(row=0, column=0, sticky="nsew")
         history_pane.grid_rowconfigure(1, weight=1)
         history_pane.grid_columnconfigure(0, weight=1)
-        tk.Label(history_pane, text="RECENT RUNS", bg="#f8faf9", fg=COLORS["teal"], font=("Segoe UI", 8, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 10))
+        tk.Label(history_pane, text="RECENT RUNS", bg="#f8f8f8", fg=COLORS["teal"], font=("Segoe UI", 8, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 10))
         self.history_tree = ttk.Treeview(history_pane, columns=("status", "created"), show="tree headings", selectmode="browse")
         self.history_tree.heading("#0", text="Data source")
         self.history_tree.heading("status", text="Status")
@@ -622,7 +622,7 @@ class VN300DesktopApp(tk.Tk):
         self.preview_x = ttk.Scrollbar(preview_frame, orient="horizontal", command=self.preview_tree.xview)
         self.preview_x.grid(row=1, column=0, sticky="ew")
         self.preview_tree.configure(yscrollcommand=self.preview_y.set, xscrollcommand=self.preview_x.set)
-        self.preview_message = tk.Label(preview_frame, text="Completed analysis CSV files are previewed here.", bg="#f8faf9", fg=COLORS["muted"], font=("Segoe UI", 9))
+        self.preview_message = tk.Label(preview_frame, text="Completed analysis CSV files are previewed here.", bg="#f8f8f8", fg=COLORS["muted"], font=("Segoe UI", 9))
         self.preview_message.place(relx=.5, rely=.5, anchor="center")
         self.selected_history: dict[str, Any] | None = None
         self.selected_result: dict[str, str] | None = None
@@ -1033,7 +1033,7 @@ class VN300DesktopApp(tk.Tk):
         pad = 18
         for fraction in (.25, .5, .75):
             y = pad + (height - pad * 2) * fraction
-            canvas.create_line(pad, y, width - pad, y, fill="#dce4e4")
+            canvas.create_line(pad, y, width - pad, y, fill="#dedede")
         values = self.pi_speed_history
         if len(values) < 2:
             canvas.create_text(20, 25, anchor="w", text="No live speed data", fill=COLORS["muted"], font=("Segoe UI", 8))

@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.11.1`
+`v0.12.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,16 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.12.0 - 2026-08-21
+
+### SRT Interface Color System
+
+- Replaced the previous teal/blue interface accents with the SRT logo red across navigation, primary actions, tabs, focused inputs, progress bars, timing traces, and selections.
+- Changed sidebars and telemetry plots to neutral black, with white content surfaces and untinted gray borders and secondary text.
+- Retained green and amber only for success, online, running, and caution states where color communicates meaning.
+- Applied the same visual system to the supported Qt desktop app, optional browser interface, and retained legacy desktop shell.
+- Added a packaging regression test that rejects the former teal accent and verifies the red/black SRT palette.
 
 ## v0.11.1 - 2026-08-21
 

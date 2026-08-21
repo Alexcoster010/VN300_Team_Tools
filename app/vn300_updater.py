@@ -194,7 +194,7 @@ def release_asset_urls(version: str) -> tuple[str, str]:
 
 
 def _download_limited(url: str, destination: Path, maximum_bytes: int, timeout: float) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "SoonerRacingTelemetryUpdater/0.11"})
+    request = urllib.request.Request(url, headers={"User-Agent": "SoonerRacingTelemetryUpdater/0.12"})
     with urllib.request.urlopen(request, timeout=timeout) as response, destination.open("wb") as output:
         content_length = response.headers.get("Content-Length")
         if content_length and int(content_length) > maximum_bytes:

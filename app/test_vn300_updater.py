@@ -24,8 +24,8 @@ def build_update_zip(path: Path, version: str = "0.6.0") -> None:
 
 class UpdaterTests(unittest.TestCase):
     def test_release_url_uses_rebranded_installer_name(self):
-        installer, checksum = updater.release_asset_urls("0.11.0")
-        self.assertTrue(installer.endswith("/Sooner-Racing-Telemetry-Setup-0.11.0.exe"))
+        installer, checksum = updater.release_asset_urls("0.12.0")
+        self.assertTrue(installer.endswith("/Sooner-Racing-Telemetry-Setup-0.12.0.exe"))
         self.assertEqual(checksum, f"{installer}.sha256")
 
     def test_semantic_version_comparison(self):

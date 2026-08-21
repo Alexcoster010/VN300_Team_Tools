@@ -204,13 +204,13 @@ APP_STYLE = """
 * {
     font-family: "Segoe UI";
     font-size: 13px;
-    color: #18242b;
+    color: #171717;
 }
 QMainWindow, QWidget#appRoot {
-    background: #eef2f3;
+    background: #f2f2f2;
 }
 QFrame#sidebar {
-    background: #121d22;
+    background: #080808;
     border: 0;
 }
 QLabel#brandTitle {
@@ -224,13 +224,13 @@ QLabel#brandSub {
     font-weight: 700;
 }
 QLabel#railStatus {
-    color: #90a4ad;
+    color: #a8a8a8;
     font-size: 10px;
     font-weight: 600;
 }
 QPushButton[nav="true"] {
     background: transparent;
-    color: #b9c8ce;
+    color: #d0d0d0;
     border: 0;
     border-left: 3px solid transparent;
     padding: 13px 16px;
@@ -238,61 +238,61 @@ QPushButton[nav="true"] {
     font-weight: 600;
 }
 QPushButton[nav="true"]:hover {
-    background: #1b2b32;
+    background: #1b1b1b;
     color: #ffffff;
 }
 QPushButton[nav="true"]:checked {
-    background: #22363e;
+    background: #281315;
     color: #ffffff;
-    border-left-color: #19a89e;
+    border-left-color: #d71920;
 }
 QFrame#topbar, QFrame#pageHeader, QFrame#footerBar {
     background: #ffffff;
     border: 0;
-    border-bottom: 1px solid #d5dde0;
+    border-bottom: 1px solid #d7d7d7;
 }
 QLabel#pageKicker {
-    color: #00877f;
+    color: #c81018;
     font-size: 10px;
     font-weight: 700;
 }
 QLabel#pageTitle {
-    color: #142027;
+    color: #111111;
     font-size: 25px;
     font-weight: 700;
 }
 QLabel#clock {
-    color: #506068;
+    color: #5f5f5f;
     font-family: "Consolas";
     font-size: 12px;
 }
 QFrame[panel="true"], QFrame[metric="true"] {
     background: #ffffff;
-    border: 1px solid #d3dcdf;
+    border: 1px solid #d2d2d2;
     border-radius: 4px;
 }
 QFrame[panel="dark"] {
-    background: #111d22;
-    border: 1px solid #26373e;
+    background: #0b0b0b;
+    border: 1px solid #343434;
     border-radius: 4px;
 }
 QLabel[section="true"] {
-    color: #52636b;
+    color: #595959;
     font-size: 10px;
     font-weight: 700;
 }
 QLabel[metricLabel="true"] {
-    color: #627179;
+    color: #666666;
     font-size: 10px;
     font-weight: 700;
 }
 QLabel[metricValue="true"] {
-    color: #152128;
+    color: #151515;
     font-size: 24px;
     font-weight: 700;
 }
 QLabel[metricUnit="true"] {
-    color: #77868d;
+    color: #777777;
     font-size: 10px;
 }
 QLabel[status="online"] {
@@ -320,9 +320,9 @@ QLabel[status="working"] {
     font-weight: 700;
 }
 QLabel[status="neutral"] {
-    background: #f1f4f5;
-    color: #56656c;
-    border: 1px solid #ccd6d9;
+    background: #f1f1f1;
+    color: #5f5f5f;
+    border: 1px solid #d0d0d0;
     border-radius: 3px;
     padding: 7px 12px;
     font-weight: 700;
@@ -330,64 +330,64 @@ QLabel[status="neutral"] {
 QPushButton, QToolButton {
     min-height: 34px;
     background: #ffffff;
-    color: #1c2a31;
-    border: 1px solid #bfcbd0;
+    color: #1c1c1c;
+    border: 1px solid #bfbfbf;
     border-radius: 3px;
     padding: 0 13px;
     font-weight: 600;
 }
 QPushButton:hover, QToolButton:hover {
-    background: #f1f6f5;
-    border-color: #8da5aa;
+    background: #f7eeee;
+    border-color: #b64a4e;
 }
 QPushButton[role="primary"] {
-    background: #00877f;
+    background: #d71920;
     color: #ffffff;
-    border-color: #00877f;
+    border-color: #d71920;
 }
 QPushButton[role="primary"]:hover {
-    background: #006e68;
+    background: #ad1117;
 }
 QPushButton[role="danger"] {
     color: #ad3e37;
     border-color: #d5aaa5;
 }
 QPushButton:disabled, QToolButton:disabled {
-    background: #edf1f2;
-    color: #9aa7ac;
-    border-color: #d6dfe1;
+    background: #eeeeee;
+    color: #999999;
+    border-color: #d8d8d8;
 }
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
     min-height: 34px;
     background: #ffffff;
-    border: 1px solid #bcc9cd;
+    border: 1px solid #bdbdbd;
     border-radius: 3px;
     padding: 0 9px;
-    selection-background-color: #bce2de;
+    selection-background-color: #f3c8ca;
 }
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {
-    border: 1px solid #00877f;
+    border: 1px solid #d71920;
 }
 QTabWidget::pane {
     border: 0;
-    border-top: 1px solid #ccd7da;
-    background: #eef2f3;
+    border-top: 1px solid #d0d0d0;
+    background: #f2f2f2;
 }
 QTabBar::tab {
     min-width: 150px;
     min-height: 34px;
     padding: 0 14px;
-    background: #e3e9eb;
-    color: #52636a;
-    border: 1px solid #ccd7da;
+    background: #e7e7e7;
+    color: #595959;
+    border: 1px solid #d0d0d0;
     border-bottom: 0;
     font-size: 10px;
     font-weight: 700;
 }
 QTabBar::tab:selected {
     background: #ffffff;
-    color: #007d75;
-    border-top: 2px solid #00877f;
+    color: #c81018;
+    border-top: 2px solid #d71920;
 }
 QCheckBox {
     spacing: 8px;
@@ -398,21 +398,21 @@ QCheckBox::indicator {
 }
 QTableWidget, QListWidget, QTextEdit {
     background: #ffffff;
-    border: 1px solid #d1dade;
+    border: 1px solid #d2d2d2;
     border-radius: 3px;
-    gridline-color: #e1e7e9;
-    selection-background-color: #d9efec;
-    selection-color: #17242a;
+    gridline-color: #e5e5e5;
+    selection-background-color: #f5d9da;
+    selection-color: #171717;
 }
 QTableWidget::item, QListWidget::item {
     padding: 7px;
 }
 QHeaderView::section {
-    background: #e8edef;
-    color: #46565e;
+    background: #e9e9e9;
+    color: #4d4d4d;
     border: 0;
-    border-right: 1px solid #d2dcdf;
-    border-bottom: 1px solid #cbd6da;
+    border-right: 1px solid #d4d4d4;
+    border-bottom: 1px solid #cccccc;
     padding: 7px;
     font-size: 10px;
     font-weight: 700;
@@ -421,23 +421,23 @@ QProgressBar {
     min-height: 4px;
     max-height: 4px;
     border: 0;
-    background: #dce5e6;
+    background: #dedede;
 }
 QProgressBar::chunk {
-    background: #00877f;
+    background: #d71920;
 }
 QSplitter::handle {
-    background: #dce3e5;
+    background: #dddddd;
     width: 1px;
     height: 1px;
 }
 QScrollBar:vertical {
-    background: #eef2f3;
+    background: #f2f2f2;
     width: 10px;
     margin: 0;
 }
 QScrollBar::handle:vertical {
-    background: #aab7bc;
+    background: #aaaaaa;
     min-height: 28px;
     border-radius: 4px;
 }
@@ -532,12 +532,12 @@ class PlotWidget(QFrame):
     def base_painter(self) -> tuple[QPainter, QRectF]:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.fillRect(self.rect(), QColor("#111d22"))
-        painter.setPen(QColor("#8da0a8"))
+        painter.fillRect(self.rect(), QColor("#0b0b0b"))
+        painter.setPen(QColor("#a0a0a0"))
         painter.setFont(QFont("Segoe UI", 8, QFont.Weight.DemiBold))
         painter.drawText(14, 21, self.title.upper())
         bounds = QRectF(18, 34, max(10, self.width() - 36), max(10, self.height() - 50))
-        painter.setPen(QPen(QColor("#26373e"), 1))
+        painter.setPen(QPen(QColor("#343434"), 1))
         for index in range(1, 4):
             y = bounds.top() + bounds.height() * index / 4
             painter.drawLine(bounds.left(), y, bounds.right(), y)
@@ -556,7 +556,7 @@ class SpeedTraceWidget(PlotWidget):
     def paintEvent(self, _event: Any) -> None:
         painter, bounds = self.base_painter()
         if len(self.values) < 2:
-            painter.setPen(QColor("#71858e"))
+            painter.setPen(QColor("#858585"))
             painter.drawText(bounds, Qt.AlignmentFlag.AlignCenter, "WAITING FOR SPEED DATA")
             painter.end()
             return
@@ -569,9 +569,9 @@ class SpeedTraceWidget(PlotWidget):
                 path.moveTo(x, y)
             else:
                 path.lineTo(x, y)
-        painter.setPen(QPen(QColor("#20b8ac"), 2))
+        painter.setPen(QPen(QColor("#f02b31"), 2))
         painter.drawPath(path)
-        painter.setPen(QColor("#8da0a8"))
+        painter.setPen(QColor("#a0a0a0"))
         painter.drawText(bounds.adjusted(0, 2, -2, 0), Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, f"{maximum:.0f} mph")
         painter.end()
 
@@ -612,7 +612,7 @@ class TrackTraceWidget(PlotWidget):
         painter, bounds = self.base_painter()
         points = self.current + self.best
         if len(points) < 2:
-            painter.setPen(QColor("#71858e"))
+            painter.setPen(QColor("#858585"))
             painter.drawText(bounds, Qt.AlignmentFlag.AlignCenter, "WAITING FOR GPS TRACE")
             painter.end()
             return
@@ -638,8 +638,8 @@ class TrackTraceWidget(PlotWidget):
             painter.setPen(QPen(QColor(color), line_width))
             painter.drawPath(path)
 
-        draw_trace(self.best, "#687b83", 2)
-        draw_trace(self.current, "#20b8ac", 3)
+        draw_trace(self.best, "#d0d0d0", 2)
+        draw_trace(self.current, "#f02b31", 3)
         painter.end()
 
 
@@ -939,7 +939,7 @@ class VN300QtApp(QMainWindow):
         ):
             row = QHBoxLayout()
             name = QLabel(label)
-            name.setStyleSheet("color:#64737a;")
+            name.setStyleSheet("color:#666666;")
             value = QLabel("--")
             value.setAlignment(Qt.AlignmentFlag.AlignRight)
             value.setStyleSheet("font-weight:600;")
@@ -1019,7 +1019,7 @@ class VN300QtApp(QMainWindow):
         self.setup_date_label = QLabel("--")
         self.setup_date_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.next_run_label = QLabel("--")
-        self.next_run_label.setStyleSheet("font-weight:700;color:#007d75;")
+        self.next_run_label.setStyleSheet("font-weight:700;color:#c81018;")
         self.next_run_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         identity_form.addRow("Date", self.setup_date_label)
         identity_form.addRow("Next run", self.next_run_label)
@@ -1039,7 +1039,7 @@ class VN300QtApp(QMainWindow):
         review_form.addRow("Valid run", self.valid_run_input)
         review_layout.addLayout(review_form)
         notes_label = QLabel("Notes")
-        notes_label.setStyleSheet("color:#4f6068;")
+        notes_label.setStyleSheet("color:#5d5d5d;")
         review_layout.addWidget(notes_label)
         self.run_notes_input = QTextEdit()
         self.run_notes_input.setPlaceholderText("Driver comments, setup observations, incidents, or test notes")
@@ -1049,7 +1049,7 @@ class VN300QtApp(QMainWindow):
         review_layout.addWidget(self.run_notes_input)
         self.metadata_save_status = QLabel("Connect to the Pi to load setup")
         self.metadata_save_status.setWordWrap(True)
-        self.metadata_save_status.setStyleSheet("color:#687980;")
+        self.metadata_save_status.setStyleSheet("color:#6d6d6d;")
         review_layout.addWidget(self.metadata_save_status)
         self.metadata_save_button = QPushButton("SAVE RUN INFO")
         self.metadata_save_button.setProperty("role", "primary")
@@ -1080,7 +1080,7 @@ class VN300QtApp(QMainWindow):
         timing_head = QHBoxLayout()
         timing_head.setSpacing(10)
         mode_label = QLabel("Track mode")
-        mode_label.setStyleSheet("color:#4f6068;")
+        mode_label.setStyleSheet("color:#5d5d5d;")
         timing_head.addWidget(mode_label)
         self.timing_mode_input = QComboBox()
         self.timing_mode_input.addItem("Lap", "lap")
@@ -1089,7 +1089,7 @@ class VN300QtApp(QMainWindow):
         timing_head.addWidget(self.timing_mode_input)
         timing_head.addStretch()
         self.timing_config_status = QLabel("Not configured")
-        self.timing_config_status.setStyleSheet("color:#687980;font-weight:600;")
+        self.timing_config_status.setStyleSheet("color:#6d6d6d;font-weight:600;")
         timing_head.addWidget(self.timing_config_status)
         timing_layout.addLayout(timing_head)
 
@@ -1144,7 +1144,7 @@ class VN300QtApp(QMainWindow):
         timing_actions = QHBoxLayout()
         timing_actions.setSpacing(10)
         self.timing_save_status = QLabel("Connect to the Pi to load timing setup")
-        self.timing_save_status.setStyleSheet("color:#687980;")
+        self.timing_save_status.setStyleSheet("color:#6d6d6d;")
         timing_actions.addWidget(self.timing_save_status)
         timing_actions.addStretch()
         self.timing_reset_button = QPushButton("RESET TIMING")
@@ -1280,7 +1280,7 @@ class VN300QtApp(QMainWindow):
         activity_head.addWidget(self.run_analysis_button)
         activity_layout.addLayout(activity_head)
         self.analysis_source_label = QLabel("Waiting for telemetry data")
-        self.analysis_source_label.setStyleSheet("color:#63737a;")
+        self.analysis_source_label.setStyleSheet("color:#666666;")
         self.analysis_source_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         activity_layout.addWidget(self.analysis_source_label)
         self.analysis_progress = QProgressBar()
@@ -1290,7 +1290,7 @@ class VN300QtApp(QMainWindow):
         self.analysis_log = QTextEdit()
         self.analysis_log.setReadOnly(True)
         self.analysis_log.setStyleSheet(
-            "background:#111d22;color:#c8d7dc;border-color:#26373e;font-family:Consolas;font-size:11px;"
+            "background:#0b0b0b;color:#dedede;border-color:#343434;font-family:Consolas;font-size:11px;"
         )
         self.analysis_log.setPlainText("Analyzer ready.")
         activity_layout.addWidget(self.analysis_log, 1)
@@ -1337,7 +1337,7 @@ class VN300QtApp(QMainWindow):
         source_layout.addWidget(self.custom_scan_button)
         source_head = QHBoxLayout()
         self.custom_source_summary = QLabel("No telemetry folder scanned")
-        self.custom_source_summary.setStyleSheet("color:#63737a;")
+        self.custom_source_summary.setStyleSheet("color:#666666;")
         source_head.addWidget(self.custom_source_summary, 1)
         source_layout.addLayout(source_head)
         source_actions = QHBoxLayout()
@@ -1382,7 +1382,7 @@ class VN300QtApp(QMainWindow):
         channel_layout.addWidget(self.custom_y_channels)
         selected_head = QHBoxLayout()
         self.custom_channel_summary = QLabel("No channels available")
-        self.custom_channel_summary.setStyleSheet("color:#63737a;")
+        self.custom_channel_summary.setStyleSheet("color:#666666;")
         selected_head.addWidget(self.custom_channel_summary, 1)
         clear_channels = QPushButton("CLEAR Y")
         clear_channels.clicked.connect(self.clear_custom_y_channels)
@@ -1487,7 +1487,7 @@ class VN300QtApp(QMainWindow):
         preview_layout.addLayout(preview_head)
         self.custom_preview = QWebEngineView()
         self.custom_preview.setHtml(
-            "<html><body style='margin:0;background:#101d22;color:#8fa7af;font:15px Segoe UI;"
+            "<html><body style='margin:0;background:#0b0b0b;color:#a8a8a8;font:15px Segoe UI;"
             "display:grid;place-items:center'><div>CUSTOM ANALYSIS WORKSPACE</div></body></html>"
         )
         preview_layout.addWidget(self.custom_preview, 1)
@@ -1546,7 +1546,7 @@ class VN300QtApp(QMainWindow):
         blank_layout = QVBoxLayout(blank)
         blank_label = QLabel("Select an analysis report")
         blank_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        blank_label.setStyleSheet("color:#7b898f;font-size:15px;")
+        blank_label.setStyleSheet("color:#808080;font-size:15px;")
         blank_layout.addWidget(blank_label)
         self.result_preview.addWidget(blank)
         self.web_view = QWebEngineView()
@@ -1702,7 +1702,7 @@ class VN300QtApp(QMainWindow):
         self.timing_config_status.setText(str(timing.get("status") or ("Configured" if configured else "Not configured")))
         self.timing_setup_dirty = False
         self.timing_save_status.setText("Loaded from Pi" if configured else "Enter gate coordinates")
-        self.timing_save_status.setStyleSheet("color:#187557;" if configured else "color:#687980;")
+        self.timing_save_status.setStyleSheet("color:#187557;" if configured else "color:#6d6d6d;")
 
     def update_drive_day_setup(self, snapshot: dict[str, Any], force: bool = False) -> None:
         run_metadata = snapshot.get("run_metadata")
@@ -1733,7 +1733,7 @@ class VN300QtApp(QMainWindow):
         self.metadata_save_active = True
         self.set_drive_day_controls_enabled(True)
         self.metadata_save_status.setText("Saving run information...")
-        self.metadata_save_status.setStyleSheet("color:#687980;")
+        self.metadata_save_status.setStyleSheet("color:#6d6d6d;")
         generation = self.pi_generation
         worker = Worker(
             pi_api_request,
@@ -1814,7 +1814,7 @@ class VN300QtApp(QMainWindow):
         self.timing_save_active = True
         self.set_drive_day_controls_enabled(True)
         self.timing_save_status.setText("Saving timing setup...")
-        self.timing_save_status.setStyleSheet("color:#687980;")
+        self.timing_save_status.setStyleSheet("color:#6d6d6d;")
         generation = self.pi_generation
         worker = Worker(pi_api_request, self.pi_endpoint, "api/config", "POST", payload, 5.0)
         worker.signals.result.connect(partial(self.timing_setup_saved, generation))

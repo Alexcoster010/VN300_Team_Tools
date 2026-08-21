@@ -56,6 +56,15 @@ class WindowsPackagingTests(unittest.TestCase):
         self.assertIn('"Sooner-Racing-Telemetry-Setup-$Version.exe"', source)
         self.assertIn('"VN300-Team-Tools-Setup-$Version.exe"', source)
 
+    def test_desktop_palette_matches_srt_brand(self):
+        qt_source = (ROOT / "app" / "vn300_qt_app.py").read_text(encoding="utf-8").lower()
+        web_source = (ROOT / "app" / "static" / "app.css").read_text(encoding="utf-8").lower()
+        for source in (qt_source, web_source):
+            self.assertIn("#d71920", source)
+            self.assertIn("#080808", source)
+            self.assertNotIn("#00877f", source)
+            self.assertNotIn("--teal", source)
+
 
 if __name__ == "__main__":
     unittest.main()
