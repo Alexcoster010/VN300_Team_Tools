@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.12.0`
+`v0.12.1`
 
 Stable Pi install tag:
 
@@ -25,6 +25,15 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.12.1 - 2026-08-21
+
+### In-App Installer Reliability
+
+- Fixed a packaged-app process race by waiting for PyInstaller's hidden bootloader parent to exit before running the downloaded installer.
+- Applied the fix to both the supported Qt shell and retained legacy desktop shell.
+- Added explicit software-update dialog colors so failure details remain readable with dark Windows themes.
+- Added regression tests for packaged and source process selection.
 
 ## v0.12.0 - 2026-08-21
 

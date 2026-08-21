@@ -38,6 +38,7 @@ from vn300_updater import (
     read_update_status,
     stage_branch_archive,
     stage_release_installer,
+    update_wait_pid,
     update_available,
 )
 
@@ -1323,7 +1324,7 @@ class VN300DesktopApp(tk.Tk):
                 REPO_ROOT,
                 STATE_DIR,
                 source_root,
-                os.getpid(),
+                update_wait_pid(),
                 UPDATE_BRANCH,
                 installer_path=installer_path,
             )

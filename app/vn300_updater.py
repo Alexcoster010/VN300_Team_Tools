@@ -66,6 +66,13 @@ def _git_flags() -> int:
     return subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
 
+def update_wait_pid() -> int:
+    """Return the process the detached helper must wait for before installing."""
+    if os.name == "nt" and bool(getattr(sys, "frozen", False)):
+        return os.getppid()
+    return os.getpid()
+
+
 def fetch_remote_version(repo_root: Path | None = None, url: str = VERSION_API_URL, timeout: float = 5.0) -> str:
     if repo_root is not None and has_git_checkout(repo_root):
         subprocess.run(

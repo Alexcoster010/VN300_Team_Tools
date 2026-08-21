@@ -64,6 +64,7 @@ class WindowsPackagingTests(unittest.TestCase):
             self.assertIn("#080808", source)
             self.assertNotIn("#00877f", source)
             self.assertNotIn("--teal", source)
+        self.assertIn("qmessagebox qlabel", qt_source)
 
 
 if __name__ == "__main__":

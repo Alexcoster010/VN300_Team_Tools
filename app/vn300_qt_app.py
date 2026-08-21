@@ -112,6 +112,7 @@ from vn300_updater import (
     launch_update_helper,
     stage_branch_archive,
     stage_release_installer,
+    update_wait_pid,
     update_available,
 )
 
@@ -208,6 +209,17 @@ APP_STYLE = """
 }
 QMainWindow, QWidget#appRoot {
     background: #f2f2f2;
+}
+QMessageBox {
+    background: #ffffff;
+}
+QMessageBox QLabel {
+    min-width: 320px;
+    background: transparent;
+    color: #171717;
+}
+QMessageBox QPushButton {
+    min-width: 80px;
 }
 QFrame#sidebar {
     background: #080808;
@@ -2930,7 +2942,7 @@ class VN300QtApp(QMainWindow):
                 REPO_ROOT,
                 STATE_DIR,
                 source_root,
-                os.getpid(),
+                update_wait_pid(),
                 UPDATE_BRANCH,
                 installer_path=installer_path,
             )

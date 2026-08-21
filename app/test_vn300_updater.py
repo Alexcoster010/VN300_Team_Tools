@@ -4,6 +4,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 import vn300_update_helper as helper
 import vn300_updater as updater
@@ -23,6 +24,22 @@ def build_update_zip(path: Path, version: str = "0.6.0") -> None:
 
 
 class UpdaterTests(unittest.TestCase):
+    def test_packaged_windows_update_waits_for_bootloader_parent(self):
+        with (
+            mock.patch.object(updater.os, "name", "nt"),
+            mock.patch.object(updater.os, "getppid", return_value=1234),
+            mock.patch.object(updater.os, "getpid", return_value=5678),
+            mock.patch.object(updater.sys, "frozen", True, create=True),
+        ):
+            self.assertEqual(updater.update_wait_pid(), 1234)
+
+    def test_source_update_waits_for_current_process(self):
+        with (
+            mock.patch.object(updater.os, "getpid", return_value=5678),
+            mock.patch.object(updater.sys, "frozen", False, create=True),
+        ):
+            self.assertEqual(updater.update_wait_pid(), 5678)
+
     def test_release_url_uses_rebranded_installer_name(self):
         installer, checksum = updater.release_asset_urls("0.12.0")
         self.assertTrue(installer.endswith("/Sooner-Racing-Telemetry-Setup-0.12.0.exe"))

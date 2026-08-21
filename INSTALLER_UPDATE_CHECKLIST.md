@@ -192,7 +192,7 @@ Last documented update:
 - Logger writes `VN300_run_metadata.csv`.
 - Analyzer automatically loads `VN300_run_metadata.csv` from a Pi boot folder.
 - Desktop `v0.8.2` retains Qt background workers until their result signals are delivered, fixing live dashboard connections stuck on `CONNECTING`.
-- Desktop `v0.12.0` applies the SRT red, black, white, and neutral-gray visual system throughout the app and includes the v0.11.1 shortcut icon correction.
+- Desktop `v0.12.1` waits for the packaged app's hidden bootloader process before installing an update, preventing the updater from racing a still-locked executable.
 
 ## Files Usually Updated
 
