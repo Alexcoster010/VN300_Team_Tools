@@ -1,4 +1,4 @@
-# VN300 Team Tools
+# Sooner Racing Telemetry
 
 This folder is a transfer-ready package for Raspberry Pi logging, live dashboard viewing, and laptop/offline VN-300 data analysis.
 
@@ -6,11 +6,11 @@ This folder is a transfer-ready package for Raspberry Pi logging, live dashboard
 
 Team members should use the packaged installer rather than downloading the repository ZIP:
 
-[Download the latest VN300 Team Tools release](https://github.com/Alexcoster010/VN300_Team_Tools/releases/latest)
+[Download the latest Sooner Racing Telemetry release](https://github.com/Alexcoster010/VN300_Team_Tools/releases/latest)
 
-Download `VN300-Team-Tools-Setup-X.Y.Z.exe`, run it, and launch **VN300 Team Tools** from Windows Search or the Start Menu. The installer includes Python, the analyzer, the native trackside dashboard, and the report viewer; no separate Python or Git installation is required. Windows may display an unsigned-app warning because the installer is not code-signed.
+Download `Sooner-Racing-Telemetry-Setup-X.Y.Z.exe`, run it, and launch **Sooner Racing Telemetry** from Windows Search or the Start Menu. The installer includes Python, the analyzer, the native trackside dashboard, and the report viewer; no separate Python or Git installation is required. Windows may display an unsigned-app warning because the installer is not code-signed.
 
-The current desktop release is `v0.10.0`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
+The current desktop release is `v0.11.0`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
 
 For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
 
@@ -34,7 +34,8 @@ For change tracking, use `VERSION_HISTORY.md`.
 - `pi/vn300-shutdown-sudoers`: allows the service user to shut down the Pi from the power button.
 - `pi/requirements-pi.txt`: Python packages needed on the Pi.
 - `pi/motec_can_signal_map.csv`: Pi-side CAN signal map used by optional Phase 2 CAN logging.
-- `Start_VN300_Team_Tools.bat`: Windows launcher for the native analysis and Pi dashboard app.
+- `Start_Sooner_Racing_Telemetry.bat`: Windows launcher for the native analysis and Pi dashboard app.
+- `Start_VN300_Team_Tools.bat`: compatibility launcher retained for older source updates.
 - `DESKTOP_APP_INSTALL.md`: teammate install, GitHub download, and automatic-update instructions.
 - `APP_VERSION`: desktop application version checked by the updater.
 - `app/vn300_qt_app.py`: supported PySide6 Windows interface for trackside monitoring, analysis, and embedded reports.
@@ -74,13 +75,13 @@ Generic placeholders used below:
 
 ## Unified App
 
-Install the current Windows release, then open **VN300 Team Tools** from Windows Search or the Start Menu. Developers can also double-click `Start_VN300_Team_Tools.bat` in a source checkout. The app provides three workspaces:
+Install the current Windows release, then open **Sooner Racing Telemetry** from Windows Search or the Start Menu. Developers can also double-click `Start_Sooner_Racing_Telemetry.bat` in a source checkout. The app provides three workspaces:
 
 - **Live dashboard**: monitor speed, G values, timing, GPS and speed traces, completed laps, logger state, system health, and network latency. Its **Drive Day Setup** tab writes complete run metadata and lap/autocross timing gates to the connected Pi. The app checks the connected logger version and offers an SSH update when the Pi is behind.
 - **Data analysis**: use **Quick Report** for the existing one-click lap/run report, or **Custom Workspace** to select files and channels, build calculated channels and filters, overlay line/scatter plots, save reusable presets, and export the plotted data.
-- **Reports**: render generated HTML reports inside the desktop app, preview CSV outputs, and open any result or output folder. Installed-app output defaults to `Documents\VN300 Team Tools\Analysis`.
+- **Reports**: render generated HTML reports inside the desktop app, preview CSV outputs, and open any result or output folder. New installed-app output defaults to `Documents\Sooner Racing Telemetry\Analysis`.
 
-The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\VN300TeamTools\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Edit **Pi address** on the live dashboard when the address changes.
+The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\SoonerRacingTelemetry\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Version `v0.11.0` automatically reads the former `%LOCALAPPDATA%\VN300TeamTools` state during the rename so existing connections, presets, and report history are retained. Edit **Pi address** on the live dashboard when the address changes.
 
 The dashboard contains **Live Telemetry** and **Drive Day Setup** tabs. Drive Day Setup edits the next run's complete metadata record and configures lap or autocross timing. Save and reset actions remain disabled while the Pi is offline, and live telemetry refreshes do not overwrite unsaved setup edits.
 

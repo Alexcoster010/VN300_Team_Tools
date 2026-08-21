@@ -80,6 +80,20 @@ class TeamAppTests(unittest.TestCase):
             self.assertEqual(reloaded["settings"]["pi_url"], "http://10.0.0.2:8080/")
             self.assertEqual(reloaded["history"][0]["id"], "run1")
 
+    def test_renamed_browser_app_loads_legacy_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            current = root / "SoonerRacingTelemetry" / "web_state.json"
+            legacy = root / "VN300TeamTools" / "app_state.json"
+            legacy.parent.mkdir()
+            legacy.write_text(
+                '{"settings":{"pi_url":"http://10.0.0.9:8080/"},"history":[]}',
+                encoding="utf-8",
+            )
+            with mock.patch.object(app, "STATE_PATH", current), mock.patch.object(app, "LEGACY_STATE_PATH", legacy):
+                loaded = app.StateStore(current).snapshot()
+            self.assertEqual(loaded["settings"]["pi_url"], "http://10.0.0.9:8080/")
+
 
 if __name__ == "__main__":
     unittest.main()

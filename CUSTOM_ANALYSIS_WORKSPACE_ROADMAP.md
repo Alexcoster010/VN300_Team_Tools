@@ -2,7 +2,7 @@
 
 ## Objective
 
-Make VN300 Team Tools useful for both routine drive-day review and open-ended FSAE design work. A freshman should be able to run a standard report without configuring plots, while an experienced engineer should be able to build and save an analysis without changing Python code.
+Make Sooner Racing Telemetry useful for both routine drive-day review and open-ended FSAE design work. A freshman should be able to run a standard report without configuring plots, while an experienced engineer should be able to build and save an analysis without changing Python code.
 
 The design is channel-based instead of sensor-specific. VN300, MoTeC M130, CDL3, steering, brake, suspension, tire, and future channels can use the same plotting, formula, filtering, statistics, and export tools.
 

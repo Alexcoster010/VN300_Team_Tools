@@ -127,7 +127,7 @@ def main() -> None:
             copy_archive_update(args.source, args.target, args.state_dir)
         else:
             raise ValueError("No update source was supplied.")
-        write_status(args.state_dir, True, "VN300 Team Tools was updated successfully.")
+        write_status(args.state_dir, True, "Sooner Racing Telemetry was updated successfully.")
     except Exception as exc:
         write_status(args.state_dir, False, f"Update failed: {exc}")
     restart_app(args.target, args.restart_executable)

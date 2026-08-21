@@ -4,6 +4,7 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest import mock
 
 import vn300_desktop_app as desktop
 
@@ -76,6 +77,19 @@ class DesktopAppTests(unittest.TestCase):
             self.assertEqual(loaded["analysis"]["auto_sectors"], 4)
             self.assertEqual(loaded["custom_analysis"]["x_channel"], "Distance_m")
             self.assertEqual(loaded["custom_presets"]["Braking"]["y_channels"], ["Brake_Pressure_Front"])
+
+    def test_renamed_app_loads_legacy_desktop_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            current = root / "SoonerRacingTelemetry" / "desktop_state.json"
+            legacy = root / "VN300TeamTools" / "desktop_state.json"
+            legacy.parent.mkdir()
+            legacy.write_text(json.dumps({"pi_endpoint": "http://192.168.8.134:8080/"}), encoding="utf-8")
+            with mock.patch.object(desktop, "STATE_PATH", current), mock.patch.object(
+                desktop, "LEGACY_STATE_PATH", legacy
+            ):
+                loaded = desktop.load_state()
+            self.assertEqual(loaded["pi_endpoint"], "http://192.168.8.134:8080/")
 
     def test_fetch_pi_snapshot_reads_dashboard_api(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), SnapshotHandler)

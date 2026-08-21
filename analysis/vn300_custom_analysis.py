@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generic, offline CSV analysis workspace for VN300 Team Tools."""
+"""Generic, offline CSV analysis workspace for Sooner Racing Telemetry."""
 
 from __future__ import annotations
 

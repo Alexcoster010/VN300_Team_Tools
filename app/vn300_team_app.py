@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local VN300 team workspace for offline analysis and the Pi dashboard."""
+"""Sooner Racing Telemetry localhost workspace for analysis and the Pi dashboard."""
 
 from __future__ import annotations
 
@@ -28,10 +28,11 @@ APP_DIR = Path(__file__).resolve().parent
 REPO_ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else APP_DIR.parent
 STATIC_DIR = APP_DIR / "static"
 ANALYZER_PATH = REPO_ROOT / "VN300Analyzer.exe" if IS_FROZEN else REPO_ROOT / "analysis" / "vn300_lap_analysis.py"
-STATE_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "VN300TeamTools"
-STATE_PATH = STATE_DIR / "app_state.json"
+STATE_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "SoonerRacingTelemetry"
+STATE_PATH = STATE_DIR / "web_state.json"
+LEGACY_STATE_PATH = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "VN300TeamTools" / "app_state.json"
 DEFAULT_OUTPUT_ROOT = (
-    Path.home() / "Documents" / "VN300 Team Tools" / "Analysis"
+    Path.home() / "Documents" / "Sooner Racing Telemetry" / "Analysis"
     if IS_FROZEN
     else REPO_ROOT / "analysis_output" / "app_runs"
 )
@@ -135,8 +136,11 @@ class StateStore:
         self._load()
 
     def _load(self) -> None:
+        source_path = self.path
+        if source_path == STATE_PATH and not source_path.is_file() and LEGACY_STATE_PATH.is_file():
+            source_path = LEGACY_STATE_PATH
         try:
-            loaded = json.loads(self.path.read_text(encoding="utf-8"))
+            loaded = json.loads(source_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError, TypeError):
             return
         if isinstance(loaded, dict):
@@ -560,7 +564,7 @@ def main() -> None:
 
     server, port = create_server(args.host, args.port)
     url = f"http://{args.host}:{port}/"
-    print(f"VN300 Team Tools app: {url}", flush=True)
+    print(f"Sooner Racing Telemetry app: {url}", flush=True)
     if not args.no_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:

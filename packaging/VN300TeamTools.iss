@@ -2,8 +2,8 @@
   #define AppVersion "0.0.0"
 #endif
 
-#define AppName "VN300 Team Tools"
-#define AppPublisher "SRT26"
+#define AppName "Sooner Racing Telemetry"
+#define AppPublisher "Sooner Racing Team"
 #define AppExeName "VN300TeamTools.exe"
 
 [Setup]
@@ -12,13 +12,13 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
-DefaultDirName={localappdata}\Programs\VN300 Team Tools
+DefaultDirName={localappdata}\Programs\Sooner Racing Telemetry
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist\installer
-OutputBaseFilename=VN300-Team-Tools-Setup-{#AppVersion}
-SetupIconFile=assets\VN300TeamTools.ico
+OutputBaseFilename=Sooner-Racing-Telemetry-Setup-{#AppVersion}
+SetupIconFile=assets\SoonerRacingTelemetry.ico
 UninstallDisplayIcon={app}\{#AppExeName}
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -40,8 +40,14 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Source: "..\dist\bin\VN300TeamTools.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\bin\VN300Analyzer.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\bin\VN300UpdateHelper.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "assets\VN300TeamTools.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "assets\SoonerRacingTelemetry.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "assets\SoonerRacingTelemetry.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\APP_VERSION"; DestDir: "{app}"; Flags: ignoreversion
+
+[InstallDelete]
+Type: files; Name: "{userprograms}\VN300 Team Tools\*.lnk"
+Type: dirifempty; Name: "{userprograms}\VN300 Team Tools"
+Type: files; Name: "{autodesktop}\VN300 Team Tools.lnk"
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"

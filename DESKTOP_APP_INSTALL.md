@@ -19,17 +19,19 @@ Python and Git are not required for the installed application.
 ## Install On A Team Laptop
 
 1. Open the releases page.
-2. Download `VN300-Team-Tools-Setup-X.Y.Z.exe` from the release assets.
+2. Download `Sooner-Racing-Telemetry-Setup-X.Y.Z.exe` from the release assets.
 3. Run the downloaded installer.
 4. Leave **Create a desktop shortcut** selected only when a desktop shortcut is wanted.
-5. Launch **VN300 Team Tools** from Windows Search or the Start Menu.
+5. Launch **Sooner Racing Telemetry** from Windows Search or the Start Menu.
 6. Enter the Raspberry Pi IP address or hostname when prompted.
 
 The installer is per-user and does not require administrator access. It installs under:
 
 ```text
-%LOCALAPPDATA%\Programs\VN300 Team Tools
+%LOCALAPPDATA%\Programs\Sooner Racing Telemetry
 ```
+
+An installation upgraded from v0.10.0 or older may remain in the former `Programs\VN300 Team Tools` directory. This is intentional installer compatibility; Windows Search, shortcuts, Installed Apps, and the running product all use the Sooner Racing Telemetry name.
 
 It also registers a Start Menu shortcut and an uninstall entry under Windows **Installed apps**.
 
@@ -40,13 +42,15 @@ The current installer is not code-signed. Windows SmartScreen may show an unreco
 The Pi address, window layout, and recent-run history are stored under:
 
 ```text
-%LOCALAPPDATA%\VN300TeamTools
+%LOCALAPPDATA%\SoonerRacingTelemetry
 ```
+
+On the first renamed launch, the app reads the former `%LOCALAPPDATA%\VN300TeamTools\desktop_state.json` when a new state file does not exist. The migrated state is written under the new folder the next time settings or window state are saved.
 
 New installed-app analysis output defaults to:
 
 ```text
-%USERPROFILE%\Documents\VN300 Team Tools\Analysis
+%USERPROFILE%\Documents\Sooner Racing Telemetry\Analysis
 ```
 
 Installing, updating, or uninstalling the program does not remove those folders.
@@ -85,7 +89,7 @@ When an installed-app update is accepted:
 
 Whenever the desktop app connects to the Pi, it compares the `logger_version` reported by `/api/latest` with the current public `pi-logger` version. If the Pi is behind, the app offers to update it.
 
-Accepting a Pi logger update opens a visible SSH terminal. Enter the Pi SSH password and sudo password when requested. The password is handled by Windows OpenSSH and is never read or stored by VN300 Team Tools.
+Accepting a Pi logger update opens a visible SSH terminal. Enter the Pi SSH password and sudo password when requested. The password is handled by Windows OpenSSH and is never read or stored by Sooner Racing Telemetry.
 
 The remote update uses the same supported Pi installer, including dependency checks, timestamped backup, CAN-map preservation, service/API health checks, and rollback. The desktop app reconnects afterward and verifies the installed logger version.
 

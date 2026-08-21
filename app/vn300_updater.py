@@ -28,7 +28,7 @@ BRANCH_ARCHIVE_URL = (
 MAX_ARCHIVE_BYTES = 150 * 1024 * 1024
 MAX_INSTALLER_BYTES = 250 * 1024 * 1024
 RELEASE_TAG_PREFIX = "desktop-v"
-RELEASE_ASSET_TEMPLATE = "VN300-Team-Tools-Setup-{version}.exe"
+RELEASE_ASSET_TEMPLATE = "Sooner-Racing-Telemetry-Setup-{version}.exe"
 REQUIRED_UPDATE_FILES = (
     "APP_VERSION",
     "Start_VN300_Team_Tools.bat",
@@ -194,7 +194,7 @@ def release_asset_urls(version: str) -> tuple[str, str]:
 
 
 def _download_limited(url: str, destination: Path, maximum_bytes: int, timeout: float) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "VN300DesktopUpdater/0.6"})
+    request = urllib.request.Request(url, headers={"User-Agent": "SoonerRacingTelemetryUpdater/0.11"})
     with urllib.request.urlopen(request, timeout=timeout) as response, destination.open("wb") as output:
         content_length = response.headers.get("Content-Length")
         if content_length and int(content_length) > maximum_bytes:

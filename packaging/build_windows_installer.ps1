@@ -41,11 +41,11 @@ VSVersionInfo(
       StringTable(
         u'040904B0',
         [StringStruct(u'CompanyName', u'SRT26'),
-         StringStruct(u'FileDescription', u'VN300 Team Tools'),
+         StringStruct(u'FileDescription', u'Sooner Racing Telemetry'),
          StringStruct(u'FileVersion', u'$Version'),
          StringStruct(u'InternalName', u'VN300TeamTools'),
          StringStruct(u'OriginalFilename', u'VN300TeamTools.exe'),
-         StringStruct(u'ProductName', u'VN300 Team Tools'),
+         StringStruct(u'ProductName', u'Sooner Racing Telemetry'),
          StringStruct(u'ProductVersion', u'$Version')]
       )
     ]),
@@ -98,11 +98,15 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup build failed."
 }
 
-$Installer = Join-Path $DistInstaller "VN300-Team-Tools-Setup-$Version.exe"
+$Installer = Join-Path $DistInstaller "Sooner-Racing-Telemetry-Setup-$Version.exe"
 if (-not (Test-Path -LiteralPath $Installer)) {
     throw "The expected installer was not produced: $Installer"
 }
-$Hash = (Get-FileHash -LiteralPath $Installer -Algorithm SHA256).Hash.ToLowerInvariant()
-"$Hash  $([IO.Path]::GetFileName($Installer))" | Set-Content -LiteralPath "$Installer.sha256" -Encoding ASCII
+$LegacyInstaller = Join-Path $DistInstaller "VN300-Team-Tools-Setup-$Version.exe"
+Copy-Item -LiteralPath $Installer -Destination $LegacyInstaller -Force
+foreach ($ReleaseInstaller in @($Installer, $LegacyInstaller)) {
+    $Hash = (Get-FileHash -LiteralPath $ReleaseInstaller -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$Hash  $([IO.Path]::GetFileName($ReleaseInstaller))" | Set-Content -LiteralPath "$ReleaseInstaller.sha256" -Encoding ASCII
+}
 Write-Host "Built $Installer"
-Write-Host "SHA256 $Hash"
+Write-Host "Built compatibility alias $LegacyInstaller"

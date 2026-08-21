@@ -45,12 +45,18 @@ from vn300_updater import (
 IS_FROZEN = bool(getattr(sys, "frozen", False))
 APP_DIR = Path(__file__).resolve().parent
 REPO_ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else APP_DIR.parent
-STATE_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "VN300TeamTools"
+PRODUCT_NAME = "Sooner Racing Telemetry"
+PRODUCT_ICON = "SoonerRacingTelemetry.ico"
+PRODUCT_LOGO = "SoonerRacingTelemetry.png"
+LOCAL_APP_DATA = Path(os.environ.get("LOCALAPPDATA", Path.home()))
+LEGACY_STATE_DIR = LOCAL_APP_DATA / "VN300TeamTools"
+STATE_DIR = LOCAL_APP_DATA / "SoonerRacingTelemetry"
 STATE_PATH = STATE_DIR / "desktop_state.json"
+LEGACY_STATE_PATH = LEGACY_STATE_DIR / "desktop_state.json"
 CURRENT_VERSION = read_current_version(REPO_ROOT)
 NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 DEFAULT_OUTPUT_ROOT = (
-    Path.home() / "Documents" / "VN300 Team Tools" / "Analysis"
+    Path.home() / "Documents" / PRODUCT_NAME / "Analysis"
     if IS_FROZEN
     else REPO_ROOT / "analysis_output" / "desktop_runs"
 )
@@ -103,10 +109,14 @@ DEFAULT_STATE = {
 }
 
 
-def load_state(path: Path = STATE_PATH) -> dict[str, Any]:
+def load_state(path: Path | None = None) -> dict[str, Any]:
+    path = path or STATE_PATH
     state = json.loads(json.dumps(DEFAULT_STATE))
+    source_path = path
+    if path == STATE_PATH and not path.is_file() and LEGACY_STATE_PATH.is_file():
+        source_path = LEGACY_STATE_PATH
     try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
+        loaded = json.loads(source_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, TypeError):
         return state
     if not isinstance(loaded, dict):
@@ -125,7 +135,13 @@ def load_state(path: Path = STATE_PATH) -> dict[str, Any]:
     return state
 
 
-def save_state(state: dict[str, Any], path: Path = STATE_PATH) -> None:
+def read_last_update_status() -> dict[str, Any] | None:
+    status = read_update_status(STATE_DIR)
+    return status if status is not None else read_update_status(LEGACY_STATE_DIR)
+
+
+def save_state(state: dict[str, Any], path: Path | None = None) -> None:
+    path = path or STATE_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(state, indent=2), encoding="utf-8")
@@ -216,8 +232,8 @@ class MetricTile(tk.Frame):
 class VN300DesktopApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(f"VN300 Team Tools v{CURRENT_VERSION}")
-        icon_path = REPO_ROOT / "VN300TeamTools.ico"
+        self.title(f"{PRODUCT_NAME} v{CURRENT_VERSION}")
+        icon_path = REPO_ROOT / PRODUCT_ICON
         if os.name == "nt" and icon_path.is_file():
             try:
                 self.iconbitmap(default=str(icon_path))
@@ -1253,7 +1269,7 @@ class VN300DesktopApp(tk.Tk):
         self.update_available_version = ""
         self.update_button.configure(text=f"v{CURRENT_VERSION} | Up to date", state="normal", style="Secondary.TButton")
         if manual:
-            messagebox.showinfo("Software update", f"VN300 Team Tools v{CURRENT_VERSION} is up to date.", parent=self)
+            messagebox.showinfo("Software update", f"{PRODUCT_NAME} v{CURRENT_VERSION} is up to date.", parent=self)
 
     def _handle_update_error(self, error: str, manual: bool) -> None:
         self.update_check_in_progress = False
@@ -1277,7 +1293,7 @@ class VN300DesktopApp(tk.Tk):
             return
         if not messagebox.askyesno(
             "Install software update",
-            f"Install VN300 Team Tools v{version} now?\n\nThe application will close, update from GitHub, and restart.",
+            f"Install {PRODUCT_NAME} v{version} now?\n\nThe application will close, update from GitHub, and restart.",
             parent=self,
         ):
             return
@@ -1318,7 +1334,7 @@ class VN300DesktopApp(tk.Tk):
         self.destroy()
 
     def _show_last_update_status(self) -> None:
-        status = read_update_status(STATE_DIR)
+        status = read_last_update_status()
         if not status:
             return
         if status.get("ok"):

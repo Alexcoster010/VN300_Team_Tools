@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.10.0`
+`v0.11.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,18 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.11.0 - 2026-08-21
+
+### Sooner Racing Telemetry Rebrand
+
+- Renamed the Windows product from **VN300 Team Tools** to **Sooner Racing Telemetry**.
+- Added a deterministic SRT logo with white letters, a red outline, and a black background for the app sidebar, Windows icon, installer, and shortcuts.
+- Renamed the primary release asset to `Sooner-Racing-Telemetry-Setup-X.Y.Z.exe`.
+- Kept the existing installer App ID and executable name so upgrades replace the current installation cleanly.
+- Added automatic legacy state loading so saved Pi addresses, analysis settings, custom presets, geometry, report history, and optional browser-interface settings remain available.
+- Published a legacy installer filename alias so v0.10.0 and older desktop updaters can install the renamed release.
+- Updated product metadata, update messages, launchers, install paths, documentation, and packaging tests.
 
 ## v0.10.0 - 2026-08-21
 

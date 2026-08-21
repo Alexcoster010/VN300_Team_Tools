@@ -83,6 +83,9 @@ from vn300_desktop_app import (
     CURRENT_VERSION,
     DEFAULT_OUTPUT_ROOT,
     IS_FROZEN,
+    PRODUCT_ICON,
+    PRODUCT_LOGO,
+    PRODUCT_NAME,
     REPO_ROOT,
     STATE_DIR,
     fetch_pi_snapshot,
@@ -91,6 +94,7 @@ from vn300_desktop_app import (
     load_state,
     normalize_pi_endpoint,
     pi_api_request,
+    read_last_update_status,
     save_state,
 )
 from vn300_pi_updater import (
@@ -106,7 +110,6 @@ from vn300_updater import (
     fetch_remote_version,
     has_git_checkout,
     launch_update_helper,
-    read_update_status,
     stage_branch_archive,
     stage_release_installer,
     update_available,
@@ -212,10 +215,15 @@ QFrame#sidebar {
 }
 QLabel#brandTitle {
     color: #ffffff;
-    font-size: 17px;
+    font-size: 13px;
     font-weight: 700;
 }
-QLabel#brandSub, QLabel#railStatus {
+QLabel#brandSub {
+    color: #e31b23;
+    font-size: 10px;
+    font-weight: 700;
+}
+QLabel#railStatus {
     color: #90a4ad;
     font-size: 10px;
     font-weight: 600;
@@ -659,10 +667,10 @@ class PageHeader(QFrame):
 class VN300QtApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(f"VN300 Team Tools v{CURRENT_VERSION}")
-        icon = REPO_ROOT / "VN300TeamTools.ico"
+        self.setWindowTitle(f"{PRODUCT_NAME} v{CURRENT_VERSION}")
+        icon = REPO_ROOT / PRODUCT_ICON
         if not icon.is_file():
-            icon = REPO_ROOT / "packaging" / "assets" / "VN300TeamTools.ico"
+            icon = REPO_ROOT / "packaging" / "assets" / PRODUCT_ICON
         if icon.is_file():
             self.setWindowIcon(QIcon(str(icon)))
         self.setMinimumSize(1100, 700)
@@ -741,16 +749,27 @@ class VN300QtApp(QMainWindow):
 
         brand = QWidget()
         brand_layout = QHBoxLayout(brand)
-        brand_layout.setContentsMargins(20, 22, 14, 23)
-        logo = QLabel("V3")
+        brand_layout.setContentsMargins(16, 18, 12, 19)
+        logo = QLabel()
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo.setFixedSize(42, 42)
-        logo.setStyleSheet("background:#16a39a;color:white;font-size:17px;font-weight:800;")
+        logo.setFixedSize(52, 52)
+        logo_path = REPO_ROOT / PRODUCT_LOGO
+        if not logo_path.is_file():
+            logo_path = REPO_ROOT / "packaging" / "assets" / PRODUCT_LOGO
+        if logo_path.is_file():
+            logo.setPixmap(
+                QPixmap(str(logo_path)).scaled(
+                    52,
+                    52,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
         brand_layout.addWidget(logo)
         brand_text = QVBoxLayout()
-        title = QLabel("VN300")
+        title = QLabel("SOONER RACING")
         title.setObjectName("brandTitle")
-        subtitle = QLabel("TEAM TOOLS")
+        subtitle = QLabel("TELEMETRY")
         subtitle.setObjectName("brandSub")
         brand_text.addWidget(title)
         brand_text.addWidget(subtitle)
@@ -2850,7 +2869,7 @@ class VN300QtApp(QMainWindow):
             self.app_update_button.setText(f"v{CURRENT_VERSION}  UP TO DATE")
             self.app_update_button.setProperty("role", "")
             if manual:
-                QMessageBox.information(self, "Software update", f"VN300 Team Tools v{CURRENT_VERSION} is up to date.")
+                QMessageBox.information(self, "Software update", f"{PRODUCT_NAME} v{CURRENT_VERSION} is up to date.")
         self.app_update_button.setEnabled(True)
         self.app_update_button.style().unpolish(self.app_update_button)
         self.app_update_button.style().polish(self.app_update_button)
@@ -2879,7 +2898,7 @@ class VN300QtApp(QMainWindow):
         answer = QMessageBox.question(
             self,
             "Install software update",
-            f"Install VN300 Team Tools v{version} now?\n\nThe application will close and restart.",
+            f"Install {PRODUCT_NAME} v{version} now?\n\nThe application will close and restart.",
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
@@ -2921,7 +2940,7 @@ class VN300QtApp(QMainWindow):
         QApplication.quit()
 
     def show_last_update_status(self) -> None:
-        status = read_update_status(STATE_DIR)
+        status = read_last_update_status()
         if not status:
             return
         message = str(status.get("message") or "Software update completed.")
@@ -2954,7 +2973,7 @@ def main() -> int:
     if os.name == "nt":
         os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
     application = QApplication(sys.argv)
-    application.setApplicationName("VN300 Team Tools")
+    application.setApplicationName(PRODUCT_NAME)
     application.setOrganizationName("SRT26")
     application.setStyle("Fusion")
     window = VN300QtApp()

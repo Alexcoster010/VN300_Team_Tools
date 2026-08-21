@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(os.environ.get("VN300_PROJECT_ROOT", SPECPATH)).resolve()
 APP_DIR = ROOT / "app"
 ANALYSIS_DIR = ROOT / "analysis"
-ICON = ROOT / "packaging" / "assets" / "VN300TeamTools.ico"
+ICON = ROOT / "packaging" / "assets" / "SoonerRacingTelemetry.ico"
 VERSION_FILE = os.environ.get("VN300_VERSION_FILE")
 PATHEX = [str(APP_DIR), str(ANALYSIS_DIR)]
 

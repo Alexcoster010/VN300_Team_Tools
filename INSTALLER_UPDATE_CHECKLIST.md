@@ -192,7 +192,7 @@ Last documented update:
 - Logger writes `VN300_run_metadata.csv`.
 - Analyzer automatically loads `VN300_run_metadata.csv` from a Pi boot folder.
 - Desktop `v0.8.2` retains Qt background workers until their result signals are delivered, fixing live dashboard connections stuck on `CONNECTING`.
-- Desktop `v0.10.0` adds the generic Custom Analysis Workspace while retaining Quick Report and the v0.9.0 Drive Day Setup workflow.
+- Desktop `v0.11.0` renames the app to Sooner Racing Telemetry and adds the SRT white/red/black identity while retaining the v0.10.0 Custom Analysis Workspace and existing saved settings.
 
 ## Files Usually Updated
 

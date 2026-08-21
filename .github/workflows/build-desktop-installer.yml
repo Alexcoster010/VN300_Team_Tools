@@ -39,8 +39,10 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VN300-Team-Tools-Setup-${{ steps.version.outputs.version }}
+          name: Sooner-Racing-Telemetry-Setup-${{ steps.version.outputs.version }}
           path: |
+            dist/installer/Sooner-Racing-Telemetry-Setup-${{ steps.version.outputs.version }}.exe
+            dist/installer/Sooner-Racing-Telemetry-Setup-${{ steps.version.outputs.version }}.exe.sha256
             dist/installer/VN300-Team-Tools-Setup-${{ steps.version.outputs.version }}.exe
             dist/installer/VN300-Team-Tools-Setup-${{ steps.version.outputs.version }}.exe.sha256
 
@@ -48,10 +50,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: desktop-v${{ steps.version.outputs.version }}
-          name: VN300 Team Tools v${{ steps.version.outputs.version }}
+          name: Sooner Racing Telemetry v${{ steps.version.outputs.version }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           make_latest: true
           files: |
+            dist/installer/Sooner-Racing-Telemetry-Setup-${{ steps.version.outputs.version }}.exe
+            dist/installer/Sooner-Racing-Telemetry-Setup-${{ steps.version.outputs.version }}.exe.sha256
             dist/installer/VN300-Team-Tools-Setup-${{ steps.version.outputs.version }}.exe
             dist/installer/VN300-Team-Tools-Setup-${{ steps.version.outputs.version }}.exe.sha256
