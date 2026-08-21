@@ -19,6 +19,7 @@ class WindowsPackagingTests(unittest.TestCase):
         self.assertIn('Filename: "{uninstallexe}"', source)
         self.assertIn("PrivilegesRequired=lowest", source)
         self.assertIn("AppId={{C2FC304A-8BA5-41B2-B7C7-3BA0BFE08F32}", source)
+        self.assertIn("CloseApplications=force", source)
 
     def test_release_workflow_publishes_versioned_setup_and_checksum(self):
         source = (ROOT / ".github" / "workflows" / "build-desktop-installer.yml").read_text(encoding="utf-8")

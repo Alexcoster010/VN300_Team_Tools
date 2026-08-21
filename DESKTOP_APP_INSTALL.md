@@ -85,6 +85,18 @@ When an installed-app update is accepted:
 - the new version restarts automatically and reports the result
 - saved settings and analysis output remain unchanged
 
+## If An Update Fails
+
+If the update reports installer exit code 5 or says an existing file could not be replaced:
+
+1. Close the error message and restart Windows.
+2. Do not open Sooner Racing Telemetry after the restart.
+3. Open the GitHub releases page and download the latest `Sooner-Racing-Telemetry-Setup-X.Y.Z.exe`.
+4. Run that installer manually, then launch Sooner Racing Telemetry from Windows Search.
+5. If the manual install still fails, send the team the file at `%LOCALAPPDATA%\SoonerRacingTelemetry\updates\last_installer.log`.
+
+Version v0.13.1 and later force-close stale SRT processes during updates. This recovery procedure remains useful for older installations making their first update to v0.13.1.
+
 ## Raspberry Pi Logger Updates
 
 Whenever the desktop app connects to the Pi, it compares the `logger_version` reported by `/api/latest` with the current public `pi-logger` version. If the Pi is behind, the app offers to update it.

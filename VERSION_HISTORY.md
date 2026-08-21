@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.13.0`
+`v0.13.1`
 
 Stable Pi install tag:
 
@@ -25,6 +25,16 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.13.1 - 2026-08-21
+
+### Windows Update Lock Fix
+
+- Changed the Windows installer to force-close SRT processes that still hold the installed executable open.
+- Added the explicit `/FORCECLOSEAPPLICATIONS` flag to future in-app installer launches.
+- Preserved an Inno Setup diagnostic log at `%LOCALAPPDATA%\SoonerRacingTelemetry\updates\last_installer.log`.
+- Replaced the generic exit-code-5 message with restart and manual-install recovery instructions.
+- Kept the fix in the installer itself so v0.12.1 and v0.13.0 can use it when launching the v0.13.1 update.
 
 ## v0.13.0 - 2026-08-21
 

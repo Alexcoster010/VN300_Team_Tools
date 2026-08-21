@@ -196,6 +196,7 @@ Last documented update:
 - Desktop `v0.8.2` retains Qt background workers until their result signals are delivered, fixing live dashboard connections stuck on `CONNECTING`.
 - Desktop `v0.12.1` waits for the packaged app's hidden bootloader process before installing an update, preventing the updater from racing a still-locked executable.
 - Desktop `v0.13.0` displays live latitude/longitude and can copy the car's current position into timing gates; no Pi software update is required.
+- Desktop `v0.13.1` force-closes executable locks during in-app updates and preserves `last_installer.log` for diagnosis.
 
 ## Files Usually Updated
 

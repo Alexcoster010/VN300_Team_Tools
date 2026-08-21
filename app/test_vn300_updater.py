@@ -1,5 +1,6 @@
 import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -108,6 +109,34 @@ class UpdaterTests(unittest.TestCase):
                     installer_url=installer.as_uri(),
                     checksum_url=checksum.as_uri(),
                 )
+
+    def test_installer_forces_close_and_writes_diagnostic_log(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            installer = root / "setup.exe"
+            installer.write_bytes(b"MZ")
+            log_path = root / "installer.log"
+            with mock.patch.object(helper.os, "name", "nt"), mock.patch.object(
+                helper.subprocess, "run"
+            ) as run:
+                helper.run_installer_update(installer, log_path)
+
+            command = run.call_args.args[0]
+            self.assertIn("/CLOSEAPPLICATIONS", command)
+            self.assertIn("/FORCECLOSEAPPLICATIONS", command)
+            self.assertIn(f"/LOG={log_path}", command)
+            self.assertTrue(run.call_args.kwargs["check"])
+
+    def test_installer_exit_code_five_has_actionable_message(self):
+        with tempfile.TemporaryDirectory() as directory:
+            installer = Path(directory) / "setup.exe"
+            installer.write_bytes(b"MZ")
+            error = subprocess.CalledProcessError(5, [str(installer)])
+            with mock.patch.object(helper.os, "name", "nt"), mock.patch.object(
+                helper.subprocess, "run", side_effect=error
+            ):
+                with self.assertRaisesRegex(RuntimeError, "Restart Windows"):
+                    helper.run_installer_update(installer)
 
     def test_archive_copy_creates_backup_for_replaced_file(self):
         with tempfile.TemporaryDirectory() as directory:

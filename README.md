@@ -10,7 +10,7 @@ Team members should use the packaged installer rather than downloading the repos
 
 Download `Sooner-Racing-Telemetry-Setup-X.Y.Z.exe`, run it, and launch **Sooner Racing Telemetry** from Windows Search or the Start Menu. The installer includes Python, the analyzer, the native trackside dashboard, and the report viewer; no separate Python or Git installation is required. Windows may display an unsigned-app warning because the installer is not code-signed.
 
-The current desktop release is `v0.13.0`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
+The current desktop release is `v0.13.1`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
 
 For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
 

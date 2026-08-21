@@ -70,20 +70,34 @@ def run_git_update(target: Path, branch: str) -> None:
     subprocess.run(["git", "pull", "--ff-only", "origin", branch], cwd=target, check=True, creationflags=flags)
 
 
-def run_installer_update(installer: Path) -> None:
+def run_installer_update(installer: Path, log_path: Path | None = None) -> None:
     if os.name != "nt" or not installer.is_file():
         raise ValueError("The staged Windows installer is missing.")
-    subprocess.run(
-        [
-            str(installer),
-            "/VERYSILENT",
-            "/SUPPRESSMSGBOXES",
-            "/NORESTART",
-            "/CLOSEAPPLICATIONS",
-        ],
-        check=True,
-        creationflags=subprocess.CREATE_NO_WINDOW,
-    )
+    diagnostic_log = log_path or installer.with_suffix(".install.log")
+    diagnostic_log.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        subprocess.run(
+            [
+                str(installer),
+                "/VERYSILENT",
+                "/SUPPRESSMSGBOXES",
+                "/NORESTART",
+                "/CLOSEAPPLICATIONS",
+                "/FORCECLOSEAPPLICATIONS",
+                f"/LOG={diagnostic_log}",
+            ],
+            check=True,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode == 5:
+            raise RuntimeError(
+                "The installer could not replace a running app file. Restart Windows, then run the downloaded "
+                f"installer before opening SRT. Installer log: {diagnostic_log}"
+            ) from exc
+        raise RuntimeError(
+            f"The installer exited with code {exc.returncode}. Installer log: {diagnostic_log}"
+        ) from exc
 
 
 def write_status(state_dir: Path, ok: bool, message: str) -> None:
@@ -120,7 +134,7 @@ def main() -> None:
     try:
         wait_for_process(args.pid)
         if args.installer:
-            run_installer_update(args.installer)
+            run_installer_update(args.installer, args.state_dir / "updates" / "last_installer.log")
         elif args.git:
             run_git_update(args.target, args.branch)
         elif args.source:
