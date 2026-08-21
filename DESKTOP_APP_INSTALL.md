@@ -60,6 +60,15 @@ The dashboard contains two tabs:
 
 Setup save and reset buttons remain disabled while the Pi is offline. Unsaved form edits are preserved while live telemetry continues refreshing.
 
+## Data Analysis Workspaces
+
+The Data Analysis page has two tabs:
+
+- **Quick Report** runs the standard lap/autocross analysis and produces the team report set with minimal setup.
+- **Custom Workspace** scans CSV channels and lets the user choose source runs, X/Y channels, filters, smoothing, calculated channels, plot style, and saved presets.
+
+Custom Workspace accepts ordinary wide CSV files and the Pi logger's long-form decoded MoTeC channel CSV. A saved workspace produces `custom_workspace.html`, `custom_workspace_data.csv`, and `custom_workspace_config.json` in the selected analysis output folder. These results appear in the normal Reports archive.
+
 ## Future Updates
 
 The app checks `APP_VERSION` on the public `desktop-app` branch at startup. The header displays **Install update vX.Y.Z** when a newer release is available.

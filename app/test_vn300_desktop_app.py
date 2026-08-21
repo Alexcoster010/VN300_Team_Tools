@@ -67,11 +67,15 @@ class DesktopAppTests(unittest.TestCase):
             state["pi_endpoint"] = "http://10.0.0.7:8080/"
             state["pi_ssh_user"] = "vectornav"
             state["analysis"]["auto_sectors"] = 4
+            state["custom_analysis"]["x_channel"] = "Distance_m"
+            state["custom_presets"]["Braking"] = {"y_channels": ["Brake_Pressure_Front"]}
             desktop.save_state(state, path)
             loaded = desktop.load_state(path)
             self.assertEqual(loaded["pi_endpoint"], "http://10.0.0.7:8080/")
             self.assertEqual(loaded["pi_ssh_user"], "vectornav")
             self.assertEqual(loaded["analysis"]["auto_sectors"], 4)
+            self.assertEqual(loaded["custom_analysis"]["x_channel"], "Distance_m")
+            self.assertEqual(loaded["custom_presets"]["Braking"]["y_channels"], ["Brake_Pressure_Front"])
 
     def test_fetch_pi_snapshot_reads_dashboard_api(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), SnapshotHandler)

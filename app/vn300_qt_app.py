@@ -16,6 +16,10 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Callable
 
+SOURCE_ANALYSIS_DIR = Path(__file__).resolve().parents[1] / "analysis"
+if SOURCE_ANALYSIS_DIR.is_dir() and str(SOURCE_ANALYSIS_DIR) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ANALYSIS_DIR))
+
 from PySide6.QtCore import (
     QProcess,
     QRectF,
@@ -96,6 +100,7 @@ from vn300_pi_updater import (
     validate_ssh_username,
 )
 from vn300_team_app import build_analysis_command, result_files
+from vn300_custom_analysis import choose_default_x, run_custom_analysis, scan_workspace_sources
 from vn300_updater import (
     UPDATE_BRANCH,
     fetch_remote_version,
@@ -158,6 +163,38 @@ RUN_METADATA_GROUPS = (
 EDITABLE_RUN_METADATA_FIELDS = tuple(
     key for _group, fields in RUN_METADATA_GROUPS for key, _label in fields
 ) + ("valid_run", "notes")
+
+BUILTIN_WORKSPACE_PRESETS = {
+    "Speed and acceleration": {
+        "x": ("segment_distance_m", "distance_m", "Pi_Elapsed_Time_s", "time_s", "segment_time_s"),
+        "y": (
+            ("speed_mph", "Speed_mph", "Vehicle_Speed_mph"),
+            ("lateral_g", "Lateral_G", "Common_Accel_Y_g"),
+            ("longitudinal_g", "Longitudinal_G", "Common_Accel_X_g"),
+        ),
+        "style": "line",
+    },
+    "G-G diagram": {
+        "x": ("lateral_g", "Lateral_G", "Common_Accel_Y_g"),
+        "y": (("longitudinal_g", "Longitudinal_G", "Common_Accel_X_g"),),
+        "style": "scatter",
+    },
+    "Driver inputs": {
+        "x": ("segment_distance_m", "distance_m", "Pi_Logger_Elapsed_Time_s", "Pi_Elapsed_Time_s", "time_s"),
+        "keywords": ("throttle", "brake_pressure", "steering"),
+        "style": "line",
+    },
+    "Suspension": {
+        "x": ("segment_distance_m", "distance_m", "Pi_Logger_Elapsed_Time_s", "Pi_Elapsed_Time_s", "time_s"),
+        "keywords": ("damper", "suspension", "travel", "ride_height"),
+        "style": "line",
+    },
+    "Tires": {
+        "x": ("segment_distance_m", "distance_m", "Pi_Logger_Elapsed_Time_s", "Pi_Elapsed_Time_s", "time_s"),
+        "keywords": ("tire_temp", "tyre_temp", "tire_pressure", "tpms"),
+        "style": "line",
+    },
+}
 
 
 APP_STYLE = """
@@ -417,11 +454,21 @@ class Worker(QRunnable):
 
     def run(self) -> None:
         try:
-            self.signals.result.emit(self.function(*self.args))
+            result = self.function(*self.args)
         except Exception as exc:
-            self.signals.error.emit(str(exc))
-        finally:
+            try:
+                self.signals.error.emit(str(exc))
+            except RuntimeError:
+                return
+        else:
+            try:
+                self.signals.result.emit(result)
+            except RuntimeError:
+                return
+        try:
             self.signals.finished.emit(self)
+        except RuntimeError:
+            pass
 
 
 class StatusPill(QLabel):
@@ -627,6 +674,9 @@ class VN300QtApp(QMainWindow):
         self.analysis_process: QProcess | None = None
         self.analysis_job: dict[str, Any] | None = None
         self.analysis_cancelled = False
+        self.custom_scan_result: dict[str, Any] = {}
+        self.custom_task_active = False
+        self.custom_save_requested = False
         self.pi_endpoint = str(self.state_data.get("pi_endpoint") or "")
         self.pi_generation = 0
         self.pi_request_active = False
@@ -1107,6 +1157,11 @@ class VN300QtApp(QMainWindow):
         header.actions.addWidget(self.analysis_status)
         layout.addWidget(header)
 
+        self.analysis_tabs = QTabWidget()
+        quick_tab = QWidget()
+        quick_layout = QVBoxLayout(quick_tab)
+        quick_layout.setContentsMargins(0, 0, 0, 0)
+        quick_layout.setSpacing(0)
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setContentsMargins(22, 16, 22, 16)
         setup_scroll = QScrollArea()
@@ -1222,8 +1277,211 @@ class VN300QtApp(QMainWindow):
         activity_layout.addWidget(self.analysis_log, 1)
         splitter.addWidget(activity)
         splitter.setSizes([470, 760])
-        layout.addWidget(splitter, 1)
+        quick_layout.addWidget(splitter, 1)
+        self.analysis_tabs.addTab(quick_tab, "QUICK REPORT")
+        self.analysis_tabs.addTab(self.build_custom_workspace_tab(), "CUSTOM WORKSPACE")
+        layout.addWidget(self.analysis_tabs, 1)
         return page
+
+    def build_custom_workspace_tab(self) -> QWidget:
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(22, 16, 22, 16)
+        tab_layout.setSpacing(0)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        controls_scroll = QScrollArea()
+        self.custom_controls_scroll = controls_scroll
+        controls_scroll.setWidgetResizable(True)
+        controls_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        controls_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        controls_scroll.setMinimumWidth(470)
+        controls_scroll.setMaximumWidth(560)
+        controls_host = QWidget()
+        controls = QVBoxLayout(controls_host)
+        controls.setContentsMargins(0, 0, 12, 0)
+        controls.setSpacing(12)
+        settings = self.state_data["custom_analysis"]
+
+        source_panel, source_layout = self.setup_panel("DATA SOURCES")
+        self.custom_source_path = QLineEdit(str(settings.get("source_path") or self.analysis_input.text()))
+        self.custom_source_path.setCursorPosition(0)
+        source_path_row = QHBoxLayout()
+        source_path_row.addWidget(self.custom_source_path, 1)
+        source_browse = QPushButton("BROWSE")
+        source_browse.clicked.connect(self.browse_custom_source)
+        source_path_row.addWidget(source_browse)
+        source_layout.addLayout(source_path_row)
+        self.custom_scan_button = QPushButton("SCAN CHANNELS")
+        self.custom_scan_button.setProperty("role", "primary")
+        self.custom_scan_button.clicked.connect(self.scan_custom_sources)
+        source_layout.addWidget(self.custom_scan_button)
+        source_head = QHBoxLayout()
+        self.custom_source_summary = QLabel("No telemetry folder scanned")
+        self.custom_source_summary.setStyleSheet("color:#63737a;")
+        source_head.addWidget(self.custom_source_summary, 1)
+        source_layout.addLayout(source_head)
+        source_actions = QHBoxLayout()
+        source_actions.addStretch()
+        source_all = QPushButton("SELECT ALL")
+        source_all.clicked.connect(lambda: self.set_all_custom_sources(True))
+        source_none = QPushButton("CLEAR")
+        source_none.clicked.connect(lambda: self.set_all_custom_sources(False))
+        source_actions.addWidget(source_all)
+        source_actions.addWidget(source_none)
+        source_layout.addLayout(source_actions)
+        self.custom_source_list = QListWidget()
+        self.custom_source_list.setMinimumHeight(150)
+        self.custom_source_list.itemChanged.connect(self.custom_source_selection_changed)
+        source_layout.addWidget(self.custom_source_list)
+        controls.addWidget(source_panel)
+
+        channel_panel, channel_layout = self.setup_panel("CHANNELS AND PLOT")
+        channel_form = QFormLayout()
+        channel_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        channel_form.setHorizontalSpacing(18)
+        channel_form.setVerticalSpacing(9)
+        self.custom_title = QLineEdit(str(settings.get("title") or "Custom Analysis Workspace"))
+        self.custom_x_channel = QComboBox()
+        self.custom_x_channel.setMaxVisibleItems(24)
+        self.custom_plot_style = QComboBox()
+        self.custom_plot_style.addItem("Line", "line")
+        self.custom_plot_style.addItem("Scatter", "scatter")
+        style_index = self.custom_plot_style.findData(str(settings.get("plot_style") or "line"))
+        self.custom_plot_style.setCurrentIndex(max(0, style_index))
+        channel_form.addRow("Report name", self.custom_title)
+        channel_form.addRow("X axis", self.custom_x_channel)
+        channel_form.addRow("Plot style", self.custom_plot_style)
+        channel_layout.addLayout(channel_form)
+        self.custom_channel_search = QLineEdit()
+        self.custom_channel_search.setPlaceholderText("Search available channels")
+        self.custom_channel_search.textChanged.connect(self.filter_custom_channels)
+        channel_layout.addWidget(self.custom_channel_search)
+        self.custom_y_channels = QListWidget()
+        self.custom_y_channels.setMinimumHeight(190)
+        self.custom_y_channels.itemChanged.connect(self.custom_y_selection_changed)
+        channel_layout.addWidget(self.custom_y_channels)
+        selected_head = QHBoxLayout()
+        self.custom_channel_summary = QLabel("No channels available")
+        self.custom_channel_summary.setStyleSheet("color:#63737a;")
+        selected_head.addWidget(self.custom_channel_summary, 1)
+        clear_channels = QPushButton("CLEAR Y")
+        clear_channels.clicked.connect(self.clear_custom_y_channels)
+        selected_head.addWidget(clear_channels)
+        channel_layout.addLayout(selected_head)
+        controls.addWidget(channel_panel)
+
+        processing_panel, processing_layout = self.setup_panel("PROCESSING")
+        processing_form = QFormLayout()
+        processing_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        processing_form.setHorizontalSpacing(18)
+        processing_form.setVerticalSpacing(9)
+        self.custom_filter = QLineEdit(str(settings.get("filter") or ""))
+        self.custom_filter.setPlaceholderText("Example: [speed_mph] > 10")
+        self.custom_filter.setToolTip("Use [Channel Name] references with comparisons, and/or, and supported math functions.")
+        self.custom_smoothing = QSpinBox()
+        self.custom_smoothing.setRange(1, 1000)
+        self.custom_smoothing.setValue(int(settings.get("smoothing_points", 1)))
+        self.custom_smoothing.setSuffix(" points")
+        self.custom_max_points = QSpinBox()
+        self.custom_max_points.setRange(200, 100000)
+        self.custom_max_points.setSingleStep(500)
+        self.custom_max_points.setValue(int(settings.get("max_plot_points", 5000)))
+        processing_form.addRow("Filter", self.custom_filter)
+        processing_form.addRow("Smoothing", self.custom_smoothing)
+        processing_form.addRow("Plot detail", self.custom_max_points)
+        processing_layout.addLayout(processing_form)
+        controls.addWidget(processing_panel)
+
+        formula_panel, formula_layout = self.setup_panel("CALCULATED CHANNELS")
+        self.custom_formula_table = QTableWidget(0, 3)
+        self.custom_formula_table.setHorizontalHeaderLabels(["NAME", "UNIT", "EXPRESSION"])
+        self.custom_formula_table.verticalHeader().setVisible(False)
+        self.custom_formula_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.custom_formula_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.custom_formula_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.custom_formula_table.setMinimumHeight(140)
+        self.custom_formula_table.setToolTip(
+            "Reference channels as [Channel Name]. Functions include abs, sqrt, smooth, hold, derivative, integral, clip, and where."
+        )
+        self.custom_formula_table.cellChanged.connect(self.custom_formula_changed)
+        formula_layout.addWidget(self.custom_formula_table)
+        formula_buttons = QHBoxLayout()
+        add_formula = QPushButton("ADD FORMULA")
+        add_formula.clicked.connect(self.add_custom_formula)
+        remove_formula = QPushButton("REMOVE")
+        remove_formula.clicked.connect(self.remove_custom_formula)
+        formula_buttons.addWidget(add_formula)
+        formula_buttons.addWidget(remove_formula)
+        formula_buttons.addStretch()
+        formula_layout.addLayout(formula_buttons)
+        controls.addWidget(formula_panel)
+
+        preset_panel, preset_layout = self.setup_panel("WORKSPACE PRESETS")
+        self.custom_preset = QComboBox()
+        preset_layout.addWidget(self.custom_preset)
+        preset_actions = QHBoxLayout()
+        preset_actions.addStretch()
+        load_preset = QPushButton("LOAD")
+        load_preset.clicked.connect(self.load_custom_preset)
+        save_preset = QPushButton("SAVE AS")
+        save_preset.clicked.connect(self.save_custom_preset)
+        delete_preset = QPushButton("DELETE")
+        delete_preset.setProperty("role", "danger")
+        delete_preset.clicked.connect(self.delete_custom_preset)
+        preset_actions.addWidget(load_preset)
+        preset_actions.addWidget(save_preset)
+        preset_actions.addWidget(delete_preset)
+        preset_layout.addLayout(preset_actions)
+        controls.addWidget(preset_panel)
+
+        output_panel, output_layout = self.setup_panel("OUTPUT")
+        self.custom_output = QLineEdit(str(settings.get("output_root") or self.analysis_output.text()))
+        output_row = QHBoxLayout()
+        output_row.addWidget(self.custom_output, 1)
+        output_browse = QPushButton("BROWSE")
+        output_browse.clicked.connect(self.browse_custom_output)
+        output_row.addWidget(output_browse)
+        output_layout.addLayout(output_row)
+        controls.addWidget(output_panel)
+        controls.addStretch()
+        controls_scroll.setWidget(controls_host)
+        splitter.addWidget(controls_scroll)
+
+        preview_panel = QFrame()
+        preview_panel.setProperty("panel", True)
+        preview_layout = QVBoxLayout(preview_panel)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+        preview_head = QHBoxLayout()
+        preview_head.setContentsMargins(16, 10, 12, 10)
+        self.custom_status = QLabel("Workspace ready")
+        self.custom_status.setProperty("section", True)
+        preview_head.addWidget(self.custom_status)
+        preview_head.addStretch()
+        self.custom_preview_button = QPushButton("PREVIEW")
+        self.custom_preview_button.clicked.connect(lambda: self.start_custom_analysis(False))
+        self.custom_save_button = QPushButton("SAVE REPORT")
+        self.custom_save_button.setProperty("role", "primary")
+        self.custom_save_button.clicked.connect(lambda: self.start_custom_analysis(True))
+        preview_head.addWidget(self.custom_preview_button)
+        preview_head.addWidget(self.custom_save_button)
+        preview_layout.addLayout(preview_head)
+        self.custom_preview = QWebEngineView()
+        self.custom_preview.setHtml(
+            "<html><body style='margin:0;background:#101d22;color:#8fa7af;font:15px Segoe UI;"
+            "display:grid;place-items:center'><div>CUSTOM ANALYSIS WORKSPACE</div></body></html>"
+        )
+        preview_layout.addWidget(self.custom_preview, 1)
+        splitter.addWidget(preview_panel)
+        splitter.setSizes([500, 800])
+        tab_layout.addWidget(splitter, 1)
+
+        for formula in settings.get("formulas", []):
+            if isinstance(formula, dict):
+                self.add_custom_formula(formula)
+        self.refresh_custom_presets()
+        QTimer.singleShot(0, self.restore_custom_workspace)
+        return tab
 
     def build_results_page(self) -> QWidget:
         page = QWidget()
@@ -1875,6 +2133,447 @@ class VN300QtApp(QMainWindow):
         self.logger_button.setEnabled(self.pi_connected)
         QMessageBox.critical(self, "Pi logger update", f"The SSH update did not complete.\n\n{error}")
 
+    def browse_custom_source(self) -> None:
+        initial = self.custom_source_path.text() or self.analysis_input.text() or str(REPO_ROOT)
+        selected = QFileDialog.getExistingDirectory(self, "Select telemetry folder", initial)
+        if selected:
+            self.custom_source_path.setText(selected)
+            self.scan_custom_sources()
+
+    def browse_custom_output(self) -> None:
+        initial = self.custom_output.text() or self.analysis_output.text() or str(DEFAULT_OUTPUT_ROOT)
+        selected = QFileDialog.getExistingDirectory(self, "Select workspace output folder", initial)
+        if selected:
+            self.custom_output.setText(selected)
+
+    def set_custom_busy(self, busy: bool, status: str = "") -> None:
+        self.custom_task_active = busy
+        self.custom_scan_button.setEnabled(not busy)
+        self.custom_preview_button.setEnabled(not busy)
+        self.custom_save_button.setEnabled(not busy)
+        if status:
+            self.custom_status.setText(status)
+
+    def restore_custom_workspace(self) -> None:
+        source_path = self.custom_source_path.text().strip()
+        if source_path and Path(source_path).expanduser().exists():
+            self.scan_custom_sources()
+
+    def scan_custom_sources(self) -> None:
+        if self.custom_task_active:
+            return
+        source_path = self.custom_source_path.text().strip()
+        if not source_path:
+            QMessageBox.warning(self, "Custom workspace", "Select a telemetry folder.")
+            return
+        self.set_custom_busy(True, "Scanning channels...")
+        worker = Worker(scan_workspace_sources, Path(source_path))
+        worker.signals.result.connect(partial(self.custom_sources_scanned, source_path))
+        worker.signals.error.connect(self.custom_task_failed)
+        self.start_worker(worker)
+
+    def custom_sources_scanned(self, source_path: str, result: object) -> None:
+        self.set_custom_busy(False)
+        if not isinstance(result, dict):
+            self.custom_task_failed("The channel scan returned an invalid result.")
+            return
+        self.custom_scan_result = result
+        sources = [source for source in result.get("sources", []) if isinstance(source, dict)]
+        saved = self.state_data["custom_analysis"]
+        available_paths = {str(source.get("path") or "") for source in sources}
+        selected_paths = {str(path) for path in saved.get("source_paths", [])} & available_paths
+        automatic_paths = {
+            str(source.get("path") or "")
+            for source in sources
+            if "_VNINS" in str(source.get("name") or "").upper()
+            or "MOTEC_CHANNELS" in str(source.get("name") or "").upper()
+        }
+        if not selected_paths:
+            selected_paths = automatic_paths or {str(source.get("path") or "") for source in sources[:1]}
+        self.custom_source_list.blockSignals(True)
+        self.custom_source_list.clear()
+        for source in sources:
+            path = str(source.get("path") or "")
+            channel_count = len(source.get("channels") or [])
+            item = QListWidgetItem(
+                f"{source.get('name', Path(path).name)}  |  {channel_count} channels  |  {str(source.get('format') or '').upper()}"
+            )
+            item.setData(Qt.ItemDataRole.UserRole, path)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if path in selected_paths else Qt.CheckState.Unchecked)
+            self.custom_source_list.addItem(item)
+        self.custom_source_list.blockSignals(False)
+        self.state_data["custom_analysis"]["source_path"] = str(Path(source_path).expanduser().resolve())
+        warnings = len(result.get("warnings") or [])
+        summary = f"{len(sources)} data files"
+        if warnings:
+            summary += f" | {warnings} skipped"
+        self.custom_source_summary.setText(summary)
+        self.custom_source_selection_changed()
+        self.set_custom_busy(False, "Channels ready")
+        self.save_state_safely()
+
+    def custom_task_failed(self, error: str) -> None:
+        self.set_custom_busy(False, "Workspace error")
+        QMessageBox.critical(self, "Custom workspace", error)
+
+    def checked_custom_source_paths(self) -> list[str]:
+        return [
+            str(item.data(Qt.ItemDataRole.UserRole) or "")
+            for index in range(self.custom_source_list.count())
+            if (item := self.custom_source_list.item(index)).checkState() == Qt.CheckState.Checked
+        ]
+
+    def set_all_custom_sources(self, selected: bool) -> None:
+        self.custom_source_list.blockSignals(True)
+        state = Qt.CheckState.Checked if selected else Qt.CheckState.Unchecked
+        for index in range(self.custom_source_list.count()):
+            self.custom_source_list.item(index).setCheckState(state)
+        self.custom_source_list.blockSignals(False)
+        self.custom_source_selection_changed()
+
+    def available_custom_channels(self) -> dict[str, str]:
+        selected = set(self.checked_custom_source_paths())
+        available: dict[str, str] = {}
+        for source in self.custom_scan_result.get("sources", []):
+            if str(source.get("path") or "") not in selected:
+                continue
+            for channel in source.get("channels", []):
+                name = str(channel.get("name") or "").strip()
+                if name:
+                    available.setdefault(name, str(channel.get("unit") or ""))
+        for formula in self.custom_formula_rows(require_complete=False):
+            name = str(formula.get("name") or "").strip()
+            if name:
+                available[name] = str(formula.get("unit") or "")
+        return available
+
+    def custom_source_selection_changed(self, *_args: Any) -> None:
+        available = self.available_custom_channels()
+        previous_x = str(self.custom_x_channel.currentData() or "")
+        previous_y = set(self.checked_custom_y_channels())
+        saved = self.state_data["custom_analysis"]
+        if not previous_y:
+            previous_y = {str(value) for value in saved.get("y_channels", [])}
+
+        self.custom_x_channel.blockSignals(True)
+        self.custom_x_channel.clear()
+        for name, unit in sorted(available.items(), key=lambda item: item[0].lower()):
+            self.custom_x_channel.addItem(f"{name} ({unit})" if unit else name, name)
+        x_choice = previous_x if previous_x in available else str(saved.get("x_channel") or "")
+        if x_choice not in available:
+            x_choice = choose_default_x(list(available))
+        x_index = self.custom_x_channel.findData(x_choice)
+        self.custom_x_channel.setCurrentIndex(max(0, x_index))
+        self.custom_x_channel.blockSignals(False)
+
+        self.custom_y_channels.blockSignals(True)
+        self.custom_y_channels.clear()
+        for name, unit in sorted(available.items(), key=lambda item: item[0].lower()):
+            item = QListWidgetItem(f"{name}  [{unit}]" if unit else name)
+            item.setData(Qt.ItemDataRole.UserRole, name)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if name in previous_y else Qt.CheckState.Unchecked)
+            self.custom_y_channels.addItem(item)
+        self.custom_y_channels.blockSignals(False)
+        if not self.checked_custom_y_channels() and available:
+            defaults = self.resolve_custom_channel_groups(
+                (
+                    ("speed_mph", "Speed_mph", "Vehicle_Speed_mph"),
+                    ("lateral_g", "Lateral_G", "Common_Accel_Y_g"),
+                    ("longitudinal_g", "Longitudinal_G", "Common_Accel_X_g"),
+                )
+            )
+            self.set_custom_y_channels(defaults)
+        self.filter_custom_channels(self.custom_channel_search.text())
+        self.custom_y_selection_changed()
+
+    def checked_custom_y_channels(self) -> list[str]:
+        return [
+            str(item.data(Qt.ItemDataRole.UserRole) or "")
+            for index in range(self.custom_y_channels.count())
+            if (item := self.custom_y_channels.item(index)).checkState() == Qt.CheckState.Checked
+        ]
+
+    def set_custom_y_channels(self, names: list[str]) -> None:
+        selected = set(names)
+        self.custom_y_channels.blockSignals(True)
+        for index in range(self.custom_y_channels.count()):
+            item = self.custom_y_channels.item(index)
+            item.setCheckState(
+                Qt.CheckState.Checked
+                if str(item.data(Qt.ItemDataRole.UserRole) or "") in selected
+                else Qt.CheckState.Unchecked
+            )
+        self.custom_y_channels.blockSignals(False)
+        self.custom_y_selection_changed()
+
+    def clear_custom_y_channels(self) -> None:
+        self.set_custom_y_channels([])
+
+    def custom_y_selection_changed(self, *_args: Any) -> None:
+        selected = len(self.checked_custom_y_channels())
+        total = self.custom_y_channels.count()
+        self.custom_channel_summary.setText(f"{selected} selected | {total} available")
+
+    def filter_custom_channels(self, search: str) -> None:
+        needle = search.strip().lower()
+        for index in range(self.custom_y_channels.count()):
+            item = self.custom_y_channels.item(index)
+            item.setHidden(bool(needle and needle not in item.text().lower()))
+
+    def add_custom_formula(self, formula: dict[str, Any] | None = None) -> None:
+        formula = formula or {}
+        self.custom_formula_table.blockSignals(True)
+        row = self.custom_formula_table.rowCount()
+        self.custom_formula_table.insertRow(row)
+        for column, key in enumerate(("name", "unit", "expression")):
+            self.custom_formula_table.setItem(row, column, QTableWidgetItem(str(formula.get(key) or "")))
+        self.custom_formula_table.blockSignals(False)
+        if not formula:
+            self.custom_formula_table.setCurrentCell(row, 0)
+            self.custom_formula_table.editItem(self.custom_formula_table.item(row, 0))
+
+    def remove_custom_formula(self) -> None:
+        rows = sorted({index.row() for index in self.custom_formula_table.selectedIndexes()}, reverse=True)
+        if not rows and self.custom_formula_table.currentRow() >= 0:
+            rows = [self.custom_formula_table.currentRow()]
+        self.custom_formula_table.blockSignals(True)
+        for row in rows:
+            self.custom_formula_table.removeRow(row)
+        self.custom_formula_table.blockSignals(False)
+        self.custom_source_selection_changed()
+
+    def custom_formula_rows(self, require_complete: bool = True) -> list[dict[str, str]]:
+        rows = []
+        for row in range(self.custom_formula_table.rowCount()):
+            values = [
+                self.custom_formula_table.item(row, column).text().strip()
+                if self.custom_formula_table.item(row, column)
+                else ""
+                for column in range(3)
+            ]
+            if not any(values):
+                continue
+            if require_complete and (not values[0] or not values[2]):
+                raise ValueError(f"Calculated channel row {row + 1} needs a name and expression.")
+            rows.append({"name": values[0], "unit": values[1], "expression": values[2]})
+        return rows
+
+    def custom_formula_changed(self, _row: int, column: int) -> None:
+        if column in (0, 1):
+            QTimer.singleShot(0, self.custom_source_selection_changed)
+
+    def resolve_custom_channel_groups(self, groups: tuple[tuple[str, ...], ...]) -> list[str]:
+        available = self.available_custom_channels()
+        lowered = {name.lower(): name for name in available}
+        resolved = []
+        for candidates in groups:
+            match = next((lowered[value.lower()] for value in candidates if value.lower() in lowered), None)
+            if match:
+                resolved.append(match)
+        return resolved
+
+    def current_custom_definition(self) -> dict[str, Any]:
+        return {
+            "title": self.custom_title.text().strip() or "Custom Analysis Workspace",
+            "x_channel": str(self.custom_x_channel.currentData() or ""),
+            "y_channels": self.checked_custom_y_channels(),
+            "filter": self.custom_filter.text().strip(),
+            "smoothing_points": self.custom_smoothing.value(),
+            "max_plot_points": self.custom_max_points.value(),
+            "plot_style": str(self.custom_plot_style.currentData() or "line"),
+            "formulas": self.custom_formula_rows(),
+        }
+
+    def custom_analysis_payload(self) -> dict[str, Any]:
+        payload = self.current_custom_definition()
+        payload["source_paths"] = self.checked_custom_source_paths()
+        if not payload["source_paths"]:
+            raise ValueError("Select at least one telemetry file.")
+        if not payload["x_channel"]:
+            raise ValueError("Select an X-axis channel.")
+        if not payload["y_channels"]:
+            raise ValueError("Select at least one Y-axis channel.")
+        return payload
+
+    def persist_custom_definition(self, payload: dict[str, Any]) -> None:
+        settings = self.state_data["custom_analysis"]
+        settings.update(payload)
+        settings["source_path"] = self.custom_source_path.text().strip()
+        settings["output_root"] = self.custom_output.text().strip()
+        self.save_state_safely()
+
+    def start_custom_analysis(self, save_report: bool) -> None:
+        if self.custom_task_active or self.analysis_process is not None:
+            return
+        try:
+            payload = self.custom_analysis_payload()
+            output_root_text = self.custom_output.text().strip()
+            if save_report and not output_root_text:
+                raise ValueError("Select an output folder.")
+            if save_report:
+                output_root = Path(output_root_text).expanduser()
+                output_root.mkdir(parents=True, exist_ok=True)
+                stamp = datetime.now().strftime("custom_%Y%m%d_%H%M%S")
+                output_dir = output_root / stamp
+                suffix = 2
+                while output_dir.exists():
+                    output_dir = output_root / f"{stamp}_{suffix}"
+                    suffix += 1
+            else:
+                output_dir = STATE_DIR / "workspace_preview"
+            self.persist_custom_definition(payload)
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Custom workspace", str(exc))
+            return
+        self.custom_save_requested = save_report
+        self.set_custom_busy(True, "Building workspace...")
+        worker = Worker(run_custom_analysis, payload, output_dir)
+        worker.signals.result.connect(partial(self.custom_analysis_finished, save_report, output_dir, payload))
+        worker.signals.error.connect(self.custom_task_failed)
+        self.start_worker(worker)
+
+    def custom_analysis_finished(
+        self,
+        save_report: bool,
+        output_dir: Path,
+        payload: dict[str, Any],
+        result: object,
+    ) -> None:
+        self.set_custom_busy(False)
+        if not isinstance(result, dict):
+            self.custom_task_failed("The custom analysis returned an invalid result.")
+            return
+        report_path = Path(str(result.get("report_path") or ""))
+        if report_path.is_file():
+            self.custom_preview.setUrl(QUrl.fromLocalFile(str(report_path.resolve())))
+        trace_count = int(result.get("trace_count") or 0)
+        point_count = int(result.get("point_count") or 0)
+        warnings = len(result.get("warnings") or [])
+        status = f"{trace_count} traces | {point_count:,} points"
+        if warnings:
+            status += f" | {warnings} warnings"
+        self.custom_status.setText(status)
+        if not save_report:
+            return
+        now = datetime.now().astimezone().isoformat(timespec="seconds")
+        entry = {
+            "id": uuid.uuid4().hex[:12],
+            "status": "completed",
+            "created_at": now,
+            "completed_at": now,
+            "input_path": self.custom_source_path.text().strip(),
+            "output_dir": str(output_dir.resolve()),
+            "mode": "custom",
+            "title": payload.get("title"),
+            "results": result_files(output_dir),
+            "exit_code": 0,
+        }
+        self.state_data["history"] = [entry, *self.state_data.get("history", [])][:20]
+        self.save_state_safely()
+        self.refresh_history(entry["id"])
+        self.show_page("results")
+
+    def refresh_custom_presets(self, selection: str = "") -> None:
+        self.custom_preset.clear()
+        for name in BUILTIN_WORKSPACE_PRESETS:
+            self.custom_preset.addItem(name, ("builtin", name))
+        for name in sorted(self.state_data.get("custom_presets", {}), key=str.lower):
+            self.custom_preset.addItem(name, ("user", name))
+        if selection:
+            for index in range(self.custom_preset.count()):
+                data = self.custom_preset.itemData(index)
+                if data and data[1] == selection:
+                    self.custom_preset.setCurrentIndex(index)
+                    break
+
+    def load_custom_preset(self) -> None:
+        data = self.custom_preset.currentData()
+        if not data:
+            return
+        kind, name = data
+        if kind == "user":
+            definition = self.state_data.get("custom_presets", {}).get(name)
+            if not isinstance(definition, dict):
+                return
+            self.apply_custom_definition(definition)
+            self.custom_status.setText(f"Preset loaded: {name}")
+            return
+        preset = BUILTIN_WORKSPACE_PRESETS[name]
+        x_channels = self.resolve_custom_channel_groups((tuple(preset.get("x") or ()),))
+        y_channels = self.resolve_custom_channel_groups(tuple(preset.get("y") or ()))
+        keywords = tuple(str(value).lower() for value in preset.get("keywords", ()))
+        if keywords:
+            y_channels.extend(
+                channel
+                for channel in self.available_custom_channels()
+                if any(keyword in channel.lower() for keyword in keywords) and channel not in y_channels
+            )
+        if x_channels:
+            index = self.custom_x_channel.findData(x_channels[0])
+            self.custom_x_channel.setCurrentIndex(index)
+        self.set_custom_y_channels(y_channels)
+        style_index = self.custom_plot_style.findData(str(preset.get("style") or "line"))
+        self.custom_plot_style.setCurrentIndex(max(0, style_index))
+        if not y_channels:
+            QMessageBox.warning(self, "Workspace preset", "None of this preset's channels are available in the selected files.")
+        else:
+            self.custom_status.setText(f"Preset loaded: {name}")
+
+    def apply_custom_definition(self, definition: dict[str, Any]) -> None:
+        self.custom_title.setText(str(definition.get("title") or "Custom Analysis Workspace"))
+        self.custom_filter.setText(str(definition.get("filter") or ""))
+        self.custom_smoothing.setValue(int(definition.get("smoothing_points", 1)))
+        self.custom_max_points.setValue(int(definition.get("max_plot_points", 5000)))
+        style_index = self.custom_plot_style.findData(str(definition.get("plot_style") or "line"))
+        self.custom_plot_style.setCurrentIndex(max(0, style_index))
+        self.custom_formula_table.blockSignals(True)
+        self.custom_formula_table.setRowCount(0)
+        self.custom_formula_table.blockSignals(False)
+        for formula in definition.get("formulas", []):
+            if isinstance(formula, dict):
+                self.add_custom_formula(formula)
+        self.custom_source_selection_changed()
+        x_index = self.custom_x_channel.findData(str(definition.get("x_channel") or ""))
+        if x_index >= 0:
+            self.custom_x_channel.setCurrentIndex(x_index)
+        self.set_custom_y_channels([str(value) for value in definition.get("y_channels", [])])
+
+    def save_custom_preset(self) -> None:
+        try:
+            definition = self.current_custom_definition()
+        except ValueError as exc:
+            QMessageBox.critical(self, "Workspace preset", str(exc))
+            return
+        name, accepted = QInputDialog.getText(self, "Save workspace preset", "Preset name")
+        name = name.strip()
+        if not accepted or not name:
+            return
+        if name in BUILTIN_WORKSPACE_PRESETS:
+            QMessageBox.warning(self, "Workspace preset", "Choose a different name than the built-in presets.")
+            return
+        self.state_data.setdefault("custom_presets", {})[name] = definition
+        self.save_state_safely()
+        self.refresh_custom_presets(name)
+        self.custom_status.setText(f"Preset saved: {name}")
+
+    def delete_custom_preset(self) -> None:
+        data = self.custom_preset.currentData()
+        if not data:
+            return
+        kind, name = data
+        if kind != "user":
+            QMessageBox.information(self, "Workspace preset", "Built-in presets cannot be deleted.")
+            return
+        answer = QMessageBox.question(self, "Delete preset", f"Delete '{name}'?")
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.state_data.get("custom_presets", {}).pop(name, None)
+        self.save_state_safely()
+        self.refresh_custom_presets()
+        self.custom_status.setText("Preset deleted")
+
     def browse_analysis_input(self) -> None:
         initial = self.analysis_input.text() or str(REPO_ROOT)
         selected = QFileDialog.getExistingDirectory(self, "Select VN300 telemetry folder", initial)
@@ -1901,7 +2600,7 @@ class VN300QtApp(QMainWindow):
         }
 
     def start_analysis(self) -> None:
-        if self.analysis_process is not None:
+        if self.analysis_process is not None or self.custom_task_active:
             return
         payload = self.analysis_payload()
         output_root = Path(str(payload["output_root"])).expanduser()

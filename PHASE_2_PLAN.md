@@ -226,6 +226,8 @@ VN300_YYYY-MM-DD_RUN001_MOTEC_CHANNELS.csv
 
 The raw file preserves every received CAN frame. The channels file only contains decoded values from `pi/motec_can_signal_map.csv`.
 
+Desktop `v0.10.0` can discover and plot decoded long-form `MOTEC_CHANNELS.csv` channels in Custom Workspace. The MoTeC analyzer-import item remains unchecked because VN300 and CAN files still need automatic run grouping, time synchronization, and resampling before one formula or vehicle-dynamics model can reliably combine their channels.
+
 ## Phase 2 Success Criteria
 
 Phase 2 is successful if the team can answer:

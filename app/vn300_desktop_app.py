@@ -84,6 +84,20 @@ DEFAULT_STATE = {
         "gg_enabled": True,
         "include_ascii": False,
     },
+    "custom_analysis": {
+        "source_path": "",
+        "output_root": str(DEFAULT_OUTPUT_ROOT),
+        "title": "Custom Analysis Workspace",
+        "source_paths": [],
+        "x_channel": "",
+        "y_channels": [],
+        "filter": "",
+        "smoothing_points": 1,
+        "max_plot_points": 5000,
+        "plot_style": "line",
+        "formulas": [],
+    },
+    "custom_presets": {},
     "history": [],
     "geometry": "1280x800",
 }
@@ -99,6 +113,10 @@ def load_state(path: Path = STATE_PATH) -> dict[str, Any]:
         return state
     if isinstance(loaded.get("analysis"), dict):
         state["analysis"].update(loaded["analysis"])
+    if isinstance(loaded.get("custom_analysis"), dict):
+        state["custom_analysis"].update(loaded["custom_analysis"])
+    if isinstance(loaded.get("custom_presets"), dict):
+        state["custom_presets"] = loaded["custom_presets"]
     if isinstance(loaded.get("history"), list):
         state["history"] = loaded["history"][:20]
     for key in ("pi_endpoint", "pi_ssh_user", "geometry"):

@@ -10,7 +10,7 @@ Team members should use the packaged installer rather than downloading the repos
 
 Download `VN300-Team-Tools-Setup-X.Y.Z.exe`, run it, and launch **VN300 Team Tools** from Windows Search or the Start Menu. The installer includes Python, the analyzer, the native trackside dashboard, and the report viewer; no separate Python or Git installation is required. Windows may display an unsigned-app warning because the installer is not code-signed.
 
-The current desktop release is `v0.9.0`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
+The current desktop release is `v0.10.0`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
 
 For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
 
@@ -26,6 +26,7 @@ For change tracking, use `VERSION_HISTORY.md`.
 - `VERSION_HISTORY.md`: version and change history for the team tools.
 - `MOTEC_CAN_TO_PI_INTEGRATION_REPORT.md`: detailed plan for MoTeC M130 CAN broadcast into the Pi logger.
 - `PHASE_2_PLAN.md`: next-step plan for MoTeC/dash CAN, steering angle, driver inputs, and balance metrics.
+- `CUSTOM_ANALYSIS_WORKSPACE_ROADMAP.md`: current customization features and the staged path to a complete user-configurable design tool.
 - `motec_can_signal_map_template.csv`: example MoTeC/dash CAN signal map to fill in after CAN IDs and scaling are known.
 - `pi/vn300_button_logger.py`: Raspberry Pi logger and live dashboard. It starts at boot, then waits idle until the log button is pressed.
 - `pi/vn300-button-logger.service`: systemd service for the logger/dashboard.
@@ -41,6 +42,7 @@ For change tracking, use `VERSION_HISTORY.md`.
 - `app/vn300_team_app.py`: optional localhost web interface retained as an alternative.
 - `packaging/`: PyInstaller, Inno Setup, icon, and Windows installer build definitions.
 - `analysis/vn300_lap_analysis.py`: offline analysis, lap splitting, and overlay HTML generation from `*_BINARY.csv` or `*_VNINS.csv`.
+- `analysis/vn300_custom_analysis.py`: generic CSV channel scanner, safe calculated-channel engine, filtering, statistics, plot generation, and export.
 - `analysis/vn300_gg_analysis.py`: corrected per-driver G-G diagrams with data-quality filtering and directional grip envelopes.
 - `analysis_output/`, `folder_import_output/`, `lap_smoke_output/`: example generated outputs.
 - `serial_samples/`: example raw serial capture.
@@ -75,12 +77,14 @@ Generic placeholders used below:
 Install the current Windows release, then open **VN300 Team Tools** from Windows Search or the Start Menu. Developers can also double-click `Start_VN300_Team_Tools.bat` in a source checkout. The app provides three workspaces:
 
 - **Live dashboard**: monitor speed, G values, timing, GPS and speed traces, completed laps, logger state, system health, and network latency. Its **Drive Day Setup** tab writes complete run metadata and lap/autocross timing gates to the connected Pi. The app checks the connected logger version and offers an SSH update when the Pi is behind.
-- **Data analysis**: select a VN300 boot/data folder, set timing and sector options, and run the existing offline analyzer with the measured car G-G lap prediction.
+- **Data analysis**: use **Quick Report** for the existing one-click lap/run report, or **Custom Workspace** to select files and channels, build calculated channels and filters, overlay line/scatter plots, save reusable presets, and export the plotted data.
 - **Reports**: render generated HTML reports inside the desktop app, preview CSV outputs, and open any result or output folder. Installed-app output defaults to `Documents\VN300 Team Tools\Analysis`.
 
 The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\VN300TeamTools\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Edit **Pi address** on the live dashboard when the address changes.
 
 The dashboard contains **Live Telemetry** and **Drive Day Setup** tabs. Drive Day Setup edits the next run's complete metadata record and configures lap or autocross timing. Save and reset actions remain disabled while the Pi is offline, and live telemetry refreshes do not overwrite unsaved setup edits.
+
+The Data Analysis workspace contains **Quick Report** and **Custom Workspace** tabs. Custom Workspace scans ordinary wide CSVs plus the Pi logger's long-form `MOTEC_CHANNELS.csv` files. Raw VN300 velocity, GPS, acceleration, and attitude channels automatically produce standard speed, distance, G, and yaw-rate channels. Saved workspace reports include an interactive offline HTML plot, channel statistics, the complete plotted data CSV, and a reusable JSON configuration.
 
 To start the native app from PowerShell:
 

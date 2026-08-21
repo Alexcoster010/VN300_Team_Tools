@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.9.0`
+`v0.10.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,20 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.10.0 - 2026-08-21
+
+### Custom Analysis Workspace
+
+- Preserved the existing analyzer as a **Quick Report** tab and added a separate **Custom Workspace**.
+- Added telemetry-folder scanning, selectable source files, searchable numeric channels, selectable X/Y axes, and multi-run overlays.
+- Added safe user-defined calculated channels with bracketed channel references and math, smoothing, hold, derivative, integral, clipping, and conditional functions.
+- Added user filters, line/scatter modes, configurable smoothing and plot detail, per-trace statistics, and offline interactive zoom/pan plots.
+- Added five built-in analysis presets plus named user presets stored with the desktop settings.
+- Added automatic `Vehicle_Speed_mps`, `Vehicle_Speed_mph`, `Distance_m`, `Yaw_Rate_dps`, and G channels when the necessary raw VN300 fields are present.
+- Added direct discovery of the Pi logger's long-form decoded MoTeC CAN channel file.
+- Added saved report integration with a full-resolution tidy CSV export and reusable JSON workspace configuration.
+- Added formula-safety, mixed-source, raw-channel derivation, CAN discovery, and report-generation tests.
 
 ## v0.9.0 - 2026-08-20
 

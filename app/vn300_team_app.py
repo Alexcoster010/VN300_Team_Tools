@@ -52,6 +52,9 @@ DEFAULT_PI_DASHBOARD_PORT = 8080
 NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 RESULT_LABELS = {
+    "custom_workspace.html": "Custom workspace report",
+    "custom_workspace_data.csv": "Custom workspace data",
+    "custom_workspace_config.json": "Custom workspace configuration",
     "report.html": "Analysis report",
     "lap_times_sector_splits.html": "Lap and sector report",
     "overlay.html": "Lap overlay",
