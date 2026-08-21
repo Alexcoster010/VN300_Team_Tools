@@ -48,6 +48,9 @@ Use this when the Pi is already set up and only the team tools changed.
 
 6. Confirm the dashboard loads and shows idle before logging starts.
 7. Confirm `http://<pi-host>:8080/api/latest` reports the installed `logger_version`.
+8. Click **Start Setup Stream** and confirm live latitude and longitude appear.
+9. Confirm the next run ID does not change and no run-numbered files are created.
+10. Click **Stop Setup Stream** and confirm the logger returns to idle.
 
 ## Full New Pi Install
 
@@ -90,12 +93,15 @@ Do this after every logger/dashboard update.
    VN300_YYYY-MM-DD_RUN001
    ```
 
-7. Press the physical log button once.
-8. Confirm dashboard changes from idle to logging.
-9. Wait at least 10 seconds.
-10. Press the physical log button again.
-11. Wait a few seconds for files to flush.
-12. Confirm the flash drive has:
+7. Click **Start Setup Stream** and confirm live latitude and longitude update.
+8. Confirm `Next Run` is unchanged and no `VN300_YYYY-MM-DD_RUN###_*` files are created.
+9. Click **Stop Setup Stream**.
+10. Press the physical log button once.
+11. Confirm dashboard changes from idle to logging.
+12. Wait at least 10 seconds.
+13. Press the physical log button again.
+14. Wait a few seconds for files to flush.
+15. Confirm the flash drive has:
 
    ```text
    VN300_LOGS/
@@ -106,7 +112,7 @@ Do this after every logger/dashboard update.
        VN300_run_metadata.csv
    ```
 
-13. Confirm `VN300_run_metadata.csv` contains the saved dashboard run info.
+16. Confirm `VN300_run_metadata.csv` contains the saved dashboard run info.
 
 ## Analyzer Test After Update
 
@@ -136,9 +142,10 @@ Do this after analyzer changes.
 
 ## Current Update Notes
 
-Last documented update: Pi logger `v0.5.0`.
+Last documented update: Pi logger `v0.6.0`.
 
 - The public `pi-logger` branch provides a downloadable ZIP and root-level installer.
+- Pi logger `v0.6.0` adds non-recording setup streaming for live timing-gate positioning.
 - The installer can run from any extracted folder using `sh Install_VN300_Logger.sh`.
 - The installer validates the package, checks dependencies, creates a timestamped backup, installs the service, and verifies the API version.
 - A failed health check restores the prior logger when a backup exists.

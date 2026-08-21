@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.5.0`
+`v0.6.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,17 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.6.0 - 2026-08-21
+
+### Non-Recording Track Setup Stream
+
+- Added `POST /api/setup_stream` to start and stop live VN-300 acquisition without recording a run.
+- Publishes live fields through `/api/latest` with `setup_streaming: true` while setup mode is requested.
+- Does not allocate a run number, write raw/CSV/metadata files, start CAN logging, or update lap timing.
+- Rejects setup-stream start while a normal logging run is active.
+- The physical log button exits setup mode and starts a normal recorded run.
+- Added a matching setup-stream control to the Pi browser dashboard.
 
 ## v0.5.0 - 2026-07-21
 

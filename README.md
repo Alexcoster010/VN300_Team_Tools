@@ -316,6 +316,10 @@ The dashboard also has run metadata setup:
 
 The dashboard also has live timing setup:
 
+- Click **Start Setup Stream** before positioning the car at a timing gate.
+- Setup streaming opens the VN-300 only for live dashboard data. It does not create a run, advance the daily run number, write raw/CSV/metadata files, start CAN logging, or update lap timing.
+- Click **Stop Setup Stream** when setup is complete. Pressing the physical log button also leaves setup mode and starts a normal recorded run.
+
 - `Lap`: enter the two GPS endpoints of the start/finish line.
 - `Autocross`: enter the two GPS endpoints of the start line and the two GPS endpoints of the finish line.
 - `Min Speed mph`: ignores line crossings below this speed.

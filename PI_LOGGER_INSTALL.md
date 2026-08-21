@@ -65,7 +65,7 @@ http://<pi-ip>:8080/api/latest
 The JSON response includes:
 
 ```json
-{"logger_version": "0.5.0"}
+{"logger_version": "0.6.0", "setup_streaming": false}
 ```
 
 Service checks:
