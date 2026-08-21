@@ -718,6 +718,7 @@ class VN300QtApp(QMainWindow):
         self.metadata_save_active = False
         self.timing_save_active = False
         self.timing_reset_active = False
+        self.setup_stream_action_active = False
         self.installed_logger_version = "unknown"
         self.available_logger_version = ""
         self.logger_check_active = False
@@ -1198,6 +1199,13 @@ class VN300QtApp(QMainWindow):
         self.timing_save_status.setStyleSheet("color:#6d6d6d;")
         timing_actions.addWidget(self.timing_save_status)
         timing_actions.addStretch()
+        self.setup_stream_button = QPushButton("START SETUP STREAM")
+        self.setup_stream_button.setToolTip(
+            "Show live VN-300 data for timing setup without recording a run or creating log files."
+        )
+        self.setup_stream_button.setEnabled(False)
+        self.setup_stream_button.clicked.connect(self.toggle_setup_stream)
+        timing_actions.addWidget(self.setup_stream_button)
         self.timing_reset_button = QPushButton("RESET TIMING")
         self.timing_reset_button.setProperty("role", "danger")
         self.timing_reset_button.setEnabled(False)
@@ -1700,12 +1708,73 @@ class VN300QtApp(QMainWindow):
         self.timing_gate_inputs[longitude_key].setText(format_coordinate(longitude))
         self.mark_timing_setup_dirty()
 
+    def refresh_setup_stream_button(self) -> None:
+        active = bool(self.pi_last_snapshot.get("setup_streaming"))
+        self.setup_stream_button.setText("STOP SETUP STREAM" if active else "START SETUP STREAM")
+        self.setup_stream_button.setProperty("role", "danger" if active else "primary")
+        self.setup_stream_button.style().unpolish(self.setup_stream_button)
+        self.setup_stream_button.style().polish(self.setup_stream_button)
+        self.setup_stream_button.setEnabled(
+            self.pi_connected
+            and not self.setup_stream_action_active
+            and not bool(self.pi_last_snapshot.get("logging"))
+        )
+
+    def toggle_setup_stream(self) -> None:
+        if not self.pi_connected or self.setup_stream_action_active:
+            return
+        enable = not bool(self.pi_last_snapshot.get("setup_streaming"))
+        if enable and self.pi_last_snapshot.get("logging"):
+            QMessageBox.warning(
+                self,
+                "Track setup data",
+                "Stop the active logging run before starting the setup stream.",
+            )
+            return
+        self.setup_stream_action_active = True
+        self.refresh_setup_stream_button()
+        self.setup_stream_button.setText("STARTING..." if enable else "STOPPING...")
+        generation = self.pi_generation
+        worker = Worker(
+            pi_api_request,
+            self.pi_endpoint,
+            "api/setup_stream",
+            "POST",
+            {"enabled": enable},
+            5.0,
+        )
+        worker.signals.result.connect(partial(self.setup_stream_changed, generation, enable))
+        worker.signals.error.connect(partial(self.setup_stream_change_failed, generation))
+        self.start_worker(worker)
+
+    def setup_stream_changed(self, generation: int, enabled: bool, result: object) -> None:
+        self.setup_stream_action_active = False
+        if generation != self.pi_generation or not isinstance(result, dict):
+            return
+        self.pi_last_snapshot["setup_streaming"] = bool(result.get("setup_streaming", enabled))
+        self.refresh_setup_stream_button()
+        self.pi_next_poll_at = 0.0
+        self.maybe_poll_pi()
+
+    def setup_stream_change_failed(self, generation: int, error: str) -> None:
+        self.setup_stream_action_active = False
+        self.refresh_setup_stream_button()
+        if generation != self.pi_generation:
+            return
+        QMessageBox.critical(
+            self,
+            "Track setup data",
+            "Could not change the non-recording setup stream. Update the Pi logger and try again."
+            f"\n\n{error}",
+        )
+
     def set_drive_day_controls_enabled(self, enabled: bool) -> None:
         self.metadata_save_button.setEnabled(enabled and not self.metadata_save_active)
         timing_busy = self.timing_save_active or self.timing_reset_active
         self.timing_save_button.setEnabled(enabled and not timing_busy)
         self.timing_reset_button.setEnabled(enabled and not timing_busy)
         self.refresh_live_gps_buttons()
+        self.refresh_setup_stream_button()
 
     @staticmethod
     def metadata_widget_value(widget: QWidget) -> str:
@@ -2024,7 +2093,13 @@ class VN300QtApp(QMainWindow):
             self.state_data["pi_endpoint"] = endpoint
             self.save_state_safely()
         self.pi_last_snapshot = snapshot
-        self.set_pi_status("Logging" if snapshot.get("logging") else "Online", "online")
+        if snapshot.get("logging"):
+            pi_status = "Logging"
+        elif snapshot.get("setup_streaming"):
+            pi_status = "Setup stream"
+        else:
+            pi_status = "Online"
+        self.set_pi_status(pi_status, "online")
         self.logger_button.setEnabled(not self.logger_update_active)
         self.update_dashboard(snapshot)
         self.update_drive_day_setup(snapshot, force=newly_connected)

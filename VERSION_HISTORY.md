@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.13.2`
+`v0.14.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,19 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.14.0 - 2026-08-21
+
+### Non-Recording Track Setup Stream
+
+- Added **Start Setup Stream** and **Stop Setup Stream** controls beside Timing Setup in the desktop app.
+- Added Pi logger API control at `POST /api/setup_stream`.
+- Opens and decodes the VN-300 serial stream so live latitude, longitude, speed, and other fields are available during track setup.
+- Does not assign a run number, write raw or CSV logs, write run metadata, start CAN logging, or update lap timing.
+- Blocks setup-stream start while a normal logging run is active.
+- Allows the physical log button to stop setup streaming and transition into a normal recorded run.
+- Added the same setup-stream control to the Pi browser dashboard.
+- Requires Pi logger `v0.6.0`.
 
 ## v0.13.2 - 2026-08-21
 

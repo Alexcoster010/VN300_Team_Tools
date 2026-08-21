@@ -57,6 +57,10 @@ Use this when the Pi is already set up and only the team tools changed.
    ```
 
 7. Confirm the dashboard loads and shows idle before logging starts.
+8. In the desktop app, open **Drive Day Setup** and click **Start Setup Stream**.
+9. Confirm latitude and longitude update while the Pi reports **Setup stream**.
+10. Confirm the next run ID does not change and no new `VN300_YYYY-MM-DD_RUN###_*` files are created.
+11. Click **Stop Setup Stream** and confirm the Pi returns to **Online** or idle.
 
 ## Full New Pi Install
 
@@ -112,12 +116,15 @@ Do this after every logger/dashboard update.
    VN300_YYYY-MM-DD_RUN001
    ```
 
-7. Press the physical log button once.
-8. Confirm dashboard changes from idle to logging.
-9. Wait at least 10 seconds.
-10. Press the physical log button again.
-11. Wait a few seconds for files to flush.
-12. Confirm the flash drive has:
+7. Click **Start Setup Stream** and confirm live latitude and longitude update.
+8. Confirm `Next Run` is unchanged and no `VN300_YYYY-MM-DD_RUN###_*` files are created.
+9. Click **Stop Setup Stream**.
+10. Press the physical log button once.
+11. Confirm dashboard changes from idle to logging.
+12. Wait at least 10 seconds.
+13. Press the physical log button again.
+14. Wait a few seconds for files to flush.
+15. Confirm the flash drive has:
 
    ```text
    VN300_LOGS/
@@ -128,7 +135,7 @@ Do this after every logger/dashboard update.
        VN300_run_metadata.csv
    ```
 
-13. Confirm `VN300_run_metadata.csv` contains the saved dashboard run info.
+16. Confirm `VN300_run_metadata.csv` contains the saved dashboard run info.
 
 ## Analyzer Test After Update
 
@@ -168,16 +175,24 @@ Do this after every Windows desktop release.
 6. Confirm session, storage, logger version, Pi temperature, and network latency appear under **System Health**.
 7. Confirm live latitude and longitude appear and change when the VN-300 position changes.
 8. Open **Drive Day Setup** and confirm the date, next run ID, metadata, timing setup, and live GPS position load from the Pi.
-9. Move the car to each timing gate point and press **Use Live** for that point; confirm the displayed coordinates are copied into the correct latitude and longitude fields.
-10. Save the timing setup and confirm its status changes to waiting for start.
-11. Open **Data Analysis**, confirm both **Quick Report** and **Custom Workspace** tabs appear, and scan a telemetry folder.
-12. In **Custom Workspace**, select at least one file, choose X/Y channels, run **Preview**, and confirm the interactive plot and statistics render.
-13. Save a custom report and confirm its HTML, CSV data, and JSON configuration appear in **Reports**.
-14. Enter a driver and test note, click **Save Run Info**, and confirm the next-run message appears.
-15. Open `http://<pi-host>:8080/api/latest` and confirm the saved values appear under `run_metadata` and `timing.config`.
-16. Leave the app connected for at least 30 seconds and confirm telemetry continues refreshing without overwriting unsaved setup edits.
+9. Click **Start Setup Stream** and confirm the app shows live latitude and longitude without starting a logging run.
+10. Move the car to each timing gate point and press **Use Live** for that point; confirm the displayed coordinates are copied into the correct latitude and longitude fields.
+11. Click **Stop Setup Stream** and confirm the next run number has not changed and no run files were created.
+12. Save the timing setup and confirm its status changes to waiting for start.
+13. Open **Data Analysis**, confirm both **Quick Report** and **Custom Workspace** tabs appear, and scan a telemetry folder.
+14. In **Custom Workspace**, select at least one file, choose X/Y channels, run **Preview**, and confirm the interactive plot and statistics render.
+15. Save a custom report and confirm its HTML, CSV data, and JSON configuration appear in **Reports**.
+16. Enter a driver and test note, click **Save Run Info**, and confirm the next-run message appears.
+17. Open `http://<pi-host>:8080/api/latest` and confirm the saved values appear under `run_metadata` and `timing.config`.
+18. Leave the app connected for at least 30 seconds and confirm telemetry continues refreshing without overwriting unsaved setup edits.
 
 ## Current Update Notes
+
+### Desktop v0.14.0 / Pi Logger v0.6.0
+
+- Added a non-recording VN-300 setup stream for positioning timing gates with live latitude and longitude.
+- Setup mode does not create run files, consume a run number, log CAN, or update lap timing.
+- Both the desktop app and Pi logger must be updated before using the new button.
 
 Last documented update:
 

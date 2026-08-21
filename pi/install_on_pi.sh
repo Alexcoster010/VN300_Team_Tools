@@ -6,6 +6,7 @@ SERVICE=vn300-button-logger.service
 
 sudo mkdir -p "$APP_DIR"
 sudo cp vn300_button_logger.py "$APP_DIR/"
+sudo cp ../PI_LOGGER_VERSION "$APP_DIR/"
 sudo cp motec_can_signal_map.csv "$APP_DIR/"
 sudo chown -R vectornav:vectornav "$APP_DIR"
 sudo chmod +x "$APP_DIR/vn300_button_logger.py"

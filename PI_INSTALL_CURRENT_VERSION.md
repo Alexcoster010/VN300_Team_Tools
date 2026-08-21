@@ -1,6 +1,6 @@
 # Pi Install For Current Version
 
-Current documented version: `v0.4.5`
+Current documented Pi logger version: `v0.6.0`
 
 Stable tagged Pi version: `v0.4.0`
 
@@ -17,6 +17,7 @@ Use this file to install or update the current VN300 logger/dashboard package on
 ## What This Version Includes
 
 - Dashboard Run Metadata panel.
+- Non-recording setup streaming for live track-gate positioning.
 - Daily run-number filenames:
 
   ```text

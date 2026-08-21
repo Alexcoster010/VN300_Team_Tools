@@ -83,6 +83,49 @@ class QtWorkerTests(unittest.TestCase):
         self.assertEqual(owner.timing_gate_inputs["start_lon1"].value, "-97.98765432")
         self.assertTrue(owner.dirty)
 
+    def test_setup_stream_button_reflects_pi_state_and_blocks_during_logging(self):
+        class Style:
+            def unpolish(self, _button):
+                pass
+
+            def polish(self, _button):
+                pass
+
+        class Button:
+            def __init__(self):
+                self.text = ""
+                self.role = ""
+                self.enabled = False
+                self.button_style = Style()
+
+            def setText(self, value):
+                self.text = value
+
+            def setProperty(self, _name, value):
+                self.role = value
+
+            def style(self):
+                return self.button_style
+
+            def setEnabled(self, value):
+                self.enabled = value
+
+        class Owner:
+            pi_connected = True
+            setup_stream_action_active = False
+            pi_last_snapshot = {"setup_streaming": True, "logging": False}
+            setup_stream_button = Button()
+
+        owner = Owner()
+        VN300QtApp.refresh_setup_stream_button(owner)
+        self.assertEqual(owner.setup_stream_button.text, "STOP SETUP STREAM")
+        self.assertEqual(owner.setup_stream_button.role, "danger")
+        self.assertTrue(owner.setup_stream_button.enabled)
+
+        owner.pi_last_snapshot["logging"] = True
+        VN300QtApp.refresh_setup_stream_button(owner)
+        self.assertFalse(owner.setup_stream_button.enabled)
+
 
 if __name__ == "__main__":
     unittest.main()

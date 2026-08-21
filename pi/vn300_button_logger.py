@@ -55,6 +55,7 @@ MAX_ASCII_BUFFER_BYTES = 16384
 MIN_FREE_SPACE_BYTES = 250 * 1024 * 1024
 LOCAL_FALLBACK = Path.home() / "vn300_logs"
 DEFAULT_CAN_SIGNAL_MAP = Path(__file__).with_name("motec_can_signal_map.csv")
+LOGGER_VERSION_PATH = Path(__file__).with_name("PI_LOGGER_VERSION")
 ASCII_MESSAGE_RE = re.compile(r"^VN[A-Z0-9]{2,12}$")
 VN300_BINARY_HEADER = bytes.fromhex("fa 7f f9 1f 4c 00 0d 06 bf a0 04 00 c6 00 1b 06 18 a2 02 00")
 VN300_BINARY_PACKET_LEN = 506
@@ -98,6 +99,20 @@ RUN_METADATA_FIELDS = [
     "notes",
 ]
 
+
+def read_logger_version() -> str:
+    for path in (LOGGER_VERSION_PATH, Path(__file__).resolve().parents[1] / "PI_LOGGER_VERSION"):
+        try:
+            version = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if version:
+            return version
+    return "development"
+
+
+LOGGER_VERSION = read_logger_version()
+
 FIELD_NAMES = {
     "VNYPR": ["Yaw_deg", "Pitch_deg", "Roll_deg"],
     "VNIMU": [
@@ -136,6 +151,7 @@ FIELD_NAMES = {
 
 stop_requested = threading.Event()
 logging_requested = threading.Event()
+setup_stream_requested = threading.Event()
 active_session_stop = threading.Event()
 shutdown_requested = threading.Event()
 state_lock = threading.Lock()
@@ -144,8 +160,10 @@ active_log_dir = None
 active_base_log_dir = None
 active_log_destination_type = None
 latest_packet = {
+    "logger_version": LOGGER_VERSION,
     "status": "idle",
     "logging": False,
+    "setup_streaming": False,
     "session": None,
     "message_type": None,
     "updated_monotonic": None,
@@ -223,6 +241,7 @@ timing_state = {
 
 def stop_handler(signum, frame):
     stop_requested.set()
+    setup_stream_requested.clear()
     active_session_stop.set()
 
 
@@ -696,7 +715,29 @@ def reset_latest_for_session(session_name: str):
         latest_packet.update({
             "status": "logging",
             "logging": True,
+            "setup_streaming": False,
             "session": session_name,
+            "message_type": None,
+            "updated_monotonic": None,
+            "fields": {},
+            "checksum_ok": None,
+            "raw_bytes": 0,
+            "ascii_packets": 0,
+            "binary_bytes": 0,
+            "binary_packets": 0,
+            "bad_binary_packets": 0,
+            "parse_source": None,
+            "warning": None,
+        })
+
+
+def reset_latest_for_setup_stream():
+    with state_lock:
+        latest_packet.update({
+            "status": "track setup",
+            "logging": False,
+            "setup_streaming": True,
+            "session": None,
             "message_type": None,
             "updated_monotonic": None,
             "fields": {},
@@ -1420,11 +1461,13 @@ def update_latest(
     raw_bytes: Optional[int] = None,
     binary_bytes: Optional[int] = None,
     allow_timing: bool = True,
+    timing_active: bool = True,
 ):
     fields_for_timing = None
     with state_lock:
         latest_packet["status"] = status
         latest_packet["logging"] = logging_active
+        latest_packet["setup_streaming"] = setup_stream_requested.is_set()
         if session is not None:
             latest_packet["session"] = session
         if parsed is not None:
@@ -1444,7 +1487,7 @@ def update_latest(
             latest_packet["raw_bytes"] = raw_bytes
         if binary_bytes is not None:
             latest_packet["binary_bytes"] = binary_bytes
-    if allow_timing and fields_for_timing is not None and sample_time_s is not None:
+    if timing_active and allow_timing and fields_for_timing is not None and sample_time_s is not None:
         update_timing(sample_time_s, fields_for_timing)
 
 
@@ -1455,10 +1498,12 @@ def update_latest_fields(
     fields: dict,
     raw_bytes: Optional[int] = None,
     binary_bytes: Optional[int] = None,
+    timing_active: bool = True,
 ):
     with state_lock:
         latest_packet["status"] = status
         latest_packet["logging"] = logging_active
+        latest_packet["setup_streaming"] = setup_stream_requested.is_set()
         if session is not None:
             latest_packet["session"] = session
         latest_packet["message_type"] = "BINARY"
@@ -1472,8 +1517,126 @@ def update_latest_fields(
         if binary_bytes is not None:
             latest_packet["binary_bytes"] = binary_bytes
     sample_time = fields.get("Pi_Elapsed_Time_s")
-    if sample_time is not None:
+    if timing_active and sample_time is not None:
         update_timing(sample_time, fields)
+
+
+def run_setup_stream(port: str, baud: int, parse_mode: str = "auto"):
+    """Publish live VN-300 fields without creating a run or writing files."""
+    start_time = time.monotonic()
+    byte_count = 0
+    binary_byte_count = 0
+    binary_active = False
+    line_buffer = bytearray()
+    binary_buffer = bytearray()
+
+    logging.info("Opening %s at %d baud for non-recording track setup", port, baud)
+    reset_latest_for_setup_stream()
+    try:
+        with serial.Serial(
+            port=port,
+            baudrate=baud,
+            timeout=SERIAL_TIMEOUT_S,
+            bytesize=serial.EIGHTBITS,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+        ) as ser:
+            while (
+                not stop_requested.is_set()
+                and setup_stream_requested.is_set()
+                and not logging_requested.is_set()
+            ):
+                chunk = ser.read(READ_SIZE)
+                if not chunk:
+                    continue
+                now = time.monotonic()
+                byte_count += len(chunk)
+                binary_byte_count += sum(
+                    1 for byte in chunk if byte not in b"\r\n\t" and (byte < 32 or byte > 126)
+                )
+                if parse_mode in ("auto", "binary"):
+                    binary_buffer.extend(chunk)
+
+                while parse_mode in ("auto", "binary"):
+                    packet_start = binary_buffer.find(VN300_BINARY_HEADER)
+                    if packet_start < 0:
+                        if len(binary_buffer) > len(VN300_BINARY_HEADER):
+                            del binary_buffer[:-len(VN300_BINARY_HEADER)]
+                        break
+                    if packet_start > 0:
+                        del binary_buffer[:packet_start]
+                    if len(binary_buffer) < VN300_BINARY_PACKET_LEN:
+                        break
+                    packet = bytes(binary_buffer[:VN300_BINARY_PACKET_LEN])
+                    del binary_buffer[:VN300_BINARY_PACKET_LEN]
+                    parse_failed = False
+                    try:
+                        fields = parse_vn300_binary_packet(packet)
+                    except (struct.error, IndexError, KeyError) as exc:
+                        fields = None
+                        parse_failed = True
+                        increment_bad_binary_packets()
+                        logging.warning("Setup-stream binary packet parse failed: %s", exc)
+                    if fields:
+                        binary_active = True
+                        update_latest_fields(
+                            "track setup",
+                            False,
+                            None,
+                            fields,
+                            raw_bytes=byte_count,
+                            binary_bytes=binary_byte_count,
+                            timing_active=False,
+                        )
+                    elif not parse_failed:
+                        increment_bad_binary_packets()
+
+                parse_ascii_this_chunk = parse_mode == "ascii" or (
+                    parse_mode == "auto" and not binary_active
+                )
+                if parse_ascii_this_chunk and (b"$VN" in chunk or line_buffer):
+                    if b"$VN" in chunk and not line_buffer:
+                        line_buffer.extend(chunk[chunk.find(b"$VN"):])
+                    else:
+                        line_buffer.extend(chunk)
+
+                    if len(line_buffer) > MAX_ASCII_BUFFER_BYTES:
+                        last_start = line_buffer.rfind(b"$VN")
+                        if last_start >= 0:
+                            line_buffer = bytearray(line_buffer[last_start:])
+                        else:
+                            line_buffer.clear()
+
+                    while b"\n" in line_buffer:
+                        raw_bytes, _, remainder = line_buffer.partition(b"\n")
+                        line_buffer = bytearray(remainder)
+                        parsed = parse_ascii_line(raw_bytes.decode("ascii", errors="ignore"))
+                        if parsed:
+                            update_latest(
+                                "track setup",
+                                False,
+                                None,
+                                parsed,
+                                now - start_time,
+                                raw_bytes=byte_count,
+                                binary_bytes=binary_byte_count,
+                                timing_active=False,
+                            )
+                else:
+                    if binary_active and line_buffer:
+                        line_buffer.clear()
+                    update_latest(
+                        "track setup",
+                        False,
+                        raw_bytes=byte_count,
+                        binary_bytes=binary_byte_count,
+                        timing_active=False,
+                    )
+    finally:
+        if not setup_stream_requested.is_set():
+            next_status = "starting logging" if logging_requested.is_set() else "idle"
+            update_latest(next_status, False)
+        logging.info("Non-recording track setup stream closed. Bytes received: %d", byte_count)
 
 
 def run_session(
@@ -1916,6 +2079,7 @@ def install_gpio_callbacks(log_pin: int, power_pin: int, shutdown_command: str):
             active_session_stop.set()
         else:
             logging.info("LOG button: start requested")
+            setup_stream_requested.clear()
             active_session_stop.clear()
             logging_requested.set()
 
@@ -1923,6 +2087,7 @@ def install_gpio_callbacks(log_pin: int, power_pin: int, shutdown_command: str):
         logging.info("POWER button held: shutdown requested")
         shutdown_requested.set()
         logging_requested.clear()
+        setup_stream_requested.clear()
         active_session_stop.set()
         stop_requested.set()
 
@@ -2018,6 +2183,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3"></path><path d="M8 21v-7h8v7"></path></svg>
 <span>Save Timing</span>
 </button>
+<button id="setupStream" title="Show live data without recording a run or creating log files">Start Setup Stream</button>
 <button id="resetTiming" class="secondary">Reset</button>
 <div id="timingConfigSaveStatus" class="save-status" aria-live="polite"></div>
 </div>
@@ -2041,6 +2207,7 @@ const history=[]; const maxN=240; const c=document.getElementById('plot'); const
 const trackCanvas=document.getElementById('trackPlot'); const trackCtx=trackCanvas.getContext('2d');
 const ids=['start_lat1','start_lon1','start_lat2','start_lon2','finish_lat1','finish_lon1','finish_lat2','finish_lon2','min_speed_mph','min_gap_s'];
 const metadataIds=['driver','test_type','course','test_location','car_config','tire_compound','cold_fl_psi','cold_fr_psi','cold_rl_psi','cold_rr_psi','brake_bias','aero_config','valid_run','notes'];
+let setupStreamActive=false;
 function fmt(v,n=2){return Number.isFinite(v)?v.toFixed(n):'--'}
 function timeFmt(v){if(!Number.isFinite(v))return'--'; const m=Math.floor(v/60),s=v-m*60; return m?`${m}:${s.toFixed(3).padStart(6,'0')}`:s.toFixed(3)}
 function deltaFmt(v){if(v===null||v===undefined||!Number.isFinite(v))return'--'; return (v>=0?'+':'')+v.toFixed(3)}
@@ -2073,6 +2240,12 @@ document.getElementById('saveConfig').onclick=async()=>{
  finally{btn.disabled=false}
 };
 document.getElementById('resetTiming').onclick=async()=>{await fetch('/api/reset_timing',{method:'POST'}); setTimingSaveStatus('Timing laps reset','saved')};
+document.getElementById('setupStream').onclick=async()=>{
+ const btn=document.getElementById('setupStream'), enable=!setupStreamActive; btn.disabled=true; btn.textContent=enable?'Starting...':'Stopping...';
+ try{const r=await fetch('/api/setup_stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:enable})}); const d=await r.json(); if(!r.ok)alert(d.error||'Setup stream failed'); else setupStreamActive=!!d.setup_streaming}
+ catch(e){alert('Setup stream failed')}
+ finally{btn.textContent=setupStreamActive?'Stop Setup Stream':'Start Setup Stream'; btn.disabled=false}
+};
 document.getElementById('saveRunMetadata').onclick=async()=>{
  const btn=document.getElementById('saveRunMetadata'); btn.disabled=true; setMetadataSaveStatus('Saving metadata...','saving');
  try{const r=await fetch('/api/run_metadata',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(metadataPayload())}); const d=await r.json(); if(!r.ok){setMetadataSaveStatus(d.error||'Metadata save failed','error'); alert(d.error||'Metadata failed')} else {fillRunMetadata(d); setMetadataSaveStatus(`Saved for ${d.next_run_id||'next run'}`,'saved')}}
@@ -2086,6 +2259,7 @@ function fillRunMetadata(d){const m=(d&&d.metadata)||{}; metadataIds.forEach(id=
 async function loadRunMetadata(){try{const d=await (await fetch('/api/run_metadata')).json(); fillRunMetadata(d)}catch(e){}}
 async function tick(){try{const r=await fetch('/api/latest',{cache:'no-store'}); const d=await r.json(); const f=d.fields||{},t=d.timing||{};
  const st=document.getElementById('status'); st.textContent=d.status; st.className='pill '+(d.logging?'on':'off');
+ setupStreamActive=!!d.setup_streaming; const setupBtn=document.getElementById('setupStream'); setupBtn.textContent=setupStreamActive?'Stop Setup Stream':'Start Setup Stream'; setupBtn.disabled=!!d.logging;
  document.getElementById('session').textContent=d.session||''; document.getElementById('timingStatus').textContent=d.warning||t.status||'';
  document.getElementById('speed').textContent=fmt(f.Speed_mph,1)+' mph'; document.getElementById('longG').textContent=fmt(f.Longitudinal_G,2)+' g'; document.getElementById('latG').textContent=fmt(f.Lateral_G,2)+' g'; document.getElementById('lapCount').textContent=String(t.lap_count||0);
  document.getElementById('currentTime').textContent=timeFmt(t.current_elapsed_s); document.getElementById('bestTime').textContent=timeFmt(t.best_lap_s);
@@ -2145,6 +2319,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 if isinstance(payload.get("can"), dict):
                     payload["can"] = {k: v for k, v in payload["can"].items() if k != "_last_monotonic"}
                 payload["age_s"] = age_s
+            payload["setup_streaming"] = setup_stream_requested.is_set()
             payload["timing"] = public_timing_snapshot()
             payload["run_metadata"] = public_run_metadata_snapshot()
             cpu_temp_c = cpu_temperature_c()
@@ -2164,6 +2339,32 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def do_POST(self):
+        if self.path.startswith("/api/setup_stream"):
+            try:
+                enabled = self.read_json_body().get("enabled")
+            except json.JSONDecodeError as exc:
+                self.send_json({"ok": False, "error": str(exc)}, status=400)
+                return
+            if not isinstance(enabled, bool):
+                self.send_json({"ok": False, "error": "enabled must be true or false"}, status=400)
+                return
+            with state_lock:
+                logging_active = bool(latest_packet.get("logging"))
+            if enabled and (logging_requested.is_set() or logging_active):
+                self.send_json(
+                    {"ok": False, "error": "Stop the active logging run before starting track setup data."},
+                    status=409,
+                )
+                return
+            if enabled:
+                setup_stream_requested.set()
+                logging.info("Dashboard requested non-recording track setup data")
+            else:
+                setup_stream_requested.clear()
+                logging.info("Dashboard stopped non-recording track setup data")
+            self.send_json({"ok": True, "setup_streaming": setup_stream_requested.is_set()})
+            return
+
         if self.path.startswith("/api/config"):
             try:
                 configure_timing(self.read_json_body())
@@ -2204,10 +2405,11 @@ def start_dashboard(host: str, port: int):
     return server
 
 
-def wait_for_button_request():
+def wait_for_acquisition_request():
     while not stop_requested.is_set():
-        if logging_requested.wait(0.25):
+        if logging_requested.is_set() or setup_stream_requested.is_set():
             return True
+        stop_requested.wait(0.25)
     return False
 
 
@@ -2275,7 +2477,7 @@ def main():
 
     update_latest("idle", False)
     while not stop_requested.is_set():
-        if not wait_for_button_request():
+        if not wait_for_acquisition_request():
             break
 
         port = find_serial_port(args.port)
@@ -2286,8 +2488,12 @@ def main():
             continue
 
         active_session_stop.clear()
+        ran_logging_session = logging_requested.is_set()
         try:
-            run_session(port, args.baud, active_log_dir, base_log_dir, args.parse_mode, can_config)
+            if ran_logging_session:
+                run_session(port, args.baud, active_log_dir, base_log_dir, args.parse_mode, can_config)
+            elif setup_stream_requested.is_set():
+                run_setup_stream(port, args.baud, args.parse_mode)
         except serial.SerialException as exc:
             logging.error("Serial error: %s", exc)
             update_latest("serial error", False)
@@ -2295,7 +2501,8 @@ def main():
             logging.error("I/O error: %s", exc)
             update_latest("io error", False)
 
-        logging_requested.clear()
+        if ran_logging_session:
+            logging_requested.clear()
         active_session_stop.clear()
         time.sleep(0.2)
 
