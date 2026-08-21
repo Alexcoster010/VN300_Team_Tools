@@ -197,6 +197,7 @@ Last documented update:
 - Desktop `v0.12.1` waits for the packaged app's hidden bootloader process before installing an update, preventing the updater from racing a still-locked executable.
 - Desktop `v0.13.0` displays live latitude/longitude and can copy the car's current position into timing gates; no Pi software update is required.
 - Desktop `v0.13.1` force-closes executable locks during in-app updates and preserves `last_installer.log` for diagnosis.
+- Desktop `v0.13.2` terminates the complete PyInstaller process tree before replacing the installed executable.
 
 ## Files Usually Updated
 

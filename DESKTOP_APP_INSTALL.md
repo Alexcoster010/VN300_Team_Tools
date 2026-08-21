@@ -95,7 +95,7 @@ If the update reports installer exit code 5 or says an existing file could not b
 4. Run that installer manually, then launch Sooner Racing Telemetry from Windows Search.
 5. If the manual install still fails, send the team the file at `%LOCALAPPDATA%\SoonerRacingTelemetry\updates\last_installer.log`.
 
-Version v0.13.1 and later force-close stale SRT processes during updates. This recovery procedure remains useful for older installations making their first update to v0.13.1.
+Version v0.13.2 and later terminate the complete stale SRT process tree before replacing app files. This recovery procedure remains useful for older installations making their first update to v0.13.2.
 
 ## Raspberry Pi Logger Updates
 

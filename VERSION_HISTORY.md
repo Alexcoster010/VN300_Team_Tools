@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.13.1`
+`v0.13.2`
 
 Stable Pi install tag:
 
@@ -25,6 +25,15 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.13.2 - 2026-08-21
+
+### PyInstaller Process-Tree Update Fix
+
+- Added an installer `PrepareToInstall` step that terminates the complete `VN300TeamTools.exe` process tree before file-in-use detection and replacement.
+- Repeats process termination to catch a PyInstaller child that starts while its parent is being closed.
+- Retains forced Windows Restart Manager closing as a second layer after the process-tree cleanup.
+- Verified the original failure with an actual running v0.13.0 package and an Inno Setup diagnostic log before implementing this stronger fix.
 
 ## v0.13.1 - 2026-08-21
 
@@ -35,6 +44,7 @@ Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboa
 - Preserved an Inno Setup diagnostic log at `%LOCALAPPDATA%\SoonerRacingTelemetry\updates\last_installer.log`.
 - Replaced the generic exit-code-5 message with restart and manual-install recovery instructions.
 - Kept the fix in the installer itself so v0.12.1 and v0.13.0 can use it when launching the v0.13.1 update.
+- Superseded by v0.13.2 after a packaged-app test showed PyInstaller could restart one child process during Restart Manager shutdown.
 
 ## v0.13.0 - 2026-08-21
 

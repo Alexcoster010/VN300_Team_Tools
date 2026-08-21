@@ -56,3 +56,30 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure ForceCloseSRTProcesses;
+var
+  Attempt: Integer;
+  ResultCode: Integer;
+begin
+  for Attempt := 1 to 3 do
+  begin
+    if not Exec(
+      ExpandConstant('{sys}\taskkill.exe'),
+      '/F /T /IM "{#AppExeName}"',
+      '',
+      SW_HIDE,
+      ewWaitUntilTerminated,
+      ResultCode
+    ) then
+      ResultCode := -1;
+    Sleep(500);
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  ForceCloseSRTProcesses;
+  Result := '';
+end;
