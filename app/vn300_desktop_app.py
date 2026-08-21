@@ -200,6 +200,35 @@ def format_number(value: Any, digits: int = 1, suffix: str = "") -> str:
     return f"{number:.{digits}f}{suffix}"
 
 
+GPS_FIELD_PAIRS = (
+    ("Latitude_deg", "Longitude_deg"),
+    ("Common_PosLla_Latitude_deg", "Common_PosLla_Longitude_deg"),
+    ("Gnss1PosLla_Latitude_deg", "Gnss1PosLla_Longitude_deg"),
+    ("Ins_PosLla_Latitude_deg", "Ins_PosLla_Longitude_deg"),
+)
+
+
+def live_gps_position(fields: dict[str, Any]) -> tuple[float, float] | None:
+    for latitude_key, longitude_key in GPS_FIELD_PAIRS:
+        try:
+            latitude = float(fields[latitude_key])
+            longitude = float(fields[longitude_key])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if (
+            math.isfinite(latitude)
+            and math.isfinite(longitude)
+            and -90 <= latitude <= 90
+            and -180 <= longitude <= 180
+        ):
+            return latitude, longitude
+    return None
+
+
+def format_coordinate(value: Any) -> str:
+    return format_number(value, 8)
+
+
 def format_lap_time(value: Any) -> str:
     try:
         seconds = float(value)
@@ -212,7 +241,7 @@ def format_lap_time(value: Any) -> str:
 
 
 class MetricTile(tk.Frame):
-    def __init__(self, parent: tk.Misc, label: str, unit: str = ""):
+    def __init__(self, parent: tk.Misc, label: str, unit: str = "", compact: bool = False):
         super().__init__(parent, bg=COLORS["paper"], highlightbackground=COLORS["line"], highlightthickness=1)
         self.grid_propagate(False)
         self.configure(height=84)
@@ -221,7 +250,8 @@ class MetricTile(tk.Frame):
         )
         row = tk.Frame(self, bg=COLORS["paper"])
         row.pack(fill="x", padx=12, pady=(5, 8))
-        self.value_label = tk.Label(row, text="--", bg=COLORS["paper"], fg=COLORS["ink"], font=("Segoe UI", 19, "bold"))
+        value_font = ("Consolas", 14, "bold") if compact else ("Segoe UI", 19, "bold")
+        self.value_label = tk.Label(row, text="--", bg=COLORS["paper"], fg=COLORS["ink"], font=value_font)
         self.value_label.pack(side="left")
         self.unit_label = tk.Label(row, text=unit, bg=COLORS["paper"], fg=COLORS["muted"], font=("Segoe UI", 9))
         self.unit_label.pack(side="left", padx=(5, 0), pady=(10, 0))
@@ -507,21 +537,30 @@ class VN300DesktopApp(tk.Tk):
 
         metrics = tk.Frame(view, bg=COLORS["soft"], padx=24)
         metrics.grid(row=1, column=0, sticky="ew")
-        for column in range(8):
+        for column in range(5):
             metrics.grid_columnconfigure(column, weight=1, uniform="metric")
         self.pi_metrics: dict[str, MetricTile] = {}
-        for column, (key, label, unit) in enumerate((
-            ("speed", "Speed", "mph"),
-            ("lat_g", "Lateral", "g"),
-            ("long_g", "Long accel", "g"),
-            ("yaw", "Yaw", "deg"),
-            ("current", "Current", ""),
-            ("best", "Best", ""),
-            ("delta", "Live delta", "s"),
-            ("laps", "Laps", ""),
-        )):
-            tile = MetricTile(metrics, label, unit)
-            tile.grid(row=0, column=column, sticky="ew", padx=(0 if column == 0 else 4, 0 if column == 7 else 4))
+        metric_specs = (
+            (0, 0, "speed", "Speed", "mph", False),
+            (0, 1, "lat_g", "Lateral", "g", False),
+            (0, 2, "long_g", "Long accel", "g", False),
+            (0, 3, "yaw", "Yaw", "deg", False),
+            (0, 4, "laps", "Laps", "", False),
+            (1, 0, "latitude", "Latitude", "deg", True),
+            (1, 1, "longitude", "Longitude", "deg", True),
+            (1, 2, "current", "Current", "", False),
+            (1, 3, "best", "Best", "", False),
+            (1, 4, "delta", "Live delta", "s", False),
+        )
+        for row, column, key, label, unit, compact in metric_specs:
+            tile = MetricTile(metrics, label, unit, compact)
+            tile.grid(
+                row=row,
+                column=column,
+                sticky="ew",
+                padx=(0 if column == 0 else 4, 0 if column == 4 else 4),
+                pady=(0 if row == 0 else 4, 4 if row == 0 else 0),
+            )
             self.pi_metrics[key] = tile
 
         body = tk.Frame(view, bg=COLORS["soft"], padx=24, pady=15)
@@ -809,6 +848,8 @@ class VN300DesktopApp(tk.Tk):
         self.pi_address_var.set(endpoint)
         self.pi_pending_endpoint = endpoint
         self.pi_connected = False
+        self.pi_metrics["latitude"].set("--")
+        self.pi_metrics["longitude"].set("--")
         self.pi_logger_auto_check_key = ""
         self.pi_poll_generation += 1
         self._set_pi_status("Connecting", "connecting")
@@ -885,6 +926,9 @@ class VN300DesktopApp(tk.Tk):
         fields = snapshot.get("fields") if isinstance(snapshot.get("fields"), dict) else {}
         timing = snapshot.get("timing") if isinstance(snapshot.get("timing"), dict) else {}
         speed = fields.get("Speed_mph")
+        gps_position = live_gps_position(fields)
+        self.pi_metrics["latitude"].set(format_coordinate(gps_position[0]) if gps_position else "--")
+        self.pi_metrics["longitude"].set(format_coordinate(gps_position[1]) if gps_position else "--")
         self.pi_metrics["speed"].set(format_number(speed, 1))
         self.pi_metrics["lat_g"].set(format_number(fields.get("Lateral_G"), 2))
         self.pi_metrics["long_g"].set(format_number(fields.get("Longitudinal_G"), 2))

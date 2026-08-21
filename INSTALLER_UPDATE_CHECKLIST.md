@@ -166,14 +166,16 @@ Do this after every Windows desktop release.
 4. Enter `http://<pi-host>:8080/` in the desktop app and press **Connect**.
 5. Confirm the app changes from **Connecting** to **Online** or **Logging**.
 6. Confirm session, storage, logger version, Pi temperature, and network latency appear under **System Health**.
-7. Open **Drive Day Setup** and confirm the date, next run ID, metadata, and timing setup load from the Pi.
-8. Open **Data Analysis**, confirm both **Quick Report** and **Custom Workspace** tabs appear, and scan a telemetry folder.
-9. In **Custom Workspace**, select at least one file, choose X/Y channels, run **Preview**, and confirm the interactive plot and statistics render.
-10. Save a custom report and confirm its HTML, CSV data, and JSON configuration appear in **Reports**.
-8. Enter a driver and test note, click **Save Run Info**, and confirm the next-run message appears.
-9. Enter valid start-gate coordinates, click **Save Timing**, and confirm the timing status changes to waiting for start.
-10. Open `http://<pi-host>:8080/api/latest` and confirm the saved values appear under `run_metadata` and `timing.config`.
-11. Leave the app connected for at least 30 seconds and confirm telemetry continues refreshing without overwriting unsaved setup edits.
+7. Confirm live latitude and longitude appear and change when the VN-300 position changes.
+8. Open **Drive Day Setup** and confirm the date, next run ID, metadata, timing setup, and live GPS position load from the Pi.
+9. Move the car to each timing gate point and press **Use Live** for that point; confirm the displayed coordinates are copied into the correct latitude and longitude fields.
+10. Save the timing setup and confirm its status changes to waiting for start.
+11. Open **Data Analysis**, confirm both **Quick Report** and **Custom Workspace** tabs appear, and scan a telemetry folder.
+12. In **Custom Workspace**, select at least one file, choose X/Y channels, run **Preview**, and confirm the interactive plot and statistics render.
+13. Save a custom report and confirm its HTML, CSV data, and JSON configuration appear in **Reports**.
+14. Enter a driver and test note, click **Save Run Info**, and confirm the next-run message appears.
+15. Open `http://<pi-host>:8080/api/latest` and confirm the saved values appear under `run_metadata` and `timing.config`.
+16. Leave the app connected for at least 30 seconds and confirm telemetry continues refreshing without overwriting unsaved setup edits.
 
 ## Current Update Notes
 
@@ -193,6 +195,7 @@ Last documented update:
 - Analyzer automatically loads `VN300_run_metadata.csv` from a Pi boot folder.
 - Desktop `v0.8.2` retains Qt background workers until their result signals are delivered, fixing live dashboard connections stuck on `CONNECTING`.
 - Desktop `v0.12.1` waits for the packaged app's hidden bootloader process before installing an update, preventing the updater from racing a still-locked executable.
+- Desktop `v0.13.0` displays live latitude/longitude and can copy the car's current position into timing gates; no Pi software update is required.
 
 ## Files Usually Updated
 

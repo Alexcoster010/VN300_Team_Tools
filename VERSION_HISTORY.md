@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.12.1`
+`v0.13.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,16 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.13.0 - 2026-08-21
+
+### Live GPS Timing Setup
+
+- Added live VN-300 latitude and longitude values to the desktop telemetry dashboard.
+- Added a live GPS position readout to Drive Day Setup.
+- Added **Use Live** controls that copy the car's current coordinates into each start or finish gate point.
+- Kept finish-point capture disabled in lap mode because lap timing uses the start gate as the finish gate.
+- Reused GPS fields already supplied by the Pi logger, so this desktop release does not require a Pi software update.
 
 ## v0.12.1 - 2026-08-21
 

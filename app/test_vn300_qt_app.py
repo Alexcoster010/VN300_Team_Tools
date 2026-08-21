@@ -57,6 +57,32 @@ class QtWorkerTests(unittest.TestCase):
         self.assertEqual(set(EDITABLE_RUN_METADATA_FIELDS), expected)
         self.assertEqual(len(EDITABLE_RUN_METADATA_FIELDS), len(expected))
 
+    def test_live_gps_position_can_fill_a_timing_gate(self):
+        class Field:
+            def __init__(self):
+                self.value = ""
+
+            def setText(self, value):
+                self.value = value
+
+        class Owner:
+            current_gps_position = (35.123456789, -97.987654321)
+            timing_gate_inputs = {
+                "start_lat1": Field(),
+                "start_lon1": Field(),
+            }
+            dirty = False
+
+            def mark_timing_setup_dirty(self):
+                self.dirty = True
+
+        owner = Owner()
+        VN300QtApp.use_live_gps_for_gate(owner, "start_lat1", "start_lon1")
+
+        self.assertEqual(owner.timing_gate_inputs["start_lat1"].value, "35.12345679")
+        self.assertEqual(owner.timing_gate_inputs["start_lon1"].value, "-97.98765432")
+        self.assertTrue(owner.dirty)
+
 
 if __name__ == "__main__":
     unittest.main()

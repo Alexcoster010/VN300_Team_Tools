@@ -89,8 +89,10 @@ from vn300_desktop_app import (
     REPO_ROOT,
     STATE_DIR,
     fetch_pi_snapshot,
+    format_coordinate,
     format_lap_time,
     format_number,
+    live_gps_position,
     load_state,
     normalize_pi_endpoint,
     pi_api_request,
@@ -707,6 +709,8 @@ class VN300QtApp(QMainWindow):
         self.pi_speed_history: list[float] = []
         self.run_metadata_inputs: dict[str, QWidget] = {}
         self.timing_gate_inputs: dict[str, QLineEdit] = {}
+        self.timing_live_buttons: dict[str, QPushButton] = {}
+        self.current_gps_position: tuple[float, float] | None = None
         self.run_metadata_dirty = False
         self.timing_setup_dirty = False
         self.last_run_metadata_snapshot: dict[str, Any] = {}
@@ -880,6 +884,22 @@ class VN300QtApp(QMainWindow):
         content_layout.addWidget(connection)
 
         self.dashboard_tabs = QTabWidget()
+        gps_corner = QWidget()
+        gps_corner_layout = QHBoxLayout(gps_corner)
+        gps_corner_layout.setContentsMargins(8, 0, 10, 0)
+        gps_corner_layout.setSpacing(14)
+        self.dashboard_live_latitude = QLabel("LAT --")
+        self.dashboard_live_longitude = QLabel("LON --")
+        for coordinate_label, minimum_width in (
+            (self.dashboard_live_latitude, 135),
+            (self.dashboard_live_longitude, 145),
+        ):
+            coordinate_label.setMinimumWidth(minimum_width)
+            coordinate_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            coordinate_label.setStyleSheet("font-family:Consolas;font-size:12px;font-weight:700;color:#333333;")
+            coordinate_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            gps_corner_layout.addWidget(coordinate_label)
+        self.dashboard_tabs.setCornerWidget(gps_corner, Qt.Corner.TopRightCorner)
         live_tab = QWidget()
         live_layout = QVBoxLayout(live_tab)
         live_layout.setContentsMargins(0, 12, 0, 0)
@@ -1105,10 +1125,24 @@ class VN300QtApp(QMainWindow):
         timing_head.addWidget(self.timing_config_status)
         timing_layout.addLayout(timing_head)
 
+        live_position = QHBoxLayout()
+        live_position.setSpacing(16)
+        live_position_label = QLabel("LIVE GPS POSITION")
+        live_position_label.setProperty("section", True)
+        live_position.addWidget(live_position_label)
+        self.timing_live_latitude = QLabel("LAT --")
+        self.timing_live_longitude = QLabel("LON --")
+        for coordinate_label in (self.timing_live_latitude, self.timing_live_longitude):
+            coordinate_label.setStyleSheet("font-family:Consolas;font-size:15px;font-weight:700;")
+            coordinate_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            live_position.addWidget(coordinate_label)
+        live_position.addStretch()
+        timing_layout.addLayout(live_position)
+
         gates = QGridLayout()
         gates.setHorizontalSpacing(10)
         gates.setVerticalSpacing(7)
-        for column, title in enumerate(("GATE POINT", "LATITUDE", "LONGITUDE")):
+        for column, title in enumerate(("GATE POINT", "LATITUDE", "LONGITUDE", "LIVE POSITION")):
             label = QLabel(title)
             label.setProperty("section", True)
             gates.addWidget(label, 0, column)
@@ -1126,6 +1160,11 @@ class VN300QtApp(QMainWindow):
                 field.textEdited.connect(self.mark_timing_setup_dirty)
                 self.timing_gate_inputs[key] = field
                 gates.addWidget(field, row, column)
+            use_live = QPushButton("USE LIVE")
+            use_live.setEnabled(False)
+            use_live.clicked.connect(partial(self.use_live_gps_for_gate, latitude_key, longitude_key))
+            self.timing_live_buttons[latitude_key] = use_live
+            gates.addWidget(use_live, row, 3)
         gates.setColumnStretch(1, 1)
         gates.setColumnStretch(2, 1)
         timing_layout.addLayout(gates)
@@ -1624,14 +1663,49 @@ class VN300QtApp(QMainWindow):
         for key, field in self.timing_gate_inputs.items():
             if key.startswith("finish_"):
                 field.setEnabled(autocross)
+        self.refresh_live_gps_buttons()
         if index >= 0:
             self.mark_timing_setup_dirty()
+
+    def refresh_live_gps_buttons(self) -> None:
+        timing_busy = self.timing_save_active or self.timing_reset_active
+        autocross = self.timing_mode_input.currentData() == "autocross"
+        for latitude_key, button in self.timing_live_buttons.items():
+            gate_available = not latitude_key.startswith("finish_") or autocross
+            button.setEnabled(
+                self.pi_connected
+                and self.current_gps_position is not None
+                and not timing_busy
+                and gate_available
+            )
+
+    def update_live_gps(self, fields: dict[str, Any]) -> None:
+        self.current_gps_position = live_gps_position(fields)
+        if self.current_gps_position is None:
+            latitude_text = longitude_text = "--"
+        else:
+            latitude_text = format_coordinate(self.current_gps_position[0])
+            longitude_text = format_coordinate(self.current_gps_position[1])
+        self.dashboard_live_latitude.setText(f"LAT {latitude_text}")
+        self.dashboard_live_longitude.setText(f"LON {longitude_text}")
+        self.timing_live_latitude.setText(f"LAT {latitude_text}")
+        self.timing_live_longitude.setText(f"LON {longitude_text}")
+        self.refresh_live_gps_buttons()
+
+    def use_live_gps_for_gate(self, latitude_key: str, longitude_key: str) -> None:
+        if self.current_gps_position is None:
+            return
+        latitude, longitude = self.current_gps_position
+        self.timing_gate_inputs[latitude_key].setText(format_coordinate(latitude))
+        self.timing_gate_inputs[longitude_key].setText(format_coordinate(longitude))
+        self.mark_timing_setup_dirty()
 
     def set_drive_day_controls_enabled(self, enabled: bool) -> None:
         self.metadata_save_button.setEnabled(enabled and not self.metadata_save_active)
         timing_busy = self.timing_save_active or self.timing_reset_active
         self.timing_save_button.setEnabled(enabled and not timing_busy)
         self.timing_reset_button.setEnabled(enabled and not timing_busy)
+        self.refresh_live_gps_buttons()
 
     @staticmethod
     def metadata_widget_value(widget: QWidget) -> str:
@@ -1965,6 +2039,7 @@ class VN300QtApp(QMainWindow):
         self.pi_connected = False
         self.pi_next_poll_at = time.monotonic() + 2.5
         self.set_pi_status("Offline", "offline")
+        self.update_live_gps({})
         self.set_drive_day_controls_enabled(False)
         if not self.logger_update_active:
             self.logger_button.setEnabled(False)
@@ -1975,6 +2050,7 @@ class VN300QtApp(QMainWindow):
         fields = snapshot.get("fields") if isinstance(snapshot.get("fields"), dict) else {}
         timing = snapshot.get("timing") if isinstance(snapshot.get("timing"), dict) else {}
         speed = fields.get("Speed_mph")
+        self.update_live_gps(fields)
         self.metric_cards["speed"].set_value(format_number(speed, 1))
         self.metric_cards["lat_g"].set_value(format_number(fields.get("Lateral_G"), 2))
         self.metric_cards["long_g"].set_value(format_number(fields.get("Longitudinal_G"), 2))

@@ -127,6 +127,23 @@ class DesktopAppTests(unittest.TestCase):
         self.assertEqual(desktop.format_lap_time(61.0), "1:01.000")
         self.assertEqual(desktop.format_lap_time(None), "--:--.---")
 
+    def test_live_gps_position_uses_primary_fields(self):
+        position = desktop.live_gps_position({
+            "Latitude_deg": 35.12345678,
+            "Longitude_deg": -97.12345678,
+        })
+        self.assertEqual(position, (35.12345678, -97.12345678))
+        self.assertEqual(desktop.format_coordinate(-97.123456789), "-97.12345679")
+
+    def test_live_gps_position_uses_fallback_fields_and_rejects_invalid_values(self):
+        position = desktop.live_gps_position({
+            "Common_PosLla_Latitude_deg": "35.5",
+            "Common_PosLla_Longitude_deg": "-97.4",
+        })
+        self.assertEqual(position, (35.5, -97.4))
+        self.assertIsNone(desktop.live_gps_position({"Latitude_deg": 95, "Longitude_deg": -97}))
+        self.assertIsNone(desktop.live_gps_position({}))
+
 
 if __name__ == "__main__":
     unittest.main()
