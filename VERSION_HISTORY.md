@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.11.0`
+`v0.11.1`
 
 Stable Pi install tag:
 
@@ -25,6 +25,13 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.11.1 - 2026-08-21
+
+### Windows Shortcut Icon Fix
+
+- Pointed Start Menu and optional desktop shortcuts directly at `SoonerRacingTelemetry.ico` so Windows does not reuse the cached pre-rebrand executable icon.
+- Ensured upgraded Start Menu shortcuts are created under the **Sooner Racing Telemetry** product folder.
 
 ## v0.11.0 - 2026-08-21
 

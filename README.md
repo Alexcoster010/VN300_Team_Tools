@@ -10,7 +10,7 @@ Team members should use the packaged installer rather than downloading the repos
 
 Download `Sooner-Racing-Telemetry-Setup-X.Y.Z.exe`, run it, and launch **Sooner Racing Telemetry** from Windows Search or the Start Menu. The installer includes Python, the analyzer, the native trackside dashboard, and the report viewer; no separate Python or Git installation is required. Windows may display an unsigned-app warning because the installer is not code-signed.
 
-The current desktop release is `v0.11.0`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
+The current desktop release is `v0.11.1`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
 
 For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
 
@@ -81,7 +81,7 @@ Install the current Windows release, then open **Sooner Racing Telemetry** from 
 - **Data analysis**: use **Quick Report** for the existing one-click lap/run report, or **Custom Workspace** to select files and channels, build calculated channels and filters, overlay line/scatter plots, save reusable presets, and export the plotted data.
 - **Reports**: render generated HTML reports inside the desktop app, preview CSV outputs, and open any result or output folder. New installed-app output defaults to `Documents\Sooner Racing Telemetry\Analysis`.
 
-The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\SoonerRacingTelemetry\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Version `v0.11.0` automatically reads the former `%LOCALAPPDATA%\VN300TeamTools` state during the rename so existing connections, presets, and report history are retained. Edit **Pi address** on the live dashboard when the address changes.
+The first launch asks for the Pi IP address or hostname. After the first successful connection, the address is stored in `%LOCALAPPDATA%\SoonerRacingTelemetry\desktop_state.json`; future launches reconnect automatically whenever the laptop and Pi are on the same network. Version `v0.11.0` and later automatically read the former `%LOCALAPPDATA%\VN300TeamTools` state during the rename so existing connections, presets, and report history are retained. Edit **Pi address** on the live dashboard when the address changes.
 
 The dashboard contains **Live Telemetry** and **Drive Day Setup** tabs. Drive Day Setup edits the next run's complete metadata record and configures lap or autocross timing. Save and reset actions remain disabled while the Pi is offline, and live telemetry refreshes do not overwrite unsaved setup edits.
 
