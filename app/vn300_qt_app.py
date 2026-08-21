@@ -2234,7 +2234,7 @@ class VN300QtApp(QMainWindow):
         self.logger_button.setText("CHECK LOGGER")
         self.logger_button.setEnabled(self.pi_connected)
         if manual:
-            QMessageBox.critical(self, "Pi logger update", f"Could not check the public logger version:\n\n{error}")
+            QMessageBox.critical(self, "Pi logger update", f"Could not read the bundled logger version:\n\n{error}")
 
     def offer_logger_update(self, available: str) -> None:
         answer = QMessageBox.question(
@@ -2242,8 +2242,9 @@ class VN300QtApp(QMainWindow):
             "Pi logger update available",
             f"Installed Pi logger: {self.installed_logger_version}\n"
             f"Available Pi logger: {available}\n\n"
-            "Update the Raspberry Pi now?\n\n"
-            "Stop logging first. A secure SSH terminal will request the Pi password.",
+            "Install the logger files included with this app?\n\n"
+            "No internet is required. Stop logging and the setup stream first. "
+            "A secure SSH terminal will request the Pi password.",
         )
         if answer == QMessageBox.StandardButton.Yes:
             self.start_logger_update(available)
@@ -2251,6 +2252,9 @@ class VN300QtApp(QMainWindow):
     def start_logger_update(self, available: str) -> None:
         if self.pi_last_snapshot.get("logging"):
             QMessageBox.warning(self, "Pi logger update", "Stop the active logging session before updating the Pi.")
+            return
+        if self.pi_last_snapshot.get("setup_streaming"):
+            QMessageBox.warning(self, "Pi logger update", "Stop the setup stream before updating the Pi.")
             return
         username = str(self.state_data.get("pi_ssh_user") or "vectornav")
         try:

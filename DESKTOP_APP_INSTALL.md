@@ -99,18 +99,19 @@ Version v0.13.2 and later terminate the complete stale SRT process tree before r
 
 ## Raspberry Pi Logger Updates
 
-Whenever the desktop app connects to the Pi, it compares the `logger_version` reported by `/api/latest` with the current public `pi-logger` version. If the Pi is behind, the app offers to update it.
+Whenever desktop v0.15.0 or later connects to the Pi, it compares the `logger_version` reported by `/api/latest` with the Pi logger version embedded in the desktop app. If the Pi is behind or does not report a version, the app offers to update it. This check does not contact GitHub.
 
-Accepting a Pi logger update opens a visible SSH terminal. Enter the Pi SSH password and sudo password when requested. The password is handled by Windows OpenSSH and is never read or stored by Sooner Racing Telemetry.
+Accepting a Pi logger update opens a visible SSH terminal. The app copies its bundled logger archive to the Pi with `scp`, then runs the installer through SSH. Enter the Pi SSH password when requested for the upload and installation, plus the sudo password if requested. Passwords are handled by Windows OpenSSH and are never read or stored by Sooner Racing Telemetry.
 
-The remote update uses the same supported Pi installer, including dependency checks, timestamped backup, CAN-map preservation, service/API health checks, and rollback. The desktop app reconnects afterward and verifies the installed logger version.
+The offline update uses the same supported Pi installer, including dependency checks, timestamped backup, CAN-map preservation, service/API health checks, and rollback. The desktop app reconnects afterward and verifies the installed logger version. No internet connection is required when the existing Pi already has the logger's Python dependencies installed.
 
 Requirements:
 
-- stop any active logging session before updating
+- stop any active logging session and setup stream before updating
 - enable SSH on the Raspberry Pi
-- keep the laptop, Pi, and internet-connected network available during the update
+- keep the laptop and Pi connected to the same local network; the network does not need internet access
 - install Windows OpenSSH Client
+- for a first-time Pi installation only, install `pyserial`, `gpiozero`, and `python-can` before going offline
 
 ## Developer Source Launch
 

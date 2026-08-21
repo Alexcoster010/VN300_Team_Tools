@@ -10,7 +10,7 @@ Team members should use the packaged installer rather than downloading the repos
 
 Download `Sooner-Racing-Telemetry-Setup-X.Y.Z.exe`, run it, and launch **Sooner Racing Telemetry** from Windows Search or the Start Menu. The installer includes Python, the analyzer, the native trackside dashboard, and the report viewer; no separate Python or Git installation is required. Windows may display an unsigned-app warning because the installer is not code-signed.
 
-The current desktop release is `v0.13.2`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
+The current desktop release is `v0.15.0`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
 
 For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
 
@@ -77,7 +77,7 @@ Generic placeholders used below:
 
 Install the current Windows release, then open **Sooner Racing Telemetry** from Windows Search or the Start Menu. Developers can also double-click `Start_Sooner_Racing_Telemetry.bat` in a source checkout. The app provides three workspaces:
 
-- **Live dashboard**: monitor speed, G values, live latitude/longitude, timing, GPS and speed traces, completed laps, logger state, system health, and network latency. Its **Drive Day Setup** tab writes complete run metadata and lap/autocross timing gates to the connected Pi. Each gate has a **Use Live** button that copies the car's current GPS position into that gate. The app checks the connected logger version and offers an SSH update when the Pi is behind.
+- **Live dashboard**: monitor speed, G values, live latitude/longitude, timing, GPS and speed traces, completed laps, logger state, system health, and network latency. Its **Drive Day Setup** tab writes complete run metadata and lap/autocross timing gates to the connected Pi. Each gate has a **Use Live** button that copies the car's current GPS position into that gate. The app checks the connected logger version and offers an offline SSH update from files embedded in the desktop app when the Pi is behind.
 - **Data analysis**: use **Quick Report** for the existing one-click lap/run report, or **Custom Workspace** to select files and channels, build calculated channels and filters, overlay line/scatter plots, save reusable presets, and export the plotted data.
 - **Reports**: render generated HTML reports inside the desktop app, preview CSV outputs, and open any result or output folder. New installed-app output defaults to `Documents\Sooner Racing Telemetry\Analysis`.
 
@@ -96,7 +96,7 @@ py -3 -B .\app\vn300_qt_app.py
 
 The optional localhost web interface can still be started with `py -3 .\app\vn300_team_app.py`.
 
-The installed app checks the public GitHub `desktop-app` branch for a newer `APP_VERSION`. Use the header update button to download the matching versioned installer and SHA-256 checksum from GitHub Releases. When the app connects to a Pi, it also compares the Pi's reported logger version with the public `pi-logger` branch and offers a secure SSH update when needed. Source ZIPs and Git clones retain their existing source-update paths. See `DESKTOP_APP_INSTALL.md` for installation and release details.
+The installed app checks the public GitHub `desktop-app` branch for a newer desktop `APP_VERSION`. Use the header update button to download the matching versioned installer and SHA-256 checksum from GitHub Releases. Pi logger `v0.6.0` is embedded in desktop `v0.15.0`; logger version checks and secure `scp`/SSH installation work without internet access. Source ZIPs and Git clones retain their existing source-update paths. See `DESKTOP_APP_INSTALL.md` for installation and release details.
 
 ## Button Wiring
 

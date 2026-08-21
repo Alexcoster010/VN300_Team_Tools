@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.14.0`
+`v0.15.0`
 
 Stable Pi install tag:
 
@@ -25,6 +25,19 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.15.0 - 2026-08-21
+
+### Offline Pi Logger Updates
+
+- Embedded the complete Pi logger `v0.6.0` payload in the Windows desktop executable.
+- Replaced the GitHub logger-version lookup with a local bundled-version check.
+- Replaced the Pi-side GitHub download with an `scp` upload from the desktop app followed by the supported SSH installer.
+- Logger updates now work when the laptop and Pi are connected only through the isolated track router.
+- Preserved timestamped Pi backups, CAN-map preservation, service/API health checks, and rollback.
+- Normalized bundled Linux scripts to LF line endings before transfer from Windows.
+- Added an explicit offline dependency preflight so an update cannot partially install when required Pi Python packages are missing.
+- Logging and the non-recording setup stream must both be stopped before updating.
 
 ## v0.14.0 - 2026-08-21
 

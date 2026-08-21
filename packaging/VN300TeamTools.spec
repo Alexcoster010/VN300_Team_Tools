@@ -10,14 +10,28 @@ ANALYSIS_DIR = ROOT / "analysis"
 ICON = ROOT / "packaging" / "assets" / "SoonerRacingTelemetry.ico"
 VERSION_FILE = os.environ.get("VN300_VERSION_FILE")
 PATHEX = [str(APP_DIR), str(ANALYSIS_DIR)]
+PI_LOGGER_FILES = (
+    "PI_LOGGER_VERSION",
+    "Install_VN300_Logger.sh",
+    "pi/install_on_pi.sh",
+    "pi/vn300_button_logger.py",
+    "pi/vn300-button-logger.service",
+    "pi/vn300-shutdown-sudoers",
+    "pi/requirements-pi.txt",
+    "pi/motec_can_signal_map.csv",
+)
+PI_LOGGER_DATAS = [
+    (str(ROOT / relative), str(Path("pi_logger_payload") / Path(relative).parent))
+    for relative in PI_LOGGER_FILES
+]
 
 
-def executable(script, name, console):
+def executable(script, name, console, datas=None):
     analysis = Analysis(
         [str(script)],
         pathex=PATHEX,
         binaries=[],
-        datas=[],
+        datas=datas or [],
         hiddenimports=[],
         hookspath=[],
         hooksconfig={},
@@ -51,6 +65,6 @@ def executable(script, name, console):
     )
 
 
-desktop = executable(APP_DIR / "vn300_qt_app.py", "VN300TeamTools", False)
+desktop = executable(APP_DIR / "vn300_qt_app.py", "VN300TeamTools", False, PI_LOGGER_DATAS)
 analyzer = executable(APP_DIR / "vn300_analyzer_entry.py", "VN300Analyzer", True)
 updater = executable(APP_DIR / "vn300_update_helper.py", "VN300UpdateHelper", False)

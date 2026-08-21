@@ -44,6 +44,27 @@ class WindowsPackagingTests(unittest.TestCase):
         ):
             self.assertTrue((ROOT / relative).is_file(), relative)
 
+    def test_desktop_executable_embeds_offline_pi_logger_payload(self):
+        spec = (ROOT / "packaging" / "VN300TeamTools.spec").read_text(encoding="utf-8")
+        updater = (ROOT / "app" / "vn300_pi_updater.py").read_text(encoding="utf-8")
+        for relative in (
+            "PI_LOGGER_VERSION",
+            "Install_VN300_Logger.sh",
+            "pi/install_on_pi.sh",
+            "pi/vn300_button_logger.py",
+            "pi/vn300-button-logger.service",
+            "pi/vn300-shutdown-sudoers",
+            "pi/requirements-pi.txt",
+            "pi/motec_can_signal_map.csv",
+        ):
+            self.assertIn(f'"{relative}"', spec)
+            self.assertTrue((ROOT / relative).is_file(), relative)
+        self.assertIn("PI_LOGGER_DATAS", spec)
+        self.assertIn("create_pi_logger_archive", updater)
+        self.assertIn("scp.exe", updater)
+        self.assertNotIn("github.com", updater.lower())
+        self.assertNotIn("urlopen", updater)
+
     def test_installer_build_uses_qt_desktop_shell(self):
         spec = (ROOT / "packaging" / "VN300TeamTools.spec").read_text(encoding="utf-8")
         requirements = (ROOT / "packaging" / "requirements-build.txt").read_text(encoding="utf-8")

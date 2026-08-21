@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import getpass
 import json
 import logging
 import math
@@ -53,6 +54,8 @@ POWER_HOLD_S = 2.0
 MAX_LIVE_DELTA_POS_UNCERTAINTY_M = 4.0
 MAX_ASCII_BUFFER_BYTES = 16384
 MIN_FREE_SPACE_BYTES = 250 * 1024 * 1024
+USB_LOG_WAIT_S = 20.0
+USB_LOG_RETRY_S = 1.0
 LOCAL_FALLBACK = Path.home() / "vn300_logs"
 DEFAULT_CAN_SIGNAL_MAP = Path(__file__).with_name("motec_can_signal_map.csv")
 LOGGER_VERSION_PATH = Path(__file__).with_name("PI_LOGGER_VERSION")
@@ -101,14 +104,11 @@ RUN_METADATA_FIELDS = [
 
 
 def read_logger_version() -> str:
-    for path in (LOGGER_VERSION_PATH, Path(__file__).resolve().parents[1] / "PI_LOGGER_VERSION"):
-        try:
-            version = path.read_text(encoding="utf-8").strip()
-        except OSError:
-            continue
-        if version:
-            return version
-    return "development"
+    try:
+        version = LOGGER_VERSION_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "development"
+    return version or "development"
 
 
 LOGGER_VERSION = read_logger_version()
@@ -262,18 +262,51 @@ def find_serial_port(requested: Optional[str]) -> Optional[str]:
     return None
 
 
-def find_log_directory() -> Path:
+def find_usb_log_directory() -> Optional[Path]:
     candidates = []
+    seen = set()
+
+    def add_candidate(path: Path):
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        if resolved in seen:
+            return
+        seen.add(resolved)
+        candidates.append(path)
+
+    try:
+        mount_lines = Path("/proc/mounts").read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        mount_lines = []
+    for mount_path in mount_lines:
+        parts = mount_path.split()
+        if len(parts) < 2:
+            continue
+        mount_point = Path(parts[1].replace("\\040", " "))
+        if mount_point in (Path("/media"), Path("/mnt")):
+            continue
+        if any(mount_point == root or root in mount_point.parents for root in (Path("/media"), Path("/mnt"))):
+            add_candidate(mount_point)
+
     for root in (Path("/media"), Path("/mnt")):
         if not root.exists():
             continue
         for first in root.iterdir():
             if first.is_dir():
-                candidates.append(first)
                 try:
-                    candidates.extend(p for p in first.iterdir() if p.is_dir())
+                    for child in first.iterdir():
+                        if child.is_dir():
+                            try:
+                                if child.is_mount():
+                                    add_candidate(child)
+                            except OSError:
+                                pass
                 except PermissionError:
                     pass
+                if first.name != getpass.getuser() and first.is_mount():
+                    add_candidate(first)
 
     for candidate in candidates:
         try:
@@ -285,6 +318,19 @@ def find_log_directory() -> Path:
             return log_dir
         except (OSError, PermissionError):
             continue
+    return None
+
+
+def find_log_directory() -> Path:
+    deadline = time.monotonic() + USB_LOG_WAIT_S
+    while True:
+        log_dir = find_usb_log_directory()
+        if log_dir is not None:
+            return log_dir
+        if time.monotonic() >= deadline:
+            break
+        logging.info("No writable USB log drive found; retrying for %.0f seconds", USB_LOG_RETRY_S)
+        time.sleep(USB_LOG_RETRY_S)
 
     LOCAL_FALLBACK.mkdir(parents=True, exist_ok=True)
     return LOCAL_FALLBACK

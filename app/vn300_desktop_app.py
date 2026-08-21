@@ -986,7 +986,8 @@ class VN300DesktopApp(tk.Tk):
             if messagebox.askyesno(
                 "Pi logger update available",
                 f"Installed Pi logger: {installed}\nAvailable Pi logger: {available}\n\n"
-                "Update the Raspberry Pi now? Logging must be stopped. A secure SSH terminal will open for the Pi password.",
+                "Install the logger files included with this app? No internet is required. "
+                "Logging and the setup stream must be stopped. A secure SSH terminal will open for the Pi password.",
                 parent=self,
             ):
                 self._start_pi_logger_update(available)
@@ -999,11 +1000,14 @@ class VN300DesktopApp(tk.Tk):
         self.pi_logger_version_check_in_progress = False
         self.pi_logger_update_button.configure(text="Check logger", state="normal", style="Secondary.TButton")
         if manual:
-            messagebox.showerror("Pi logger update", f"Could not check the public Pi logger version:\n\n{error}", parent=self)
+            messagebox.showerror("Pi logger update", f"Could not read the bundled Pi logger version:\n\n{error}", parent=self)
 
     def _start_pi_logger_update(self, available: str) -> None:
         if self.pi_last_snapshot.get("logging"):
             messagebox.showwarning("Pi logger update", "Stop the active logging session before updating the Pi.", parent=self)
+            return
+        if self.pi_last_snapshot.get("setup_streaming"):
+            messagebox.showwarning("Pi logger update", "Stop the setup stream before updating the Pi.", parent=self)
             return
         username = simpledialog.askstring(
             "Pi SSH account",
