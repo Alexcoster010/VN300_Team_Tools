@@ -111,7 +111,7 @@ Requirements:
 - enable SSH on the Raspberry Pi
 - keep the laptop and Pi connected to the same local network; the network does not need internet access
 - install Windows OpenSSH Client
-- for a first-time Pi installation only, install `pyserial`, `gpiozero`, and `python-can` before going offline
+- install `pyserial` and `gpiozero` before a first offline Pi installation; for CAN features also install `python-can`, `cantools`, `pyusb`, and any confirmed adapter-specific dependencies before going offline (see `pi/CAN_SETUP.md`)
 
 ## Developer Source Launch
 

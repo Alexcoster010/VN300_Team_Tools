@@ -28,13 +28,13 @@ class PiUpdaterTests(unittest.TestCase):
     def test_default_version_comes_from_bundled_payload_without_urlopen(self):
         root = ROOT
         with mock.patch.object(updater, "bundled_pi_logger_root", return_value=root):
-            self.assertEqual(updater.fetch_latest_pi_logger_version(), "0.6.0")
+            self.assertEqual(updater.fetch_latest_pi_logger_version(), "0.6.1")
 
     def test_logger_update_comparison_handles_old_and_unknown_versions(self):
-        self.assertTrue(updater.logger_update_available("0.5.0", "0.6.0"))
-        self.assertTrue(updater.logger_update_available("unknown", "0.6.0"))
-        self.assertFalse(updater.logger_update_available("0.6.0", "0.6.0"))
-        self.assertFalse(updater.logger_update_available("0.7.0", "0.6.0"))
+        self.assertTrue(updater.logger_update_available("0.6.0", "0.6.1"))
+        self.assertTrue(updater.logger_update_available("unknown", "0.6.1"))
+        self.assertFalse(updater.logger_update_available("0.6.1", "0.6.1"))
+        self.assertFalse(updater.logger_update_available("0.7.0", "0.6.1"))
 
     def test_endpoint_hostname_ignores_dashboard_port(self):
         self.assertEqual(updater.endpoint_hostname("http://192.168.1.25:8080/"), "192.168.1.25")
@@ -49,8 +49,8 @@ class PiUpdaterTests(unittest.TestCase):
         root = ROOT
         with temporary_directory() as directory:
             archive_path = Path(directory) / "logger.zip"
-            version = updater.create_pi_logger_archive(archive_path, root, "0.6.0")
-            self.assertEqual(version, "0.6.0")
+            version = updater.create_pi_logger_archive(archive_path, root, "0.6.1")
+            self.assertEqual(version, "0.6.1")
             with zipfile.ZipFile(archive_path) as archive:
                 expected = {
                     f"{updater.PAYLOAD_ARCHIVE_ROOT}/{relative}" for relative in updater.PAYLOAD_FILES
@@ -61,6 +61,8 @@ class PiUpdaterTests(unittest.TestCase):
                 )
                 self.assertNotIn(b"\r\n", install_script)
                 self.assertIn(b"VN300_OFFLINE_INSTALL", install_script)
+                self.assertIn(b"CAN logging remains disabled", install_script)
+                self.assertNotIn(b"import serial, gpiozero, can", install_script)
 
     def test_remote_command_installs_uploaded_archive_without_network(self):
         command = updater.build_remote_update_command("/tmp/srt-pi-logger-test.zip")
@@ -86,13 +88,13 @@ class PiUpdaterTests(unittest.TestCase):
                 ],
             ), mock.patch.object(updater.subprocess, "Popen", return_value=process) as popen:
                 result = updater.launch_pi_logger_update(
-                    "http://192.168.1.25:8080/", "vectornav", state, "0.6.0"
+                    "http://192.168.1.25:8080/", "vectornav", state, "0.6.1"
                 )
             self.assertIs(result, process)
             script_path = next((state / "pi_logger_updates").glob("update_*.ps1"))
             script = script_path.read_text(encoding="utf-8")
             self.assertIn("vectornav@192.168.1.25", script)
-            self.assertIn("SRT Pi Logger Offline Update v0.6.0", script)
+            self.assertIn("SRT Pi Logger Offline Update v0.6.1", script)
             self.assertIn("$scp", script)
             self.assertIn("No internet connection is required.", script)
             self.assertNotIn("github", script.lower())

@@ -27,6 +27,8 @@ PAYLOAD_FILES = (
     "pi/vn300-shutdown-sudoers",
     "pi/requirements-pi.txt",
     "pi/motec_can_signal_map.csv",
+    "pi/can_profile.example.json",
+    "pi/CAN_SETUP.md",
 )
 SSH_USERNAME_RE = re.compile(r"^[a-z_][a-z0-9_.-]{0,31}$", re.IGNORECASE)
 

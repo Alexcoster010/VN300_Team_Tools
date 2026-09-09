@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.15.0`
+`v0.15.1`
 
 Stable Pi install tag:
 
@@ -25,6 +25,20 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.15.1 - 2026-09-09
+
+### Dropout-Resistant Pi Logger v0.6.1
+
+- Embedded Pi logger `v0.6.1` in the Windows app so existing installations offer the new logger on their next Pi connection.
+- Moved serial reads to a dedicated capture thread with a bounded in-memory queue so CSV processing and storage latency cannot block the VN-300 stream.
+- Increased read and file buffers and removed per-second `fsync` calls while retaining a synchronized final flush at the end of each run.
+- Added VectorNav binary CRC validation and byte-level stream resynchronization after corrupt or truncated packets.
+- Added live and saved health metrics for effective binary rate, sensor-time gaps, estimated missing samples, CRC failures, and capture-queue pressure.
+- Preserved the existing raw binary, decoded CSV, dashboard, metadata, and optional CAN outputs.
+- Added cantools and pyusb dependency installation, reusable JSON adapter profiles, and DBC decoding with multiplexed signals.
+- Included CAN setup instructions and a raw-capture profile template in the desktop's Pi update payload. Adapter-specific drivers and vehicle profiles can be added when confirmed.
+- Verified CAN profiles, DBC decoding, virtual CAN capture, logger regressions and Windows/Pi packaging with 34 tests; checked installer shell syntax.
 
 ## v0.15.0 - 2026-08-21
 

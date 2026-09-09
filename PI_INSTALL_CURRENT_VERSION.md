@@ -1,6 +1,6 @@
 # Pi Install For Current Version
 
-Current documented Pi logger version: `v0.6.0`
+Current documented Pi logger version: `v0.6.1`
 
 Stable tagged Pi version: `v0.4.0`
 
@@ -16,6 +16,10 @@ Use this file to install or update the current VN300 logger/dashboard package on
 
 ## What This Version Includes
 
+- Dedicated serial capture thread with a large in-memory queue so CSV formatting and storage delays do not block VN-300 reads.
+- Buffered log writes with one final synchronized flush when a run stops.
+- Binary CRC validation and automatic stream resynchronization after corrupt or truncated packets.
+- Dashboard and session-metadata counters for effective sample rate, sensor-time gaps, estimated missing samples, CRC errors, and capture-queue pressure.
 - Dashboard Run Metadata panel.
 - Non-recording setup streaming for live track-gate positioning.
 - Daily run-number filenames:

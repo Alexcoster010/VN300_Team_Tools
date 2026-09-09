@@ -19,6 +19,8 @@ PI_LOGGER_FILES = (
     "pi/vn300-shutdown-sudoers",
     "pi/requirements-pi.txt",
     "pi/motec_can_signal_map.csv",
+    "pi/can_profile.example.json",
+    "pi/CAN_SETUP.md",
 )
 PI_LOGGER_DATAS = [
     (str(ROOT / relative), str(Path("pi_logger_payload") / Path(relative).parent))

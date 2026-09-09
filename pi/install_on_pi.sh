@@ -40,6 +40,8 @@ as_root() {
 [ -f "$SCRIPT_DIR/vn300-shutdown-sudoers" ] || fail "Package file is missing: vn300-shutdown-sudoers"
 [ -f "$SCRIPT_DIR/requirements-pi.txt" ] || fail "Package file is missing: requirements-pi.txt"
 [ -f "$SCRIPT_DIR/motec_can_signal_map.csv" ] || fail "Package file is missing: motec_can_signal_map.csv"
+[ -f "$SCRIPT_DIR/can_profile.example.json" ] || fail "Package file is missing: can_profile.example.json"
+[ -f "$SCRIPT_DIR/CAN_SETUP.md" ] || fail "Package file is missing: CAN_SETUP.md"
 
 PACKAGE_VERSION=$(tr -d '[:space:]' < "$PACKAGE_ROOT/PI_LOGGER_VERSION")
 case "$PACKAGE_VERSION" in
@@ -70,26 +72,45 @@ APP_DIR=${VN300_APP_DIR:-$APP_HOME/vn300_tools}
 BACKUP_ROOT=$APP_HOME/vn300_backups
 BACKUP_DIR=$BACKUP_ROOT/$(date +%Y%m%d_%H%M%S)_before_v$PACKAGE_VERSION
 
-app_python_has_dependencies() {
+as_app_python() {
     if [ "$(id -un)" = "$APP_USER" ]; then
-        python3 -c 'import serial, gpiozero, can' >/dev/null 2>&1
+        python3 "$@"
     else
-        sudo -H -u "$APP_USER" python3 -c 'import serial, gpiozero, can' >/dev/null 2>&1
+        sudo -H -u "$APP_USER" python3 "$@"
     fi
 }
 
-if ! app_python_has_dependencies; then
+app_python_has_serial() {
+    as_app_python -c 'import serial' >/dev/null 2>&1
+}
+
+app_python_has_gpiozero() {
+    as_app_python -c 'import gpiozero' >/dev/null 2>&1
+}
+
+app_python_has_core_dependencies() {
+    app_python_has_serial && app_python_has_gpiozero
+}
+
+app_python_has_can_dependency() {
+    as_app_python -c 'import can' >/dev/null 2>&1
+}
+
+if ! app_python_has_core_dependencies; then
     if [ "$OFFLINE_INSTALL" = "1" ]; then
-        fail "Required Python packages are missing. Install them while the Pi has internet access, then retry."
+        missing=""
+        app_python_has_serial || missing="$missing pyserial"
+        app_python_has_gpiozero || missing="$missing gpiozero"
+        fail "Required offline Python package(s) are missing:$missing. Install them while the Pi has internet access, then retry."
     fi
-    log "Installing required Python packages."
+    log "Installing required core Python packages."
     if command -v apt-get >/dev/null 2>&1; then
         as_root apt-get update
         as_root apt-get install -y python3-serial python3-gpiozero python3-can || true
     fi
 fi
 
-if ! app_python_has_dependencies; then
+if ! app_python_has_core_dependencies; then
     log "System packages were unavailable; trying a user-local pip install."
     if [ "$(id -un)" = "$APP_USER" ]; then
         python3 -m pip install --user -r "$SCRIPT_DIR/requirements-pi.txt"
@@ -98,7 +119,52 @@ if ! app_python_has_dependencies; then
     fi
 fi
 
-app_python_has_dependencies || fail "Required Python packages are still unavailable."
+app_python_has_core_dependencies || fail "Required core Python packages are still unavailable."
+
+if ! app_python_has_can_dependency; then
+    if [ "$OFFLINE_INSTALL" = "1" ]; then
+        log "python-can is not installed; VN300 logging and buttons will work, but CAN logging remains disabled."
+    else
+        log "Installing the optional python-can package."
+        if command -v apt-get >/dev/null 2>&1; then
+            as_root apt-get update
+            as_root apt-get install -y python3-can || true
+        fi
+        if ! app_python_has_can_dependency; then
+            if [ "$(id -un)" = "$APP_USER" ]; then
+                python3 -m pip install --user python-can || true
+            else
+                sudo -H -u "$APP_USER" python3 -m pip install --user python-can || true
+            fi
+        fi
+        if ! app_python_has_can_dependency; then
+            log "python-can is still unavailable; CAN logging remains disabled."
+        fi
+    fi
+fi
+
+# Install decoding/USB foundations independently so an unavailable optional package
+# cannot prevent VN300 serial/GPIO operation or the other CAN packages installing.
+for dependency in 'cantools:python3-cantools:cantools' 'usb:python3-usb:pyusb'; do
+    module=${dependency%%:*}
+    packages=${dependency#*:}
+    apt_package=${packages%%:*}
+    pip_package=${packages#*:}
+    if ! as_app_python -c "import $module" >/dev/null 2>&1; then
+        if [ "$OFFLINE_INSTALL" != "1" ]; then
+            if command -v apt-get >/dev/null 2>&1; then
+                as_root apt-get update
+                as_root apt-get install -y "$apt_package" || true
+            fi
+            if ! as_app_python -c "import $module" >/dev/null 2>&1; then
+                as_app_python -m pip install --user "$pip_package" || true
+            fi
+        fi
+        if ! as_app_python -c "import $module" >/dev/null 2>&1; then
+            log "Optional CAN dependency $pip_package unavailable; install it before using its CAN features."
+        fi
+    fi
+done
 
 log "Backing up the currently installed logger to $BACKUP_DIR"
 as_root install -d -o "$APP_USER" -g "$APP_USER" -m 755 "$BACKUP_DIR"
@@ -122,6 +188,8 @@ as_root install -d -o "$APP_USER" -g "$APP_USER" -m 755 "$APP_DIR"
 as_root install -o "$APP_USER" -g "$APP_USER" -m 755 "$SCRIPT_DIR/vn300_button_logger.py" "$APP_DIR/vn300_button_logger.py"
 as_root install -o "$APP_USER" -g "$APP_USER" -m 644 "$PACKAGE_ROOT/PI_LOGGER_VERSION" "$APP_DIR/PI_LOGGER_VERSION"
 as_root install -o "$APP_USER" -g "$APP_USER" -m 644 "$SCRIPT_DIR/requirements-pi.txt" "$APP_DIR/requirements-pi.txt"
+as_root install -o "$APP_USER" -g "$APP_USER" -m 644 "$SCRIPT_DIR/can_profile.example.json" "$APP_DIR/can_profile.example.json"
+as_root install -o "$APP_USER" -g "$APP_USER" -m 644 "$SCRIPT_DIR/CAN_SETUP.md" "$APP_DIR/CAN_SETUP.md"
 
 if [ -f "$APP_DIR/motec_can_signal_map.csv" ]; then
     as_root install -o "$APP_USER" -g "$APP_USER" -m 644 "$SCRIPT_DIR/motec_can_signal_map.csv" "$APP_DIR/motec_can_signal_map.csv.dist"

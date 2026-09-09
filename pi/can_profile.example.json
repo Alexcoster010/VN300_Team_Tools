@@ -1,0 +1,9 @@
+{
+  "name": "Unconfigured USB CAN adapter - raw capture",
+  "interface": "socketcan",
+  "channel": "can0",
+  "bitrate": 0,
+  "bus_options": {},
+  "signal_map": null,
+  "dbc": null
+}

@@ -192,20 +192,26 @@ Use an older or unversioned Pi logger for this release test.
 
 1. Connect the laptop and Pi to the isolated track router with no internet connection.
 2. Confirm the desktop app can connect to the Pi dashboard.
-3. Confirm **Check Logger** detects bundled logger `v0.6.0` without a GitHub or DNS error.
+3. Confirm **Check Logger** detects bundled logger `v0.6.1` without a GitHub or DNS error.
 4. Accept the logger update and enter the Pi SSH/sudo passwords when requested.
 5. Confirm the terminal reports successful upload, installation, and service health.
-6. Confirm the app reconnects and displays logger `v0.6.0` under **System Health**.
+6. Confirm the app reconnects and displays logger `v0.6.1` under **System Health**.
 7. Confirm the installed CAN map was preserved and the previous logger exists under `/home/vectornav/vn300_backups/`.
 8. Start and stop **Setup Stream** to confirm the updated endpoint works without creating a run.
 
 ## Current Update Notes
 
-### Desktop v0.15.0 / Pi Logger v0.6.0
+### Desktop v0.15.1 / Pi Logger v0.6.1
+
+- CAN preparation: verify `python-can`, `cantools`, and `pyusb` on the Pi before going offline if CAN features will be used. Follow `pi/CAN_SETUP.md` to add the confirmed adapter driver/settings and vehicle DBC or CSV profile.
+- Verify the installed `can_profile.example.json` and `CAN_SETUP.md`; user-created profiles and databases must survive an update.
+- Once the adapter arrives, check raw frames and known decoded values on the real bus before a drive-day run.
 
 - Added a non-recording VN-300 setup stream for positioning timing gates with live latitude and longitude.
 - Setup mode does not create run files, consume a run number, log CAN, or update lap timing.
-- Embedded Pi logger v0.6.0 in the Windows app for logger updates without internet access.
+- Embedded Pi logger v0.6.1 in the Windows app for logger updates without internet access.
+- Serial capture now runs independently from CSV formatting and storage flushes to prevent the observed telemetry dropouts.
+- The dashboard reports effective sample rate, sensor-time gaps, CRC errors, and capture-queue pressure.
 - The app now uploads the logger over `scp`, installs it over SSH, and verifies the reported version.
 - Before an offline update, stop both normal logging and the setup stream.
 - Existing Pi Python dependencies must already be installed; the updater fails before replacing files if they are missing.
@@ -230,7 +236,7 @@ Last documented update:
 - Desktop `v0.13.0` displays live latitude/longitude and can copy the car's current position into timing gates; no Pi software update is required.
 - Desktop `v0.13.1` force-closes executable locks during in-app updates and preserves `last_installer.log` for diagnosis.
 - Desktop `v0.13.2` terminates the complete PyInstaller process tree before replacing the installed executable.
-- Desktop `v0.15.0` bundles Pi logger `v0.6.0` and can update it over the isolated track router without GitHub access.
+- Desktop `v0.15.1` bundles Pi logger `v0.6.1` and can update it over the isolated track router without GitHub access.
 
 ## Files Usually Updated
 
