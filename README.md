@@ -2,6 +2,9 @@
 
 This folder is a transfer-ready package for Raspberry Pi logging, live dashboard viewing, and laptop/offline VN-300 data analysis.
 
+Current Pi logger release: `v0.6.1`. CAN support is prepared but disabled by
+default; real adapter and vehicle-bus validation is still required.
+
 For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
 
 For Pi software updates and post-update checks, use `INSTALLER_UPDATE_CHECKLIST.md`.
@@ -25,6 +28,8 @@ For change tracking, use `VERSION_HISTORY.md`.
 - `pi/install_on_pi.sh`: installer to run on the Pi after copying this folder.
 - `pi/vn300-shutdown-sudoers`: allows the service user to shut down the Pi from the power button.
 - `pi/requirements-pi.txt`: Python packages needed on the Pi.
+- `pi/CAN_SETUP.md`: adapter-driver, JSON profile, and DBC/CSV setup guidance.
+- `pi/can_profile.example.json`: raw-capture profile template for the confirmed adapter.
 - `pi/motec_can_signal_map.csv`: Pi-side CAN signal map used by optional Phase 2 CAN logging.
 - `analysis/vn300_lap_analysis.py`: offline analysis, lap splitting, and overlay HTML generation from `*_BINARY.csv` or `*_VNINS.csv`.
 - `analysis/vn300_gg_analysis.py`: corrected per-driver G-G diagrams with data-quality filtering and directional grip envelopes.
@@ -188,7 +193,11 @@ The analyzer folder import prefers `*_BINARY.csv` over a matching `*_VNINS.csv` 
 
 ## Optional Phase 2 CAN Logging
 
-Current development versions include the start of passive MoTeC/dash CAN logging. It is disabled by default.
+Pi logger `v0.6.1` supports optional passive CAN capture through `python-can`,
+JSON adapter profiles, CSV signal maps, and DBC decoding through `cantools`.
+It is disabled by default. The adapter driver, bitrate, listen-only settings,
+and vehicle signal definitions must be confirmed and tested on the actual Pi.
+See `pi/CAN_SETUP.md` before enabling it.
 
 Default service behavior:
 

@@ -1,9 +1,16 @@
+import csv
 import json
+import shutil
+import struct
 import sys
+import threading
+import time
 import types
 import unittest
 import urllib.error
 import urllib.request
+import uuid
+from pathlib import Path
 from unittest import mock
 
 try:
@@ -122,6 +129,174 @@ class SetupStreamTests(unittest.TestCase):
         )
         with urllib.request.urlopen(request, timeout=2.0) as response:
             return json.loads(response.read().decode("utf-8"))
+
+
+def make_binary_packet(startup_ns=1_000_000_000):
+    payload = bytearray(logger.VN300_BINARY_PAYLOAD_LEN)
+    struct.pack_into("<Q", payload, 0, startup_ns)
+    without_crc = logger.VN300_BINARY_HEADER + payload
+    crc = logger.vectornav_crc16(without_crc[1:])
+    return without_crc + crc.to_bytes(2, "big")
+
+
+class BinaryPacketIntegrityTests(unittest.TestCase):
+    def test_vectornav_crc_matches_standard_check_value(self):
+        self.assertEqual(logger.vectornav_crc16(b"123456789"), 0x31C3)
+
+    def test_valid_packet_parses_and_corrupt_packet_is_rejected(self):
+        packet = make_binary_packet(2_500_000_000)
+        self.assertEqual(len(packet), logger.VN300_BINARY_PACKET_LEN)
+        self.assertTrue(logger.binary_packet_crc_ok(packet))
+        fields = logger.parse_vn300_binary_packet(packet)
+        self.assertEqual(fields["Binary_TimeStartup_ns"], 2_500_000_000)
+        self.assertTrue(fields["Checksum_OK"])
+
+        corrupt = bytearray(packet)
+        corrupt[100] ^= 0x01
+        self.assertFalse(logger.binary_packet_crc_ok(bytes(corrupt)))
+        self.assertIsNone(logger.parse_vn300_binary_packet(bytes(corrupt)))
+
+    def test_extractor_resynchronizes_after_crc_failure(self):
+        valid = make_binary_packet()
+        corrupt = bytearray(valid)
+        corrupt[200] ^= 0x80
+        buffer = bytearray(b"serial-noise" + corrupt + valid)
+
+        packets, crc_errors, skipped_bytes = logger.extract_vn300_binary_packets(buffer)
+
+        self.assertEqual(packets, [valid])
+        self.assertEqual(crc_errors, 1)
+        self.assertGreaterEqual(skipped_bytes, len(b"serial-noise") + len(corrupt))
+        self.assertEqual(buffer, bytearray())
+
+
+class SerialCaptureTests(unittest.TestCase):
+    class BurstSerial:
+        def __init__(self, chunks, stop_event):
+            self.chunks = list(chunks)
+            self.stop_event = stop_event
+
+        def read(self, _size):
+            if self.chunks:
+                return self.chunks.pop(0)
+            self.stop_event.set()
+            return b""
+
+    def test_reader_preserves_burst_while_consumer_is_delayed(self):
+        stop_event = threading.Event()
+        expected = [b"first", b"second", b"third", b"fourth"]
+        capture = logger.SerialChunkCapture(
+            self.BurstSerial(expected, stop_event),
+            stop_event.is_set,
+            max_queue_chunks=2,
+        ).start()
+        time.sleep(0.12)
+
+        received = []
+        while capture.is_alive() or not capture.empty():
+            try:
+                _captured_at, chunk = capture.get(timeout=0.2)
+            except logger.queue.Empty:
+                continue
+            received.append(chunk)
+        capture.join(timeout=1.0)
+
+        self.assertEqual(received, expected)
+        self.assertIsNone(capture.error)
+        self.assertGreater(capture.queue_full_events, 0)
+
+
+class BinaryHealthTests(unittest.TestCase):
+    def test_sensor_time_gap_is_counted(self):
+        logger.reset_latest_for_session("health-test")
+        for sample_time in (10.0, 10.01, 10.11):
+            logger.update_latest_fields(
+                "logging",
+                True,
+                "health-test",
+                {"Pi_Elapsed_Time_s": sample_time, "Checksum_OK": True},
+                timing_active=False,
+            )
+
+        with logger.state_lock:
+            snapshot = dict(logger.latest_packet)
+        self.assertEqual(snapshot["binary_packets"], 3)
+        self.assertEqual(snapshot["binary_time_gaps"], 1)
+        self.assertEqual(snapshot["binary_missing_samples_estimate"], 9)
+        self.assertAlmostEqual(snapshot["largest_binary_gap_s"], 0.10, places=6)
+        self.assertAlmostEqual(snapshot["binary_effective_hz"], 2 / 0.11, places=6)
+
+
+class SessionPipelineTests(unittest.TestCase):
+    class PacketSerial:
+        def __init__(self, chunks):
+            self.chunks = list(chunks)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def read(self, _size):
+            if self.chunks:
+                return self.chunks.pop(0)
+            logger.active_session_stop.set()
+            return b""
+
+    def setUp(self):
+        logger.stop_requested.clear()
+        logger.logging_requested.clear()
+        logger.active_session_stop.clear()
+        logger.shutdown_requested.clear()
+
+    def tearDown(self):
+        logger.stop_requested.clear()
+        logger.logging_requested.clear()
+        logger.active_session_stop.clear()
+        logger.shutdown_requested.clear()
+
+    def test_session_writes_complete_raw_stream_and_validated_csv(self):
+        packets = [
+            make_binary_packet(1_000_000_000),
+            make_binary_packet(1_010_000_000),
+            make_binary_packet(1_020_000_000),
+        ]
+        stream = b"".join(packets)
+        chunks = [stream[:333], stream[333:1200], stream[1200:]]
+        fake_serial = self.PacketSerial(chunks)
+
+        log_dir = Path.cwd() / "work" / f"session_pipeline_test_{uuid.uuid4().hex}"
+        log_dir.mkdir(parents=True)
+        try:
+            with mock.patch.object(
+                logger.serial, "Serial", return_value=fake_serial
+            ), mock.patch.object(logger, "free_space_bytes", return_value=1024 * 1024 * 1024):
+                logger.run_session(
+                    "COM_TEST",
+                    921600,
+                    log_dir,
+                    log_dir,
+                    parse_mode="binary",
+                    can_config={"enabled": False},
+                )
+
+            raw_path = next(log_dir.glob("*_COM_TEST.bin"))
+            binary_path = next(log_dir.glob("*_BINARY.csv"))
+            metadata_path = next(log_dir.glob("*_session_metadata.json"))
+            raw_bytes = raw_path.read_bytes()
+            rows = list(csv.DictReader(binary_path.read_text(encoding="utf-8").splitlines()))
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        finally:
+            shutil.rmtree(log_dir, ignore_errors=True)
+
+        self.assertEqual(raw_bytes, stream)
+        self.assertEqual(len(rows), 3)
+        self.assertTrue(all(row["Checksum_OK"] == "True" for row in rows))
+        self.assertEqual(metadata["binary_packets"], 3)
+        self.assertEqual(metadata["binary_crc_errors"], 0)
+        self.assertEqual(metadata["binary_time_gaps"], 0)
+        self.assertEqual(metadata["capture_queue_full_events"], 0)
 
 
 if __name__ == "__main__":

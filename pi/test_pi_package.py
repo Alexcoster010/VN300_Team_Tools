@@ -33,8 +33,13 @@ class PiPackageTests(unittest.TestCase):
             "systemctl restart",
             'payload.get("logger_version")',
             "Restoring the previous logger",
+            "VN300_OFFLINE_INSTALL",
+            "app_python_has_core_dependencies",
+            "app_python_has_can_dependency",
+            "CAN logging remains disabled",
         ):
             self.assertIn(expected, installer)
+        self.assertNotIn("import serial, gpiozero, can", installer)
 
     def test_service_targets_installed_logger(self):
         service = (PI_DIR / "vn300-button-logger.service").read_text(encoding="utf-8")

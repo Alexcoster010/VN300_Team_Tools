@@ -28,12 +28,14 @@ The same command handles both a new installation and an update.
 The installer:
 
 - validates every required package file and checks the logger's Python syntax
-- installs `pyserial`, `gpiozero`, and `python-can` when needed
+- installs `pyserial` and `gpiozero`, and attempts the optional `python-can`,
+  `cantools`, and `pyusb` packages needed by CAN features
 - backs up the currently installed software and service files
 - stops legacy VN300 services
 - installs the logger, systemd service, sudoers rule, dependency list, and version marker
 - preserves the installed `motec_can_signal_map.csv`
 - places a new default CAN map beside it as `motec_can_signal_map.csv.dist`
+- installs the CAN profile template and adapter/DBC setup guide
 - enables and restarts `vn300-button-logger.service`
 - waits for `/api/latest` to report the newly installed logger version
 - restores the previous logger when the new service fails its health check
@@ -65,7 +67,7 @@ http://<pi-ip>:8080/api/latest
 The JSON response includes:
 
 ```json
-{"logger_version": "0.6.0", "setup_streaming": false}
+{"logger_version": "0.6.1", "setup_streaming": false}
 ```
 
 Service checks:
@@ -74,6 +76,11 @@ Service checks:
 systemctl status vn300-button-logger.service --no-pager
 journalctl -u vn300-button-logger.service -n 60 --no-pager
 ```
+
+For offline installation, install the required Python packages before removing
+internet access. CAN remains disabled until the actual adapter driver, channel,
+bitrate, and vehicle DBC or CSV signal definitions are confirmed. See
+`pi/CAN_SETUP.md`.
 
 ## Publish A Future Logger Version
 

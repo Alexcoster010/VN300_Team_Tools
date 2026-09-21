@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.6.0`
+`v0.6.1`
 
 Stable Pi install tag:
 
@@ -25,6 +25,19 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.6.1 - 2026-09-21
+
+### Capture Reliability And CAN Preparation
+
+- Moved serial reads to a dedicated capture thread with a bounded queue and
+  buffered file writes.
+- Added binary CRC validation, stream resynchronization, and capture-health
+  metrics for rate, gaps, estimated missing samples, CRC errors, and queue pressure.
+- Added JSON CAN profiles, DBC decoding with multiplexed signals, the CAN setup
+  guide, and `python-can`, `cantools`, and `pyusb` package preparation.
+- Kept CAN opt-in and left adapter drivers, bus settings, signal definitions,
+  and real Pi/vehicle validation as explicit follow-up work.
 
 ## v0.6.0 - 2026-08-21
 

@@ -1,6 +1,6 @@
 # Pi Install For Current Version
 
-Current documented Pi logger version: `v0.5.0`
+Current documented Pi logger version: `v0.6.1`
 
 Stable tagged Pi version: `v0.4.0`
 
@@ -28,6 +28,13 @@ sh Install_VN300_Logger.sh
 
 ## What This Version Includes
 
+- Dedicated serial capture thread and bounded queue so CSV formatting and
+  storage delays do not block VN-300 reads.
+- Buffered writes, binary CRC validation, stream resynchronization, and live
+  capture-health counters.
+- Non-recording setup stream for live timing-gate positioning.
+- Optional JSON CAN profiles and DBC/CSV decoding. CAN remains disabled by
+  default pending adapter and vehicle validation; see `pi/CAN_SETUP.md`.
 - Dashboard Run Metadata panel.
 - Daily run-number filenames:
 

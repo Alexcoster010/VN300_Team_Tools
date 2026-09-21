@@ -24,6 +24,7 @@ import json
 import logging
 import math
 import os
+import queue
 import re
 import shlex
 import shutil
@@ -45,9 +46,13 @@ except ImportError:
     can = None
 
 
-READ_SIZE = 4096
-SERIAL_TIMEOUT_S = 0.25
-FLUSH_INTERVAL_S = 1.0
+READ_SIZE = 65536
+SERIAL_TIMEOUT_S = 0.05
+FLUSH_INTERVAL_S = 5.0
+CAPTURE_QUEUE_MAX_CHUNKS = 4096
+FILE_BUFFER_BYTES = 1024 * 1024
+EXPECTED_BINARY_PERIOD_S = 0.01
+BINARY_GAP_THRESHOLD_S = 0.03
 RECONNECT_DELAY_S = 2.0
 BUTTON_DEBOUNCE_S = 0.35
 POWER_HOLD_S = 2.0
@@ -174,6 +179,17 @@ latest_packet = {
     "binary_bytes": 0,
     "binary_packets": 0,
     "bad_binary_packets": 0,
+    "binary_crc_errors": 0,
+    "binary_resync_bytes": 0,
+    "binary_time_gaps": 0,
+    "binary_missing_samples_estimate": 0,
+    "largest_binary_gap_s": 0.0,
+    "binary_effective_hz": None,
+    "first_binary_sensor_time_s": None,
+    "last_binary_sensor_time_s": None,
+    "capture_queue_depth": 0,
+    "capture_queue_peak": 0,
+    "capture_queue_full_events": 0,
     "parse_source": None,
     "warning": None,
     "log_dir": None,
@@ -580,8 +596,8 @@ class CanCsvWriter:
     def __init__(self, log_dir: Path, file_prefix: str):
         self.raw_path = log_dir / f"{file_prefix}_MOTEC_RAW_CAN.csv"
         self.channels_path = log_dir / f"{file_prefix}_MOTEC_CHANNELS.csv"
-        self.raw_file = self.raw_path.open("w", newline="", buffering=1)
-        self.channel_file = self.channels_path.open("w", newline="", buffering=1)
+        self.raw_file = self.raw_path.open("w", newline="", buffering=FILE_BUFFER_BYTES)
+        self.channel_file = self.channels_path.open("w", newline="", buffering=FILE_BUFFER_BYTES)
         self.raw_writer = csv.writer(self.raw_file)
         self.channel_writer = csv.writer(self.channel_file)
         self.raw_writer.writerow([
@@ -633,10 +649,11 @@ class CanCsvWriter:
                 raw_value,
             ])
 
-    def flush(self):
+    def flush(self, sync: bool = True):
         for file_obj in (self.raw_file, self.channel_file):
             file_obj.flush()
-            os.fsync(file_obj.fileno())
+            if sync:
+                os.fsync(file_obj.fileno())
 
     def close(self):
         for file_obj in (self.raw_file, self.channel_file):
@@ -655,6 +672,65 @@ def update_can_status(**updates):
             can_state["last_age_s"] = time.monotonic() - can_state["_last_monotonic"]
 
 
+def resolve_can_config(config: dict) -> dict:
+    """A profile overrides CAN CLI defaults; selecting one does not enable CAN."""
+    resolved = dict(config)
+    profile_path = config.get("profile")
+    if not profile_path:
+        return resolved
+    profile_path = Path(profile_path).resolve()
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    allowed = {"name", "interface", "channel", "bitrate", "bus_options", "signal_map", "dbc"}
+    if not isinstance(profile, dict) or set(profile) - allowed:
+        raise ValueError("CAN profile must be an object containing only documented fields")
+    for key in ("interface", "name"):
+        if key in profile and (not isinstance(profile[key], str) or not profile[key].strip()):
+            raise ValueError(f"CAN profile {key} must be a nonempty string")
+    if "channel" in profile and (isinstance(profile["channel"], bool) or not isinstance(profile["channel"], (str, int))):
+        raise ValueError("CAN profile channel must be a string or integer")
+    if "bitrate" in profile and (type(profile["bitrate"]) is not int or profile["bitrate"] < 0):
+        raise ValueError("CAN profile bitrate must be a nonnegative integer")
+    options = profile.get("bus_options", {})
+    if not isinstance(options, dict) or set(options) & {"interface", "channel", "bitrate", "ignore_config"}:
+        raise ValueError("bus_options must be an object without reserved connection fields")
+    for key in ("signal_map", "dbc"):
+        if key in profile:
+            value = profile[key]
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ValueError(f"CAN profile {key} must be a path or null")
+            profile[key] = (profile_path.parent / value).resolve() if value else None
+    resolved.update(profile)
+    resolved["profile"] = profile_path
+    return resolved
+
+
+def load_can_database(path):
+    if not path:
+        return None
+    try:
+        import cantools
+    except ImportError as exc:
+        raise RuntimeError("DBC decoding requires cantools; install Pi CAN dependencies") from exc
+    return cantools.database.load_file(str(path), database_format="dbc")
+
+
+def decode_can_database(database, msg):
+    """Unknown IDs and non-data frames are raw-only; preserve multiplexed signals."""
+    if getattr(msg, "is_error_frame", False) or getattr(msg, "is_remote_frame", False):
+        return []
+    try:
+        message = database.get_message_by_frame_id(msg.arbitration_id)
+    except KeyError:
+        return []
+    if message.is_extended_frame != bool(msg.is_extended_id):
+        return []
+    values = message.decode(bytes(msg.data), decode_choices=False)
+    raw_values = message.decode(bytes(msg.data), decode_choices=False, scaling=False)
+    return [({"channel": signal.name, "unit": signal.unit or ""},
+             raw_values[signal.name], values[signal.name])
+            for signal in message.signals if signal.name in values]
+
+
 def run_can_logger(
     config: dict,
     log_dir: Path,
@@ -670,7 +746,6 @@ def run_can_logger(
         logging.error("CAN logging requested but python-can is not installed")
         return
 
-    signal_map = load_can_signal_map(config.get("signal_map"))
     interface_name = config["channel"]
     writers = None
     bus = None
@@ -678,9 +753,13 @@ def run_can_logger(
     decoded_frames = 0
     decode_errors = 0
     try:
+        database = load_can_database(config.get("dbc"))
+        signal_map = {} if database is not None else load_can_signal_map(config.get("signal_map"))
         bus_kwargs = {
+            **config.get("bus_options", {}),
             "interface": config["interface"],
             "channel": config["channel"],
+            "ignore_config": True,
         }
         if config.get("bitrate"):
             bus_kwargs["bitrate"] = config["bitrate"]
@@ -712,7 +791,14 @@ def run_can_logger(
             frames += 1
             writers.write_raw(elapsed_s, interface_name, msg)
             decoded_rows = []
-            for spec in signal_map.get(msg.arbitration_id, []):
+            if database is not None:
+                try:
+                    decoded_rows = decode_can_database(database, msg)
+                except Exception as exc:
+                    decode_errors += 1
+                    logging.warning("DBC decode failed for 0x%X: %s", msg.arbitration_id, exc)
+            specs = [] if (getattr(msg, "is_error_frame", False) or getattr(msg, "is_remote_frame", False)) else signal_map.get(msg.arbitration_id, [])
+            for spec in specs:
                 try:
                     raw_value, physical_value = decode_can_signal(bytes(msg.data), spec)
                     decoded_rows.append((spec, raw_value, physical_value))
@@ -756,6 +842,28 @@ def increment_bad_binary_packets():
         latest_packet["bad_binary_packets"] += 1
 
 
+def increment_binary_crc_errors(count: int = 1):
+    if count <= 0:
+        return
+    with state_lock:
+        latest_packet["binary_crc_errors"] += count
+        latest_packet["bad_binary_packets"] += count
+
+
+def increment_binary_resync_bytes(count: int):
+    if count <= 0:
+        return
+    with state_lock:
+        latest_packet["binary_resync_bytes"] += count
+
+
+def update_capture_health(depth: int, peak: int, full_events: int):
+    with state_lock:
+        latest_packet["capture_queue_depth"] = depth
+        latest_packet["capture_queue_peak"] = peak
+        latest_packet["capture_queue_full_events"] = full_events
+
+
 def reset_latest_for_session(session_name: str):
     with state_lock:
         latest_packet.update({
@@ -772,6 +880,17 @@ def reset_latest_for_session(session_name: str):
             "binary_bytes": 0,
             "binary_packets": 0,
             "bad_binary_packets": 0,
+            "binary_crc_errors": 0,
+            "binary_resync_bytes": 0,
+            "binary_time_gaps": 0,
+            "binary_missing_samples_estimate": 0,
+            "largest_binary_gap_s": 0.0,
+            "binary_effective_hz": None,
+            "first_binary_sensor_time_s": None,
+            "last_binary_sensor_time_s": None,
+            "capture_queue_depth": 0,
+            "capture_queue_peak": 0,
+            "capture_queue_full_events": 0,
             "parse_source": None,
             "warning": None,
         })
@@ -793,6 +912,17 @@ def reset_latest_for_setup_stream():
             "binary_bytes": 0,
             "binary_packets": 0,
             "bad_binary_packets": 0,
+            "binary_crc_errors": 0,
+            "binary_resync_bytes": 0,
+            "binary_time_gaps": 0,
+            "binary_missing_samples_estimate": 0,
+            "largest_binary_gap_s": 0.0,
+            "binary_effective_hz": None,
+            "first_binary_sensor_time_s": None,
+            "last_binary_sensor_time_s": None,
+            "capture_queue_depth": 0,
+            "capture_queue_peak": 0,
+            "capture_queue_full_events": 0,
             "parse_source": None,
             "warning": None,
         })
@@ -903,6 +1033,128 @@ def vn_utc_dict(raw: bytes):
     }
 
 
+class SerialChunkCapture:
+    """Continuously drain the serial port into a bounded in-memory queue.
+
+    Disk writes, CSV formatting, dashboard updates, and fsync operations run on
+    the consumer thread. Keeping them out of this reader prevents short storage
+    stalls from overflowing the kernel/USB serial buffers.
+    """
+
+    def __init__(self, serial_port, should_stop, max_queue_chunks: int = CAPTURE_QUEUE_MAX_CHUNKS):
+        self.serial_port = serial_port
+        self.should_stop = should_stop
+        self.queue = queue.Queue(maxsize=max_queue_chunks)
+        self.stop_event = threading.Event()
+        self.thread = threading.Thread(target=self._run, name="vn300-serial-reader", daemon=True)
+        self.error = None
+        self.max_queue_depth = 0
+        self.queue_full_events = 0
+
+    def start(self):
+        self.thread.start()
+        return self
+
+    def stop(self):
+        self.stop_event.set()
+
+    def join(self, timeout: Optional[float] = None):
+        self.thread.join(timeout=timeout)
+
+    def is_alive(self) -> bool:
+        return self.thread.is_alive()
+
+    def get(self, timeout: float):
+        return self.queue.get(timeout=timeout)
+
+    def empty(self) -> bool:
+        return self.queue.empty()
+
+    def depth(self) -> int:
+        return self.queue.qsize()
+
+    def _run(self):
+        try:
+            while not self.stop_event.is_set() and not self.should_stop():
+                chunk = self.serial_port.read(READ_SIZE)
+                if not chunk:
+                    continue
+                captured_at = time.monotonic()
+                while not self.stop_event.is_set():
+                    try:
+                        self.queue.put((captured_at, chunk), timeout=0.05)
+                        self.max_queue_depth = max(self.max_queue_depth, self.queue.qsize())
+                        break
+                    except queue.Full:
+                        self.queue_full_events += 1
+        except Exception as exc:
+            self.error = exc
+
+
+def vectornav_crc16(data: bytes) -> int:
+    """Return VectorNav's CRC-16/CCITT value for binary packet bytes."""
+    crc = 0
+    for byte in data:
+        crc = ((crc >> 8) | ((crc << 8) & 0xFFFF))
+        crc ^= byte
+        crc ^= (crc & 0xFF) >> 4
+        crc ^= (crc << 12) & 0xFFFF
+        crc ^= ((crc & 0xFF) << 5) & 0xFFFF
+        crc &= 0xFFFF
+    return crc
+
+
+def binary_packet_crc_ok(packet: bytes) -> bool:
+    return (
+        len(packet) == VN300_BINARY_PACKET_LEN
+        and packet.startswith(VN300_BINARY_HEADER)
+        and vectornav_crc16(packet[1:]) == 0
+    )
+
+
+def _binary_header_suffix_length(buffer: bytearray) -> int:
+    maximum = min(len(buffer), len(VN300_BINARY_HEADER) - 1)
+    for length in range(maximum, 0, -1):
+        if buffer[-length:] == VN300_BINARY_HEADER[:length]:
+            return length
+    return 0
+
+
+def extract_vn300_binary_packets(buffer: bytearray) -> tuple[list[bytes], int, int]:
+    """Remove and return complete CRC-valid packets from ``buffer``.
+
+    On a CRC failure only the current sync byte is discarded before searching
+    for the next full header. This avoids consuming the beginning of the next
+    valid packet after a dropped serial byte.
+    """
+    packets = []
+    crc_errors = 0
+    skipped_bytes = 0
+    while True:
+        packet_start = buffer.find(VN300_BINARY_HEADER)
+        if packet_start < 0:
+            keep = _binary_header_suffix_length(buffer)
+            remove = len(buffer) - keep
+            if remove > 0:
+                skipped_bytes += remove
+                del buffer[:remove]
+            break
+        if packet_start > 0:
+            skipped_bytes += packet_start
+            del buffer[:packet_start]
+        if len(buffer) < VN300_BINARY_PACKET_LEN:
+            break
+        packet = bytes(buffer[:VN300_BINARY_PACKET_LEN])
+        if not binary_packet_crc_ok(packet):
+            crc_errors += 1
+            skipped_bytes += 1
+            del buffer[0]
+            continue
+        packets.append(packet)
+        del buffer[:VN300_BINARY_PACKET_LEN]
+    return packets, crc_errors, skipped_bytes
+
+
 class BinaryReader:
     def __init__(self, data: bytes, offset: int = 0):
         self.data = data
@@ -955,7 +1207,7 @@ def add_vec(fields: dict, prefix: str, names: tuple[str, ...], values):
 
 
 def parse_vn300_binary_packet(packet: bytes):
-    if len(packet) != VN300_BINARY_PACKET_LEN or not packet.startswith(VN300_BINARY_HEADER):
+    if not binary_packet_crc_ok(packet):
         return None
 
     payload = packet[len(VN300_BINARY_HEADER):len(VN300_BINARY_HEADER) + VN300_BINARY_PAYLOAD_LEN]
@@ -1023,8 +1275,9 @@ def parse_vn300_binary_packet(packet: bytes):
     add_vec(fields, "Gnss2PosUncertainty", ("N_m", "E_m", "D_m"), r.vecf(3))
     add_vec(fields, "Gnss2Dop", ("G", "P", "T", "V", "H", "N", "E"), r.vecf(7))
 
-    fields["Checksum_LowByte"] = packet[-2]
-    fields["Checksum_HighByte"] = packet[-1]
+    fields["Checksum_LowByte"] = packet[-1]
+    fields["Checksum_HighByte"] = packet[-2]
+    fields["Checksum_OK"] = True
 
     fields["Yaw_deg"] = fields["Common_YPR_Yaw_deg"]
     fields["Pitch_deg"] = fields["Common_YPR_Pitch_deg"]
@@ -1431,7 +1684,7 @@ class CsvPacketWriter:
         values = parsed["values"]
         if msg not in self.writers:
             path = self.log_dir / f"{self.file_prefix}_{safe_msg}.csv"
-            file_obj = path.open("w", newline="", buffering=1)
+            file_obj = path.open("w", newline="", buffering=FILE_BUFFER_BYTES)
             writer = csv.writer(file_obj)
             writer.writerow([
                 "Pi_Elapsed_Time_s",
@@ -1452,10 +1705,11 @@ class CsvPacketWriter:
             parsed["raw"],
         ])
 
-    def flush(self):
+    def flush(self, sync: bool = True):
         for file_obj in self.files.values():
             file_obj.flush()
-            os.fsync(file_obj.fileno())
+            if sync:
+                os.fsync(file_obj.fileno())
 
     def close(self):
         for file_obj in self.files.values():
@@ -1476,7 +1730,7 @@ class BinaryCsvWriter:
     def write(self, elapsed_s: float, fields: dict):
         if self.writer is None:
             self.headers = ["Pi_Logger_Elapsed_Time_s", *fields.keys()]
-            self.file_obj = self.path.open("w", newline="", buffering=1)
+            self.file_obj = self.path.open("w", newline="", buffering=FILE_BUFFER_BYTES)
             self.writer = csv.DictWriter(self.file_obj, fieldnames=self.headers, extrasaction="ignore")
             self.writer.writeheader()
             logging.info("Binary CSV output: %s", self.path)
@@ -1484,10 +1738,11 @@ class BinaryCsvWriter:
         row.update(fields)
         self.writer.writerow(row)
 
-    def flush(self):
+    def flush(self, sync: bool = True):
         if self.file_obj:
             self.file_obj.flush()
-            os.fsync(self.file_obj.fileno())
+            if sync:
+                os.fsync(self.file_obj.fileno())
 
     def close(self):
         if self.file_obj:
@@ -1546,6 +1801,7 @@ def update_latest_fields(
     binary_bytes: Optional[int] = None,
     timing_active: bool = True,
 ):
+    sample_time = fields.get("Pi_Elapsed_Time_s")
     with state_lock:
         latest_packet["status"] = status
         latest_packet["logging"] = logging_active
@@ -1554,15 +1810,37 @@ def update_latest_fields(
             latest_packet["session"] = session
         latest_packet["message_type"] = "BINARY"
         latest_packet["fields"] = fields
-        latest_packet["checksum_ok"] = ""
+        latest_packet["checksum_ok"] = bool(fields.get("Checksum_OK"))
         latest_packet["updated_monotonic"] = time.monotonic()
         latest_packet["binary_packets"] += 1
         latest_packet["parse_source"] = "binary"
+        if isinstance(sample_time, (int, float)) and math.isfinite(sample_time):
+            first_time = latest_packet.get("first_binary_sensor_time_s")
+            previous_time = latest_packet.get("last_binary_sensor_time_s")
+            if first_time is None:
+                latest_packet["first_binary_sensor_time_s"] = sample_time
+                first_time = sample_time
+            if previous_time is not None:
+                delta = sample_time - previous_time
+                if BINARY_GAP_THRESHOLD_S < delta < 10.0:
+                    latest_packet["binary_time_gaps"] += 1
+                    latest_packet["largest_binary_gap_s"] = max(
+                        latest_packet["largest_binary_gap_s"], delta
+                    )
+                    latest_packet["binary_missing_samples_estimate"] += max(
+                        0, round(delta / EXPECTED_BINARY_PERIOD_S) - 1
+                    )
+            if previous_time is None or sample_time > previous_time:
+                latest_packet["last_binary_sensor_time_s"] = sample_time
+            elapsed = sample_time - first_time
+            if elapsed > 0:
+                latest_packet["binary_effective_hz"] = (
+                    (latest_packet["binary_packets"] - 1) / elapsed
+                )
         if raw_bytes is not None:
             latest_packet["raw_bytes"] = raw_bytes
         if binary_bytes is not None:
             latest_packet["binary_bytes"] = binary_bytes
-    sample_time = fields.get("Pi_Elapsed_Time_s")
     if timing_active and sample_time is not None:
         update_timing(sample_time, fields)
 
@@ -1603,18 +1881,13 @@ def run_setup_stream(port: str, baud: int, parse_mode: str = "auto"):
                 if parse_mode in ("auto", "binary"):
                     binary_buffer.extend(chunk)
 
-                while parse_mode in ("auto", "binary"):
-                    packet_start = binary_buffer.find(VN300_BINARY_HEADER)
-                    if packet_start < 0:
-                        if len(binary_buffer) > len(VN300_BINARY_HEADER):
-                            del binary_buffer[:-len(VN300_BINARY_HEADER)]
-                        break
-                    if packet_start > 0:
-                        del binary_buffer[:packet_start]
-                    if len(binary_buffer) < VN300_BINARY_PACKET_LEN:
-                        break
-                    packet = bytes(binary_buffer[:VN300_BINARY_PACKET_LEN])
-                    del binary_buffer[:VN300_BINARY_PACKET_LEN]
+                packets = []
+                if parse_mode in ("auto", "binary"):
+                    packets, crc_errors, skipped_bytes = extract_vn300_binary_packets(binary_buffer)
+                    increment_binary_crc_errors(crc_errors)
+                    increment_binary_resync_bytes(skipped_bytes)
+
+                for packet in packets:
                     parse_failed = False
                     try:
                         fields = parse_vn300_binary_packet(packet)
@@ -1717,6 +1990,7 @@ def run_session(
     binary_outputs = BinaryCsvWriter(log_dir, file_prefix)
     can_stop_event = threading.Event()
     can_thread = None
+    capture = None
     metadata = {
         "session": session_name,
         "run_id": run_id,
@@ -1742,11 +2016,22 @@ def run_session(
         "ascii_packets": 0,
         "binary_packets": 0,
         "bad_binary_packets": 0,
+        "binary_crc_errors": 0,
+        "binary_resync_bytes": 0,
+        "binary_time_gaps": 0,
+        "binary_missing_samples_estimate": 0,
+        "largest_binary_gap_s": 0.0,
+        "binary_effective_hz": None,
+        "capture_queue_peak": 0,
+        "capture_queue_full_events": 0,
         "can_enabled": bool(can_config.get("enabled")),
         "can_interface": can_config.get("interface"),
         "can_channel": can_config.get("channel"),
         "can_bitrate": can_config.get("bitrate"),
         "can_signal_map": str(can_config.get("signal_map") or ""),
+        "can_profile": str(can_config.get("profile") or ""),
+        "can_dbc": str(can_config.get("dbc") or ""),
+        "can_bus_options": can_config.get("bus_options", {}),
     }
 
     logging.info("Opening %s at %d baud", port, baud)
@@ -1805,132 +2090,138 @@ def run_session(
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
-        ) as ser, raw_path.open("ab", buffering=0) as raw_file:
-            while not stop_requested.is_set() and not active_session_stop.is_set():
-                chunk = ser.read(READ_SIZE)
-                now = time.monotonic()
-
-                if chunk:
+        ) as ser, raw_path.open("ab", buffering=FILE_BUFFER_BYTES) as raw_file:
+            capture = SerialChunkCapture(
+                ser,
+                lambda: stop_requested.is_set() or active_session_stop.is_set(),
+            ).start()
+            try:
+                while capture.is_alive() or not capture.empty():
                     try:
-                        raw_file.write(chunk)
-                    except OSError as exc:
-                        error_text = repr(exc)
-                        stop_reason = "log write error"
-                        set_latest_warning(f"Log write error: {exc}")
-                        set_log_health("write error", write_error=error_text)
-                        logging.error("Raw log write failed: %s", exc)
-                        active_session_stop.set()
-                        break
-                    byte_count += len(chunk)
-                    binary_byte_count += sum(1 for byte in chunk if byte not in b"\r\n\t" and (byte < 32 or byte > 126))
-                    if parse_mode in ("auto", "binary"):
-                        binary_buffer.extend(chunk)
+                        captured_at, chunk = capture.get(timeout=0.1)
+                    except queue.Empty:
+                        captured_at, chunk = time.monotonic(), b""
+                    now = time.monotonic()
 
-                    while parse_mode in ("auto", "binary"):
-                        packet_start = binary_buffer.find(VN300_BINARY_HEADER)
-                        if packet_start < 0:
-                            if len(binary_buffer) > len(VN300_BINARY_HEADER):
-                                del binary_buffer[:-len(VN300_BINARY_HEADER)]
-                            break
-                        if packet_start > 0:
-                            del binary_buffer[:packet_start]
-                        if len(binary_buffer) < VN300_BINARY_PACKET_LEN:
-                            break
-                        packet = bytes(binary_buffer[:VN300_BINARY_PACKET_LEN])
-                        del binary_buffer[:VN300_BINARY_PACKET_LEN]
-                        parse_failed = False
+                    if chunk:
                         try:
-                            fields = parse_vn300_binary_packet(packet)
-                        except (struct.error, IndexError, KeyError) as exc:
-                            fields = None
-                            parse_failed = True
-                            increment_bad_binary_packets()
-                            logging.warning("Binary packet parse failed: %s", exc)
-                        if fields:
-                            binary_active = True
-                            sensor_utc = sensor_utc_datetime_from_fields(fields)
-                            if sensor_utc:
-                                if first_sensor_utc is None:
-                                    first_sensor_utc = sensor_utc
-                                last_sensor_utc = sensor_utc
-                            elapsed_s = now - start_time
+                            raw_file.write(chunk)
+                        except OSError as exc:
+                            error_text = repr(exc)
+                            stop_reason = "log write error"
+                            set_latest_warning(f"Log write error: {exc}")
+                            set_log_health("write error", write_error=error_text)
+                            logging.error("Raw log write failed: %s", exc)
+                            raise
+                        byte_count += len(chunk)
+                        binary_byte_count += sum(
+                            1 for byte in chunk if byte not in b"\r\n\t" and (byte < 32 or byte > 126)
+                        )
+                        if parse_mode in ("auto", "binary"):
+                            binary_buffer.extend(chunk)
+
+                        packets = []
+                        if parse_mode in ("auto", "binary"):
+                            packets, crc_errors, skipped_bytes = extract_vn300_binary_packets(binary_buffer)
+                            increment_binary_crc_errors(crc_errors)
+                            increment_binary_resync_bytes(skipped_bytes)
+
+                        for packet in packets:
+                            parse_failed = False
                             try:
-                                binary_outputs.write(elapsed_s, fields)
-                            except OSError as exc:
-                                error_text = repr(exc)
-                                stop_reason = "log write error"
-                                set_latest_warning(f"Binary CSV write error: {exc}")
-                                set_log_health("write error", write_error=error_text)
-                                logging.error("Binary CSV write failed: %s", exc)
-                                active_session_stop.set()
-                                break
-                            update_latest_fields(
-                                "logging",
-                                True,
-                                session_name,
-                                fields,
-                                raw_bytes=byte_count,
-                                binary_bytes=binary_byte_count,
-                            )
-                        elif not parse_failed:
-                            increment_bad_binary_packets()
-
-                    if active_session_stop.is_set():
-                        continue
-
-                    parse_ascii_this_chunk = parse_mode == "ascii" or (parse_mode == "auto" and not binary_active)
-                    if parse_ascii_this_chunk and (b"$VN" in chunk or line_buffer):
-                        if b"$VN" in chunk and not line_buffer:
-                            line_buffer.extend(chunk[chunk.find(b"$VN"):])
-                        else:
-                            line_buffer.extend(chunk)
-
-                        if len(line_buffer) > MAX_ASCII_BUFFER_BYTES:
-                            last_start = line_buffer.rfind(b"$VN")
-                            if last_start >= 0:
-                                line_buffer = bytearray(line_buffer[last_start:])
-                            else:
-                                line_buffer.clear()
-
-                        while b"\n" in line_buffer:
-                            raw_bytes, _, remainder = line_buffer.partition(b"\n")
-                            line_buffer = bytearray(remainder)
-                            parsed = parse_ascii_line(raw_bytes.decode("ascii", errors="ignore"))
-                            if parsed:
-                                elapsed_s = now - start_time
+                                fields = parse_vn300_binary_packet(packet)
+                            except (struct.error, IndexError, KeyError) as exc:
+                                fields = None
+                                parse_failed = True
+                                increment_bad_binary_packets()
+                                logging.warning("Binary packet parse failed: %s", exc)
+                            if fields:
+                                binary_active = True
+                                sensor_utc = sensor_utc_datetime_from_fields(fields)
+                                if sensor_utc:
+                                    if first_sensor_utc is None:
+                                        first_sensor_utc = sensor_utc
+                                    last_sensor_utc = sensor_utc
+                                elapsed_s = captured_at - start_time
                                 try:
-                                    csv_outputs.write(elapsed_s, parsed)
+                                    binary_outputs.write(elapsed_s, fields)
                                 except OSError as exc:
                                     error_text = repr(exc)
                                     stop_reason = "log write error"
-                                    set_latest_warning(f"ASCII CSV write error: {exc}")
+                                    set_latest_warning(f"Binary CSV write error: {exc}")
                                     set_log_health("write error", write_error=error_text)
-                                    logging.error("ASCII CSV write failed: %s", exc)
-                                    active_session_stop.set()
-                                    break
-                                allow_ascii_timing = parse_mode == "ascii" or not binary_active
-                                update_latest(
+                                    logging.error("Binary CSV write failed: %s", exc)
+                                    raise
+                                update_latest_fields(
                                     "logging",
                                     True,
                                     session_name,
-                                    parsed,
-                                    elapsed_s,
+                                    fields,
                                     raw_bytes=byte_count,
                                     binary_bytes=binary_byte_count,
-                                    allow_timing=allow_ascii_timing,
                                 )
-                    else:
-                        if binary_active and line_buffer:
-                            line_buffer.clear()
-                        update_latest(
-                            "binary logging" if binary_active else "raw logging",
-                            True,
-                            session_name,
-                            raw_bytes=byte_count,
-                            binary_bytes=binary_byte_count,
-                        )
+                            elif not parse_failed:
+                                increment_bad_binary_packets()
 
-                if now - last_flush >= FLUSH_INTERVAL_S:
+                        parse_ascii_this_chunk = parse_mode == "ascii" or (
+                            parse_mode == "auto" and not binary_active
+                        )
+                        if parse_ascii_this_chunk and (b"$VN" in chunk or line_buffer):
+                            if b"$VN" in chunk and not line_buffer:
+                                line_buffer.extend(chunk[chunk.find(b"$VN"):])
+                            else:
+                                line_buffer.extend(chunk)
+
+                            if len(line_buffer) > MAX_ASCII_BUFFER_BYTES:
+                                last_start = line_buffer.rfind(b"$VN")
+                                if last_start >= 0:
+                                    line_buffer = bytearray(line_buffer[last_start:])
+                                else:
+                                    line_buffer.clear()
+
+                            while b"\n" in line_buffer:
+                                line_bytes, _, remainder = line_buffer.partition(b"\n")
+                                line_buffer = bytearray(remainder)
+                                parsed = parse_ascii_line(line_bytes.decode("ascii", errors="ignore"))
+                                if parsed:
+                                    elapsed_s = captured_at - start_time
+                                    try:
+                                        csv_outputs.write(elapsed_s, parsed)
+                                    except OSError as exc:
+                                        error_text = repr(exc)
+                                        stop_reason = "log write error"
+                                        set_latest_warning(f"ASCII CSV write error: {exc}")
+                                        set_log_health("write error", write_error=error_text)
+                                        logging.error("ASCII CSV write failed: %s", exc)
+                                        raise
+                                    allow_ascii_timing = parse_mode == "ascii" or not binary_active
+                                    update_latest(
+                                        "logging",
+                                        True,
+                                        session_name,
+                                        parsed,
+                                        elapsed_s,
+                                        raw_bytes=byte_count,
+                                        binary_bytes=binary_byte_count,
+                                        allow_timing=allow_ascii_timing,
+                                    )
+                        else:
+                            if binary_active and line_buffer:
+                                line_buffer.clear()
+                            update_latest(
+                                "binary logging" if binary_active else "raw logging",
+                                True,
+                                session_name,
+                                raw_bytes=byte_count,
+                                binary_bytes=binary_byte_count,
+                            )
+
+                    update_capture_health(
+                        capture.depth(), capture.max_queue_depth, capture.queue_full_events
+                    )
+
+                    if now - last_flush < FLUSH_INTERVAL_S:
+                        continue
                     free_now = free_space_bytes(log_dir)
                     if free_now < MIN_FREE_SPACE_BYTES:
                         stop_reason = "low disk space during session"
@@ -1946,9 +2237,8 @@ def run_session(
                     )
                     try:
                         raw_file.flush()
-                        os.fsync(raw_file.fileno())
-                        csv_outputs.flush()
-                        binary_outputs.flush()
+                        csv_outputs.flush(sync=False)
+                        binary_outputs.flush(sync=False)
                         write_log_status_file(log_dir, {
                             "status": "logging",
                             "session": session_name,
@@ -1958,6 +2248,9 @@ def run_session(
                             "raw_path": str(raw_path),
                             "raw_bytes": byte_count,
                             "binary_bytes_estimate": binary_byte_count,
+                            "capture_queue_depth": capture.depth(),
+                            "capture_queue_peak": capture.max_queue_depth,
+                            "capture_queue_full_events": capture.queue_full_events,
                             "free_space_bytes": free_now,
                             "last_flush_pi_clock": dt.datetime.now().isoformat(timespec="seconds"),
                         })
@@ -1971,6 +2264,15 @@ def run_session(
                         active_session_stop.set()
                     last_flush = now
 
+                if capture.error is not None:
+                    raise capture.error
+            finally:
+                capture.stop()
+                capture.join(timeout=2.0)
+                update_capture_health(
+                    capture.depth(), capture.max_queue_depth, capture.queue_full_events
+                )
+
             try:
                 raw_file.flush()
                 os.fsync(raw_file.fileno())
@@ -1981,8 +2283,9 @@ def run_session(
                 set_log_health("write error", write_error=error_text)
                 logging.error("Final raw flush failed: %s", exc)
     except Exception as exc:
-        error_text = repr(exc)
-        stop_reason = "error"
+        if error_text is None:
+            error_text = repr(exc)
+            stop_reason = "error"
         raise
     finally:
         can_stop_event.set()
@@ -2006,8 +2309,19 @@ def run_session(
                 set_log_health("write error", write_error=error_text)
         with state_lock:
             metadata["ascii_packets"] = latest_packet["ascii_packets"]
-            metadata["binary_packets"] = latest_packet["binary_packets"]
-            metadata["bad_binary_packets"] = latest_packet["bad_binary_packets"]
+            for key in (
+                "binary_packets",
+                "bad_binary_packets",
+                "binary_crc_errors",
+                "binary_resync_bytes",
+                "binary_time_gaps",
+                "binary_missing_samples_estimate",
+                "largest_binary_gap_s",
+                "binary_effective_hz",
+                "capture_queue_peak",
+                "capture_queue_full_events",
+            ):
+                metadata[key] = latest_packet[key]
             can_state = dict(latest_packet.get("can") or {})
         can_state.pop("_last_monotonic", None)
         metadata["can"] = can_state
@@ -2082,6 +2396,14 @@ def run_session(
                 "ascii_packets": metadata["ascii_packets"],
                 "binary_packets": metadata["binary_packets"],
                 "bad_binary_packets": metadata["bad_binary_packets"],
+                "binary_crc_errors": metadata["binary_crc_errors"],
+                "binary_resync_bytes": metadata["binary_resync_bytes"],
+                "binary_time_gaps": metadata["binary_time_gaps"],
+                "binary_missing_samples_estimate": metadata["binary_missing_samples_estimate"],
+                "largest_binary_gap_s": metadata["largest_binary_gap_s"],
+                "binary_effective_hz": metadata["binary_effective_hz"],
+                "capture_queue_peak": metadata["capture_queue_peak"],
+                "capture_queue_full_events": metadata["capture_queue_full_events"],
                 "clean_stop": metadata["clean_stop"],
                 "error": metadata["error"],
                 "end_time_pi_clock": metadata["end_time_pi_clock"],
@@ -2312,7 +2634,7 @@ async function tick(){try{const r=await fetch('/api/latest',{cache:'no-store'});
  const deltaEl=document.getElementById('deltaTime'); deltaEl.className='value';
  if(t.live_delta_error){deltaEl.textContent=t.live_delta_error; deltaEl.className='value small bad'} else {deltaEl.textContent=t.live_delta_available?deltaFmt(t.live_delta_s):'--'}
  document.getElementById('gps').textContent=(fmt(f.Latitude_deg,5)+', '+fmt(f.Longitude_deg,5));
- document.getElementById('stream').textContent=`raw ${d.raw_bytes||0} B / bin ${d.binary_packets||0} pkts / bad ${d.bad_binary_packets||0} / ASCII ${d.ascii_packets||0}`;
+ document.getElementById('stream').textContent=`raw ${d.raw_bytes||0} B / bin ${d.binary_packets||0} pkts / ${fmt(d.binary_effective_hz,1)} Hz / CRC ${d.binary_crc_errors||0} / gaps ${d.binary_time_gaps||0} (max ${fmt(d.largest_binary_gap_s,2)} s) / queue ${d.capture_queue_depth||0}, peak ${d.capture_queue_peak||0}`;
  document.getElementById('logHealth').textContent=`${d.log_destination||'unknown'} / ${d.log_health||'unknown'} / ${d.free_space_mb??'--'} MB`;
  document.getElementById('cpuTemp').textContent=Number.isFinite(d.cpu_temp_c)?`${fmt(d.cpu_temp_c,1)} C / ${fmt(d.cpu_temp_f,1)} F`:'--';
  const can=d.can||{}; document.getElementById('canStatus').textContent=`${can.status||'disabled'} / ${can.frames||0} frames / ${can.decoded_frames||0} decoded`;
@@ -2477,12 +2799,23 @@ def main():
     parser.add_argument("--dashboard-port", type=int, default=8080)
     parser.add_argument("--parse-mode", choices=("auto", "binary", "ascii"), default="auto")
     parser.add_argument("--can-enable", action="store_true", help="passively log CAN frames during each VN300 logging session")
+    parser.add_argument("--can-profile", type=Path, help="JSON adapter/decode profile; overrides CAN connection/decode flags but does not enable CAN")
+    parser.add_argument("--can-dbc", type=Path, help="DBC database; takes precedence over the CSV signal map")
     parser.add_argument("--can-interface", default="socketcan", help="python-can interface type, usually socketcan on Raspberry Pi")
     parser.add_argument("--can-channel", default="can0", help="CAN channel/device name, usually can0")
     parser.add_argument("--can-bitrate", type=int, default=0, help="CAN bitrate such as 1000000; use 0 if the interface is already configured")
     parser.add_argument("--can-signal-map", type=Path, default=DEFAULT_CAN_SIGNAL_MAP, help="CSV signal map used to decode MoTeC/dash CAN frames")
     parser.add_argument("--shutdown-command", default="/usr/bin/sudo /sbin/shutdown -h now")
     args = parser.parse_args()
+    try:
+        can_config = resolve_can_config({
+            "enabled": args.can_enable, "profile": args.can_profile,
+            "interface": args.can_interface, "channel": args.can_channel,
+            "bitrate": args.can_bitrate or None, "signal_map": args.can_signal_map,
+            "dbc": args.can_dbc,
+        })
+    except (OSError, ValueError) as exc:
+        parser.error(f"Invalid CAN profile: {exc}")
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
     signal.signal(signal.SIGINT, stop_handler)
@@ -2506,13 +2839,6 @@ def main():
     if active_log_destination_type != "flash drive":
         set_latest_warning(f"Logging to {active_log_destination_type}, not flash drive")
     start_dashboard(args.dashboard_host, args.dashboard_port)
-    can_config = {
-        "enabled": args.can_enable,
-        "interface": args.can_interface,
-        "channel": args.can_channel,
-        "bitrate": args.can_bitrate or None,
-        "signal_map": args.can_signal_map,
-    }
 
     gpio_handles = None
     if not args.no_buttons:
