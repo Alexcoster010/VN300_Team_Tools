@@ -745,9 +745,10 @@ class VN300QtApp(QMainWindow):
         self.clock_timer.start()
         self.update_clock()
 
-        QTimer.singleShot(250, self.initial_pi_connect)
-        QTimer.singleShot(800, self.show_last_update_status)
-        QTimer.singleShot(1400, partial(self.check_app_update, False))
+        if not QApplication.instance().property("smoke_test"):
+            QTimer.singleShot(250, self.initial_pi_connect)
+            QTimer.singleShot(800, self.show_last_update_status)
+            QTimer.singleShot(1400, partial(self.check_app_update, False))
 
     def build_shell(self) -> None:
         root = QWidget()
@@ -3137,14 +3138,24 @@ class VN300QtApp(QMainWindow):
 
 
 def main() -> int:
+    smoke_result = None
+    if len(sys.argv) == 3 and sys.argv[1] == "--smoke-test":
+        smoke_result = Path(sys.argv[2])
+        sys.argv = sys.argv[:1]
     if os.name == "nt":
         os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
     application = QApplication(sys.argv)
+    application.setProperty("smoke_test", smoke_result is not None)
     application.setApplicationName(PRODUCT_NAME)
     application.setOrganizationName("SRT26")
     application.setStyle("Fusion")
     window = VN300QtApp()
     window.show()
+    if smoke_result is not None:
+        def finish_smoke_test():
+            smoke_result.write_text(json.dumps({"version": CURRENT_VERSION, "window_visible": window.isVisible()}), encoding="utf-8")
+            application.quit()
+        QTimer.singleShot(250, finish_smoke_test)
     return application.exec()
 
 

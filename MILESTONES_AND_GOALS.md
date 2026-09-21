@@ -9,10 +9,8 @@ and signal definitions are ready.
 
 ## Release state
 
-- The branch baseline is the published `v0.15.1` release (`321cbc1`).
-- The worktree contains locally finished, unpublished changes for desktop
-  `v0.15.2`; `APP_VERSION`, release notes, packaging code, and packaging tests
-  identify it as a packaged-startup repair.
+- The previous public desktop release was `v0.15.0`; this branch advances the release line through the completed `v0.15.1` logger/CAN work to desktop `v0.15.2`.
+- Desktop `v0.15.2` contains the packaged-startup repair alongside the `v0.15.1` logger and CAN work. `APP_VERSION`, release notes, and packaging code identify the release contents.
 - The documented embedded Pi logger remains `v0.6.1`. No separate Pi release
   or vehicle validation is implied by the desktop `v0.15.2` work.
 - The entries below distinguish code and automated-test evidence from work that
@@ -79,9 +77,7 @@ and signal definitions are ready.
 - Automated tests and packaging checks are evidence for the software behavior
   described above. `v0.15.1` release notes record 34 checks covering logger,
   CAN-profile/DBC/virtual-CAN, Windows/Pi packaging, and installer shell syntax.
-- The current worktree also contains regression tests for the `v0.15.2`
-  packaging path. The build script's frozen-app startup check is a build-time
-  guard; this roadmap does not treat it as proof of a released installer.
+- The `v0.15.2` installer build completed its frozen-app startup check and the installed application was observed running responsively on the development laptop. This is software validation on one Windows environment, not broad deployment or hardware validation.
 
 ## Hardware validation not yet performed
 

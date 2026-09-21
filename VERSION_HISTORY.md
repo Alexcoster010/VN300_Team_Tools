@@ -16,7 +16,7 @@ vMAJOR.MINOR.PATCH
 
 ## Current Version
 
-`v0.15.1`
+`v0.15.2`
 
 Stable Pi install tag:
 
@@ -25,6 +25,12 @@ v0.4.0
 ```
 
 Use the `v0.4.0` Git tag when the team needs the last pre-Phase-2 logger/dashboard.
+
+## v0.15.2 - 2026-09-14
+
+- Fixed a packaged Windows startup failure caused by an incompatible ICU DLL discovered on the build machine's PATH.
+- Isolated PyInstaller DLL discovery to Python and Windows system paths and added a frozen-app startup check before installer generation.
+- Retained Pi logger v0.6.1 and CAN profile support.
 
 ## v0.15.1 - 2026-09-09
 

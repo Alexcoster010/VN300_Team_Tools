@@ -165,6 +165,9 @@ Do this after analyzer changes.
 
 ## Desktop App Test After Update
 
+The installer build must pass its packaged desktop startup smoke check before release.
+Desktop v0.15.2 isolates DLL discovery from unrelated programs on the build machine's PATH.
+
 Do this after every Windows desktop release.
 
 1. Confirm the app header shows the expected desktop version.

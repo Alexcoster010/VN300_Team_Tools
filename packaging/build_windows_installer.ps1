@@ -61,14 +61,35 @@ if ($LASTEXITCODE -ne 0) {
 
 $env:VN300_VERSION_FILE = $VersionFile
 $env:VN300_PROJECT_ROOT = $Root
-py -3 -m PyInstaller `
-    --noconfirm `
-    --clean `
-    --distpath $DistBin `
-    --workpath $PyInstallerWork `
-    (Join-Path $Root "packaging\VN300TeamTools.spec")
-if ($LASTEXITCODE -ne 0) {
-    throw "PyInstaller build failed."
+$BuildPython = (py -3 -c "import sys; print(sys.executable)").Trim()
+$OriginalBuildPath = $env:PATH
+try {
+    # DLL discovery must not pick up incompatible ICU/Qt libraries from tools on PATH.
+    $env:PATH = @((Split-Path $BuildPython), "$env:SystemRoot\System32", $env:SystemRoot) -join ';'
+    & $BuildPython -m PyInstaller `
+        --noconfirm `
+        --clean `
+        --distpath $DistBin `
+        --workpath $PyInstallerWork `
+        (Join-Path $Root "packaging\VN300TeamTools.spec")
+    if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed." }
+} finally {
+    $env:PATH = $OriginalBuildPath
+}
+
+# Exercise the actual frozen Qt imports and main window before publishing an installer.
+$SmokeResult = Join-Path $GeneratedDir "desktop-smoke.json"
+$SmokeProcess = Start-Process -FilePath (Join-Path $DistBin "VN300TeamTools.exe") `
+    -ArgumentList @('--smoke-test', ('"' + $SmokeResult + '"')) -WindowStyle Hidden -PassThru
+if (-not $SmokeProcess.WaitForExit(60000)) {
+    Stop-Process -Id $SmokeProcess.Id -Force -ErrorAction SilentlyContinue
+    throw "Packaged desktop startup timed out."
+}
+if ($SmokeProcess.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $SmokeResult)) {
+    throw "Packaged desktop startup failed; refusing to build an installer."
+}
+if (-not (Get-Content -LiteralPath $SmokeResult -Raw | ConvertFrom-Json).window_visible) {
+    throw "Packaged desktop did not open its main window."
 }
 
 if (-not $IsccPath) {
