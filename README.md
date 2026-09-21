@@ -4,16 +4,15 @@ Raspberry Pi VN-300 logging, live trackside monitoring, and offline vehicle tele
 
 ## Current status
 
-Last verified against GitHub and local development on **September 19, 2026**.
+Last verified against GitHub on **September 21, 2026**.
 
 | Component | Status |
 | --- | --- |
-| Published Windows app | **v0.15.0**, available from GitHub Releases; bundles Pi logger **v0.6.0**. |
-| Independent `pi-logger` branch | **v0.6.0**. |
-| Locally completed Windows app | **v0.15.2**, built, installed, and confirmed to open on the development laptop. Not yet published to GitHub Releases. |
-| Locally completed Pi logger | **v0.6.1**, with capture reliability improvements and CAN profile/DBC support, bundled in the local desktop build. Not yet published in the release channels above. |
+| Published Windows app | **v0.15.2**, available from GitHub Releases; bundles Pi logger **v0.6.1**. |
+| Independent `pi-logger` branch | **v0.6.1**, available as the branch ZIP. |
+| Validation status | 38 desktop/logger/packaging tests and 19 standalone Pi tests passed; physical Pi, adapter, and vehicle-bus validation remains open. |
 
-The sections describing local development below are a progress record, not features promised by the currently downloadable installer. This README update does not publish an app or install a logger on the Pi.
+The release contents below are published. Software test results do not replace validation on the target Pi, CAN adapter, or vehicle.
 
 ## Download and install the Windows app
 
@@ -52,11 +51,11 @@ The Pi installer backs up the existing installation, preserves an installed CAN 
 - [Installation and verification checklist](https://github.com/Alexcoster010/VN300_Team_Tools/blob/desktop-app/INSTALLER_UPDATE_CHECKLIST.md)
 - [Independent Pi logger source ZIP](https://github.com/Alexcoster010/VN300_Team_Tools/archive/refs/heads/pi-logger.zip)
 
-## Completed locally: logger reliability and CAN preparation
+## Logger reliability and CAN preparation
 
 Pi logger **v0.6.1** adds a dedicated serial capture thread and bounded queue, larger buffers, binary CRC validation and resynchronization, and health metrics for sample gaps, estimated missing samples, effective rate, and queue pressure. These changes reduce exposure to processing/storage delays; they do not guarantee loss-free capture under all hardware conditions.
 
-The local CAN implementation includes:
+The published CAN implementation includes:
 
 - `python-can` transport, `cantools` DBC decoding, and `pyusb` as a USB backend foundation.
 - JSON profiles for adapter interface, channel, bitrate, backend options, and decode-file paths.
@@ -68,13 +67,13 @@ CAN remains **disabled by default** and requires `--can-enable`. Selecting a pro
 
 **Still needed:** confirmed USB-to-CAN adapter details, any required Pi-compatible driver/SDK and permissions, verified bus bitrate/listen-only settings, actual vehicle DBC or MoTeC CSV definitions, and testing on the physical bus. Python libraries alone do not install vendor drivers. The supplied CSV map has no vehicle signal definitions; adapter settings and scaling must come from the actual hardware and ECU configuration.
 
-The local source includes `pi/CAN_SETUP.md` and `pi/can_profile.example.json`; those additions are not yet available on the published branches. No real-adapter or vehicle-bus validation is claimed here.
+The published `desktop-app` and `pi-logger` branches include `pi/CAN_SETUP.md` and `pi/can_profile.example.json`. No real-adapter or vehicle-bus validation is claimed here.
 
-## Completed locally: Windows startup repair
+## Windows startup repair
 
-The local **v0.15.2** build fixes a Qt startup failure caused by an incompatible ICU DLL collected from an unrelated tool on the build machine's `PATH`. The build now restricts DLL discovery and runs the frozen desktop executable to verify its main window opens before generating an installer.
+The published **v0.15.2** build fixes a Qt startup failure caused by an incompatible ICU DLL collected from an unrelated tool on the build machine's `PATH`. The build now restricts DLL discovery and runs the frozen desktop executable to verify its main window opens before generating an installer.
 
-The repaired app was installed and observed running responsively on the development laptop. **38 regression tests passed**, including CAN/DBC tests, virtual CAN capture, logger tests, and desktop/packaging checks. This is software validation, not Pi or CAN hardware validation. Use the release status table above to distinguish this local repair from the public download.
+The repaired app was installed and observed running responsively on the development laptop. **38 regression tests passed**, including CAN/DBC tests, virtual CAN capture, logger tests, and desktop/packaging checks. This is software validation, not Pi or CAN hardware validation. The GitHub release workflow completed successfully and published both installer names with SHA-256 checksum files.
 
 ## Analysis and engineering tools
 
@@ -94,6 +93,7 @@ These lap estimates are mathematical reference bounds subject to their model ass
 
 - [Beginner setup guide](https://github.com/Alexcoster010/VN300_Team_Tools/blob/desktop-app/ONE_PAGE_SETUP_GUIDE.md)
 - [Published version history](https://github.com/Alexcoster010/VN300_Team_Tools/blob/desktop-app/VERSION_HISTORY.md)
+- [Milestones and remaining goals](https://github.com/Alexcoster010/VN300_Team_Tools/blob/desktop-app/MILESTONES_AND_GOALS.md)
 - [Custom analysis roadmap](https://github.com/Alexcoster010/VN300_Team_Tools/blob/desktop-app/CUSTOM_ANALYSIS_WORKSPACE_ROADMAP.md)
 - [MoTeC integration planning report](https://github.com/Alexcoster010/VN300_Team_Tools/blob/desktop-app/MOTEC_CAN_TO_PI_INTEGRATION_REPORT.md)
 
