@@ -29,10 +29,13 @@ import re
 import shlex
 import shutil
 import signal
+import stat
 import subprocess
 import struct
+import tempfile
 import threading
 import time
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional
@@ -2591,7 +2594,7 @@ main{padding:18px;display:grid;gap:14px;grid-template-columns:repeat(12,1fr)}sec
 label{display:grid;gap:5px;color:#9ba3aa;font-size:12px}input,select,button,textarea{font:inherit;border-radius:4px;border:1px solid #3a4148;background:#101418;color:#f2f4f5;padding:8px}
 textarea{min-height:70px;resize:vertical}.span2{grid-column:span 2}.next-run{color:#9ba3aa;font-size:14px}
 button{background:#2563eb;border-color:#2563eb;cursor:pointer}.secondary{background:#30363d;border-color:#454c54}
-.save-button{display:inline-flex;align-items:center;justify-content:center;gap:8px}.save-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.download-button{display:inline-block;background:#2563eb;color:#fff;padding:8px 12px;border-radius:4px;text-decoration:none}.save-button{display:inline-flex;align-items:center;justify-content:center;gap:8px}.save-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .save-status{align-self:center;color:#9ba3aa;font-size:13px;min-height:20px}.save-status.saving{color:#d29922}.save-status.saved{color:#56d364}.save-status.error{color:#ff7b72}.save-status.dirty{color:#d29922}
 canvas{border:1px solid #333;border-radius:6px;background:#15191d;width:100%;height:260px}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px solid #30363d;padding:8px;text-align:left}th{color:#9ba3aa;font-weight:400}
@@ -2599,7 +2602,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 </style>
 </head>
 <body>
-<header><h1>VN300 Live</h1><span id="status" class="pill off">idle</span><span id="session"></span><span id="timingStatus"></span></header>
+<header><h1>VN300 Live</h1><a href="/api/download_logs" class="download-button">Download All Logs</a><span id="status" class="pill off">idle</span><span id="session"></span><span id="timingStatus"></span></header>
 <main>
 <section class="grid">
 <div class="tile"><div class="label">Speed</div><div id="speed" class="value">-- mph</div></div>
@@ -2760,6 +2763,57 @@ loadConfig(); loadRunMetadata(); setInterval(tick,250); tick();
 """
 
 
+def log_archive_roots():
+    """Return each distinct configured storage tree once, without following links."""
+    candidates = [("current", active_base_log_dir), ("pi-local", LOCAL_FALLBACK)]
+    roots = []
+    for label, path in candidates:
+        if path is None:
+            continue
+        path = Path(path)
+        if path.is_symlink() or not path.is_dir():
+            continue
+        resolved = path.resolve()
+        if any(resolved == other or resolved.is_relative_to(other) for _, other in roots):
+            continue
+        roots = [(name, other) for name, other in roots if not other.is_relative_to(resolved)]
+        roots.append((label, resolved))
+    return roots
+
+
+def write_log_archive(destination):
+    """Create a disk-backed archive; each file is capped at its open-time size."""
+    count = 0
+    with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+        for label, root in log_archive_roots():
+            for directory, dirs, files in os.walk(root, followlinks=False):
+                dirs[:] = sorted(name for name in dirs if not (Path(directory) / name).is_symlink())
+                for name in sorted(files):
+                    path = Path(directory) / name
+                    relative = path.relative_to(root)
+                    if (path.is_symlink() or not path.resolve().is_relative_to(root)
+                            or any(part in (".", "..") for part in relative.parts)):
+                        continue
+                    try:
+                        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+                    except FileNotFoundError:
+                        continue  # A run may rename a file while the archive is built.
+                    with os.fdopen(fd, "rb") as source:
+                        info = os.fstat(source.fileno())
+                        if not stat.S_ISREG(info.st_mode):
+                            continue
+                        remaining = info.st_size
+                        with archive.open(f"{label}/{relative.as_posix()}", "w", force_zip64=True) as target:
+                            while remaining:
+                                chunk = source.read(min(1024 * 1024, remaining))
+                                if not chunk:
+                                    break
+                                target.write(chunk)
+                                remaining -= len(chunk)
+                        count += 1
+    return count
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     def send_json(self, payload: dict, status: int = 200):
         body = json.dumps(payload).encode("utf-8")
@@ -2775,7 +2829,34 @@ class DashboardHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(length).decode("utf-8") if length else "{}"
         return json.loads(body)
 
+    def download_logs(self):
+        try:
+            with tempfile.TemporaryFile() as archive:
+                count = write_log_archive(archive)
+                if not count:
+                    self.send_json({"ok": False, "error": "No logs are available."}, status=404)
+                    return
+                size = archive.tell()
+                archive.seek(0)
+                filename = f"vn300_logs_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+                self.send_response(200)
+                self.send_header("Content-Type", "application/zip")
+                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                self.send_header("Content-Length", str(size))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                shutil.copyfileobj(archive, self.wfile, length=1024 * 1024)
+        except OSError as exc:
+            logging.warning("Could not download logs: %s", exc)
+            try:
+                self.send_json({"ok": False, "error": "Could not create log archive."}, status=500)
+            except (OSError, ValueError):
+                pass
+
     def do_GET(self):
+        if self.path == "/api/download_logs":
+            self.download_logs()
+            return
         if self.path == "/" or self.path.startswith("/index.html"):
             body = DASHBOARD_HTML.encode("utf-8")
             self.send_response(200)

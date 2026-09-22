@@ -1,10 +1,13 @@
 import csv
+import io
 import json
 import shutil
 import struct
 import sys
 import threading
 import time
+import tempfile
+import zipfile
 import types
 import unittest
 import urllib.error
@@ -360,6 +363,99 @@ class CaptureIoTests(unittest.TestCase):
         ascii_outputs.flush.assert_called_once_with(sync=False)
         binary_outputs.flush.assert_called_once_with(sync=False)
         fsync.assert_not_called()
+
+
+class DownloadLogsTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        root = Path(self.temp.name)
+        self.current = root / "current"
+        self.fallback = root / "fallback"
+        self.current.mkdir()
+        self.fallback.mkdir()
+        self.old_base = logger.active_base_log_dir
+        self.old_fallback = logger.LOCAL_FALLBACK
+        logger.active_base_log_dir = self.current
+        logger.LOCAL_FALLBACK = self.fallback
+        self.addCleanup(self.restore_roots)
+        self.server = logger.start_dashboard("127.0.0.1", 0)
+        self.addCleanup(self.stop_server)
+        self.url = f"http://127.0.0.1:{self.server.server_port}"
+
+    def restore_roots(self):
+        logger.active_base_log_dir = self.old_base
+        logger.LOCAL_FALLBACK = self.old_fallback
+
+    def stop_server(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def test_archive_contents_headers_and_dashboard_link(self):
+        (self.current / "VN300_BOOT_1").mkdir()
+        (self.current / "VN300_BOOT_1" / "run.csv").write_bytes(b"one")
+        (self.fallback / "old.csv").write_bytes(b"two")
+        with urllib.request.urlopen(self.url + "/", timeout=2) as response:
+            self.assertIn(b"Download All Logs", response.read())
+        with urllib.request.urlopen(self.url + "/api/download_logs", timeout=2) as response:
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers["Content-Type"], "application/zip")
+            self.assertIn("attachment; filename=", response.headers["Content-Disposition"])
+            body = response.read()
+            self.assertEqual(int(response.headers["Content-Length"]), len(body))
+        with zipfile.ZipFile(io.BytesIO(body)) as archive:
+            self.assertEqual(archive.namelist(), ["current/VN300_BOOT_1/run.csv", "pi-local/old.csv"])
+            self.assertEqual(archive.read("current/VN300_BOOT_1/run.csv"), b"one")
+            self.assertEqual(archive.read("pi-local/old.csv"), b"two")
+
+    def test_skips_symlinks_and_deduplicates_roots(self):
+        outside = Path(self.temp.name) / "secret.txt"
+        outside.write_text("secret")
+        (self.current / "safe.txt").write_text("safe")
+        (self.current / "link.txt").symlink_to(outside)
+        (self.current / "linked-dir").symlink_to(self.fallback, target_is_directory=True)
+        logger.LOCAL_FALLBACK = self.current
+        with urllib.request.urlopen(self.url + "/api/download_logs", timeout=2) as response:
+            with zipfile.ZipFile(io.BytesIO(response.read())) as archive:
+                self.assertEqual(archive.namelist(), ["current/safe.txt"])
+
+    def test_no_logs_and_archive_error(self):
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(self.url + "/api/download_logs", timeout=2)
+        self.assertEqual(caught.exception.code, 404)
+        self.assertIn("No logs", caught.exception.read().decode())
+        caught.exception.close()
+        (self.current / "one.txt").write_text("one")
+        with mock.patch.object(logger, "write_log_archive", side_effect=OSError("disk full")):
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                urllib.request.urlopen(self.url + "/api/download_logs", timeout=2)
+        self.assertEqual(caught.exception.code, 500)
+        caught.exception.close()
+
+    def test_polling_while_archive_is_built(self):
+        (self.current / "one.txt").write_text("one")
+        started = threading.Event()
+        release = threading.Event()
+        original = logger.write_log_archive
+        def slow_archive(destination):
+            started.set()
+            self.assertTrue(release.wait(2))
+            return original(destination)
+        result = []
+        def download():
+            with urllib.request.urlopen(self.url + "/api/download_logs", timeout=3) as response:
+                result.append(response.status)
+        with mock.patch.object(logger, "write_log_archive", side_effect=slow_archive):
+            worker = threading.Thread(target=download)
+            worker.start()
+            try:
+                self.assertTrue(started.wait(2))
+                with urllib.request.urlopen(self.url + "/api/latest", timeout=1) as response:
+                    self.assertEqual(response.status, 200)
+            finally:
+                release.set()
+                worker.join(3)
+        self.assertEqual(result, [200])
 
 
 if __name__ == "__main__":
