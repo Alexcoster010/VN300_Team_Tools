@@ -100,6 +100,10 @@ class IntegrityTests(unittest.TestCase):
         self.assertIn('Dir::Etc::sourcelist=/dev/null', installer)
         self.assertIn('Dir::Etc::sourceparts=/dev/null', installer)
         self.assertIn('Dir::State::lists=$APT_OFFLINE_LISTS', installer)
+        self.assertIn('RuntimeDirectory=vn300', installer)
+        self.assertIn('RuntimeDirectoryMode=0700', installer)
+        self.assertIn('WorkingDirectory=/run/vn300', installer)
+        self.assertNotIn('WorkingDirectory=$RELEASE', installer)
 
     def test_offline_apt_resolves_a_bundled_deb_without_repository_lists(self):
         if not all(shutil.which(cmd) for cmd in ('apt-get', 'dpkg-deb', 'dpkg')):

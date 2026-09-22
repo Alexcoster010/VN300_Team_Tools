@@ -76,6 +76,8 @@ It installs into `/opt/vn300/releases/<source-commit>` and points
 auto-discovery at 921600 baud, and has GPIO buttons enabled. Logging starts by
 the button/dashboard; boot does not begin recording automatically. CAN is
 opt-in. Existing logs, user profiles and mappings are never overwritten.
+Systemd gives the service a private, writable `/run/vn300` working directory
+for GPIO notification files; release files remain under `/opt/vn300/releases`.
 The root-owned release payload uses a venv with system packages visible solely
 for native lgpio; Python requirements are explicitly installed into the venv.
 

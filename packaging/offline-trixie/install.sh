@@ -64,7 +64,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=vectornav
-WorkingDirectory=$RELEASE
+RuntimeDirectory=vn300
+RuntimeDirectoryMode=0700
+WorkingDirectory=/run/vn300
 ExecStart=$RELEASE/venv/bin/python $RELEASE/vn300_button_logger.py --baud 921600
 Environment=GPIOZERO_PIN_FACTORY=lgpio
 Restart=on-failure
