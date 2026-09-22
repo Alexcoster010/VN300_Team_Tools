@@ -233,8 +233,12 @@ Current development versions include the start of passive MoTeC/dash CAN logging
 
 The selected USB adapter is a **Kvaser Leaf Light HS v2**. The Pi integration uses
 the Linux `kvaser_usb` driver, SocketCAN (`can0`), and python-can's `socketcan`
-backend. The vehicle CAN bitrate and MoTeC transmit profile still need to be
-confirmed before capture is enabled. See `pi/CAN_SETUP.md` for setup checks.
+backend. The confirmed vehicle CAN bitrate is **1,000,000 bit/s**; configure
+`can0` externally with Linux `ip link` at `1000000` before capture. MoTeC CAN
+signals use Motorola byte order, so actual CSV-map rows must set `byte_order` to
+`motorola`. CAN IDs, bit offsets under the logger's Motorola convention,
+signedness, scaling, and live-capture validation remain outstanding. See
+`pi/CAN_SETUP.md` for setup checks.
 
 Default service behavior:
 

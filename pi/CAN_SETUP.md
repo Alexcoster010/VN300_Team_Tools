@@ -3,7 +3,8 @@
 CAN is opt-in. The logger receives frames during a VN300 logging session and never
 calls `send`. Receiving alone does not guarantee hardware listen-only mode: configure
 that separately for the chosen adapter. No adapter driver or bitrate is selected
-automatically by the installer.
+automatically by the installer. The confirmed Kvaser Leaf Light HS v2 vehicle bus
+bitrate is **1,000,000 bit/s**.
 
 ## Dependencies
 
@@ -36,8 +37,7 @@ sudo modprobe kvaser_usb
 ip -details link show
 ```
 
-After the vehicle CAN bitrate is known, configure the interface (replace the
-example bitrate if necessary):
+Configure the interface at the confirmed vehicle bitrate, **1,000,000 bit/s**:
 
 ```sh
 sudo ip link set can0 down 2>/dev/null || true
@@ -71,13 +71,18 @@ adapter. `bus_options` passes backend-specific keyword arguments to python-can;
 it cannot override the connection fields or `ignore_config`. The logger ignores
 ambient python-can configuration to keep the selected connection reproducible.
 For SocketCAN, configure the actual network bitrate in Linux; a profile does not
-bring up or reconfigure the network interface.
+bring up or reconfigure the network interface. Keep the example SocketCAN profile's
+`bitrate` at `0`: `can0` is configured externally with `ip link` at `1000000`.
 
 Paths in `dbc` and `signal_map` are relative to the profile file. Use `null` for raw
 capture. Set `dbc` to a verified vehicle DBC for scaled numeric decoding (including
 multiplexing); DBC takes precedence over CSV. CSV uses the existing
-`motec_can_signal_map.csv` schema and bit conventions. Do not invent MoTeC IDs or
-scaling; use the actual ECU broadcast configuration. See
+`motec_can_signal_map.csv` schema and bit conventions. MoTeC signals use
+`motorola` in that schema's `byte_order` field. Do not populate production rows
+until their bit offsets have been translated and verified against the logger's
+Motorola start-bit convention; signedness, scaling, and live-capture values also
+remain to be confirmed. Do not invent MoTeC IDs or scaling; use the actual ECU
+broadcast configuration. See
 [cantools decoding documentation](https://cantools.readthedocs.io/en/stable/).
 
 ```sh
@@ -95,5 +100,7 @@ compatibility. Unknown IDs, error frames and remote frames remain raw-only. A
 malformed payload increments decode errors without stopping raw capture. Invalid
 databases or unavailable adapters appear as CAN errors while VN300 logging continues.
 
-Before vehicle use, verify adapter enumeration, actual bitrate/listen-only settings,
-raw traffic, known signal values, saved CSVs, and restart behavior on the real Pi.
+Before vehicle use, verify adapter enumeration, the configured 1,000,000 bit/s
+bitrate/listen-only settings, raw traffic, known signal values, saved CSVs, and
+restart behavior on the real Pi. Live capture must also validate Motorola
+within-byte bit numbering, signed values, and scaling.

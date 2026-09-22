@@ -34,12 +34,14 @@ Target channels:
 
 Needed from team:
 
-- CAN bitrate
+- [x] CAN bitrate: **1,000,000 bit/s** for the Kvaser Leaf Light HS v2 vehicle integration
 - available CAN bus
 - M130 transmit layout
 - dash transmit layout, if used
 - CAN IDs
-- signal scaling
+- [x] Signal byte order: **Motorola**; use `motorola` in the CSV map's `byte_order` field
+- bit offsets validated against the logger's Motorola start-bit convention
+- signed values and scaling validated from live capture
 - signal units
 - CAN adapter choice: **Kvaser Leaf Light HS v2 selected**
 
@@ -209,6 +211,8 @@ Add warning states:
 
 - [ ] Confirm MoTeC/dash CAN transmit options.
 - [x] Choose Pi CAN hardware: Kvaser Leaf Light HS v2 connected by USB.
+- [x] Confirm vehicle CAN bitrate: 1,000,000 bit/s.
+- [x] Confirm MoTeC CAN byte order: Motorola.
 - [ ] Confirm the Pi loads `kvaser_usb` and exposes the adapter as `can0`.
 - [ ] Use `candump can0` to prove CAN frames are visible.
 - [x] Create first CSV signal map format.

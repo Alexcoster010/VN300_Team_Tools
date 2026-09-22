@@ -69,8 +69,11 @@ and signal definitions are ready.
 - [x] Pi package includes `python-can`, `cantools`, and `pyusb` dependencies,
   profile/template files, CAN setup documentation, and automated profile,
   DBC, virtual-CAN, and packaging coverage documented for `v0.15.1`.
-- [x] CAN remains opt-in; the service does not enable it by default and no
-  vehicle-specific message IDs, scaling, bitrate, or adapter driver is claimed.
+- [x] CAN remains opt-in; the service does not enable it by default. The selected
+  Kvaser Leaf Light HS v2 vehicle integration has a confirmed **1,000,000 bit/s**
+  bus bitrate and Motorola byte order for signal-map `byte_order` values.
+- [ ] Vehicle-specific message IDs, Motorola start-bit translations, signedness,
+  scaling, and live-capture decoding remain unconfirmed.
 
 ## Software validation completed
 
@@ -84,7 +87,9 @@ and signal definitions are ready.
 - Pi validation is still required on the target Pi, with the actual VN-300,
   GPIO buttons, storage destination, service restart, and offline update path.
 - CAN validation is still required with the selected adapter, its driver,
-  real bus bitrate, listen-only configuration, and known ECU/dash signals.
+  configured 1,000,000 bit/s `can0` interface, listen-only configuration, and
+  known ECU/dash signals. Live capture must validate Motorola within-byte bit
+  numbering, signed values, and scaling.
 - Vehicle validation is still required before relying on timing gates, decoded
   CAN values, steering measurements, or analysis conclusions for setup changes.
 
