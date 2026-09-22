@@ -429,7 +429,15 @@ class DownloadLogsTests(unittest.TestCase):
         with mock.patch.object(logger, "write_log_archive", side_effect=OSError("disk full")):
             with self.assertRaises(urllib.error.HTTPError) as caught:
                 urllib.request.urlopen(self.url + "/api/download_logs", timeout=2)
-        self.assertEqual(caught.exception.code, 500)
+        self.assertEqual(caught.exception.code, 507)
+        caught.exception.close()
+
+    def test_archive_aborts_when_temporary_storage_is_low(self):
+        (self.current / "one.txt").write_text("one")
+        with mock.patch.object(logger.shutil, "disk_usage", return_value=types.SimpleNamespace(free=0)):
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                urllib.request.urlopen(self.url + "/api/download_logs", timeout=2)
+        self.assertEqual(caught.exception.code, 507)
         caught.exception.close()
 
     def test_polling_while_archive_is_built(self):
@@ -452,6 +460,10 @@ class DownloadLogsTests(unittest.TestCase):
                 self.assertTrue(started.wait(2))
                 with urllib.request.urlopen(self.url + "/api/latest", timeout=1) as response:
                     self.assertEqual(response.status, 200)
+                with self.assertRaises(urllib.error.HTTPError) as caught:
+                    urllib.request.urlopen(self.url + "/api/download_logs", timeout=1)
+                self.assertEqual(caught.exception.code, 429)
+                caught.exception.close()
             finally:
                 release.set()
                 worker.join(3)

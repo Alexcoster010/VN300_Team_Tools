@@ -2602,7 +2602,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 </style>
 </head>
 <body>
-<header><h1>VN300 Live</h1><a href="/api/download_logs" class="download-button">Download All Logs</a><span id="status" class="pill off">idle</span><span id="session"></span><span id="timingStatus"></span></header>
+<header><h1>VN300 Live</h1><a href="/api/download_logs" target="_blank" class="download-button">Download All Logs</a><span id="status" class="pill off">idle</span><span id="session"></span><span id="timingStatus"></span></header>
 <main>
 <section class="grid">
 <div class="tile"><div class="label">Speed</div><div id="speed" class="value">-- mph</div></div>
@@ -2781,29 +2781,58 @@ def log_archive_roots():
     return roots
 
 
+archive_lock = threading.Lock()
+ARCHIVE_FREE_SPACE_RESERVE_BYTES = 250 * 1024 * 1024
+
+
+class SpaceCheckedArchive:
+    """Limit temporary ZIP growth to the space currently safe to use."""
+    def __init__(self, file, directory):
+        self.file = file
+        self.directory = directory
+
+    def write(self, data):
+        if shutil.disk_usage(self.directory).free < len(data) + ARCHIVE_FREE_SPACE_RESERVE_BYTES:
+            raise OSError("Insufficient temporary storage for log archive")
+        return self.file.write(data)
+
+    def tell(self):
+        return self.file.tell()
+
+    def seek(self, *args):
+        return self.file.seek(*args)
+
+    def flush(self):
+        return self.file.flush()
+
+
 def write_log_archive(destination):
-    """Create a disk-backed archive; each file is capped at its open-time size."""
+    """Archive regular files through directory fds; cap each at its open-time size."""
     count = 0
-    with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
-        for label, root in log_archive_roots():
-            for directory, dirs, files in os.walk(root, followlinks=False):
-                dirs[:] = sorted(name for name in dirs if not (Path(directory) / name).is_symlink())
-                for name in sorted(files):
-                    path = Path(directory) / name
-                    relative = path.relative_to(root)
-                    if (path.is_symlink() or not path.resolve().is_relative_to(root)
-                            or any(part in (".", "..") for part in relative.parts)):
-                        continue
+    dir_flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
+    file_flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+
+    def visit(archive, directory_fd, prefix):
+        nonlocal count
+        for name in sorted(os.listdir(directory_fd)):
+            if name in (".", "..", "") or "/" in name or "\\" in name:
+                continue
+            try:
+                info = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+                if stat.S_ISDIR(info.st_mode):
+                    child_fd = os.open(name, dir_flags, dir_fd=directory_fd)
                     try:
-                        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
-                    except FileNotFoundError:
-                        continue  # A run may rename a file while the archive is built.
+                        visit(archive, child_fd, f"{prefix}/{name}")
+                    finally:
+                        os.close(child_fd)
+                elif stat.S_ISREG(info.st_mode):
+                    fd = os.open(name, file_flags, dir_fd=directory_fd)
                     with os.fdopen(fd, "rb") as source:
-                        info = os.fstat(source.fileno())
-                        if not stat.S_ISREG(info.st_mode):
+                        opened = os.fstat(source.fileno())
+                        if not stat.S_ISREG(opened.st_mode):
                             continue
-                        remaining = info.st_size
-                        with archive.open(f"{label}/{relative.as_posix()}", "w", force_zip64=True) as target:
+                        remaining = opened.st_size
+                        with archive.open(f"{prefix}/{name}", "w", force_zip64=True) as target:
                             while remaining:
                                 chunk = source.read(min(1024 * 1024, remaining))
                                 if not chunk:
@@ -2811,6 +2840,19 @@ def write_log_archive(destination):
                                 target.write(chunk)
                                 remaining -= len(chunk)
                         count += 1
+            except (FileNotFoundError, NotADirectoryError, IsADirectoryError, OSError) as exc:
+                if isinstance(exc, OSError) and exc.errno not in (None, 2, 20, 21, 40):
+                    raise
+                # A run may rename files, or a directory may become a symlink.
+                continue
+
+    with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+        for label, root in log_archive_roots():
+            root_fd = os.open(root, dir_flags)
+            try:
+                visit(archive, root_fd, label)
+            finally:
+                os.close(root_fd)
     return count
 
 
@@ -2830,9 +2872,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         return json.loads(body)
 
     def download_logs(self):
+        if not archive_lock.acquire(blocking=False):
+            self.send_json({"ok": False, "error": "A log download is already being prepared."}, status=429)
+            return
         try:
-            with tempfile.TemporaryFile() as archive:
-                count = write_log_archive(archive)
+            temp_directory = tempfile.gettempdir()
+            with tempfile.TemporaryFile(dir=temp_directory) as archive:
+                count = write_log_archive(SpaceCheckedArchive(archive, temp_directory))
                 if not count:
                     self.send_json({"ok": False, "error": "No logs are available."}, status=404)
                     return
@@ -2849,9 +2895,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except OSError as exc:
             logging.warning("Could not download logs: %s", exc)
             try:
-                self.send_json({"ok": False, "error": "Could not create log archive."}, status=500)
+                self.send_json({"ok": False, "error": "Could not create log archive; check available temporary storage."}, status=507)
             except (OSError, ValueError):
                 pass
+        finally:
+            archive_lock.release()
 
     def do_GET(self):
         if self.path == "/api/download_logs":
