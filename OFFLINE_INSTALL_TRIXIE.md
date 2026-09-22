@@ -42,7 +42,7 @@ Replace the hostname and login below with your Imager settings. `ssh` and `scp`
 are Windows OpenSSH commands. Do not type a password into a script.
 
 ```powershell
-Set-Location 'C:\Users\14694\Documents\ChatGPT\Telemetry'
+Set-Location 'C:\Users\14694\Documents\ChatGPT\Telemetry\dist'
 $Zip = 'VN300_Offline_Trixie_arm64_py313.zip'
 $Pi = 'yourlogin@raspberrypi.local'
 Get-FileHash -Algorithm SHA256 $Zip
