@@ -1,0 +1,7 @@
+{
+  "target": {"kernel": "6.18.50+rpt-rpi-v8", "architecture": "arm64", "header_version": "1:6.18.50-1+rpt1", "usb_id": "0bfd:0120", "bitrate": 1000000},
+  "artifacts": [
+    {"path": "source/socketcan_kvaser_drivers_1_23_358.tar.gz", "url": "https://pim.kvaser.com/var/assets/Product_Resources/7330130982192/1.23.358/socketcan_kvaser_drivers_1_23_358.tar.gz", "sha256": "9807205d4f983857dd5984b4edfad23bcd346bb3340cf5c1f7924e9c4e05a09a", "md5": "4960f40faa8b80bac0922d16647778f8", "package": "Kvaser SocketCAN driver", "version": "1.23.358"},
+    {"path": "debs/make_4.4.1-2_arm64.deb", "url": "https://deb.debian.org/debian/pool/main/m/make-dfsg/make_4.4.1-2_arm64.deb", "sha256": "043219839669c431def9bb410c4a827f115ee5bf377469d55c4ed905f81f73be", "package": "make", "version": "4.4.1-2", "architecture": "arm64", "depends": "libc6 (>= 2.38)"}
+  ]
+}

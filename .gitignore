@@ -12,3 +12,6 @@ build/
 dist/
 VN300_Offline_*.zip
 VN300_Offline_*.zip.sha256
+
+VN300_Kvaser_*.zip
+VN300_Kvaser_*.zip.sha256
