@@ -67,8 +67,10 @@ sudo sh install.sh
 sudo reboot
 ```
 
-The installer uses only local `.deb` and `.whl` files: apt has `--no-download`,
-pip has `--no-index`, hashes are mandatory, and no build toolchain is required.
+The installer uses only local `.deb` and `.whl` files: apt uses an empty package
+list and `--no-download` so stale online repository indexes cannot override a
+bundled package; pip has `--no-index`, hashes are mandatory, and no build
+toolchain is required.
 It installs into `/opt/vn300/releases/<source-commit>` and points
 `/opt/vn300/current` at that release. The service runs as vectornav, uses serial
 auto-discovery at 921600 baud, and has GPIO buttons enabled. Logging starts by

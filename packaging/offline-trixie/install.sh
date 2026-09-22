@@ -18,11 +18,19 @@ done
 COMMIT=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_commit"])' "$ROOT/BUILD.json")
 RELEASE=/opt/vn300/releases/$COMMIT
 [ ! -e "$RELEASE" ] || fail "Release $RELEASE already exists. Inspect it before reinstalling; no installation changes made."
+# Ignore stale online repository indexes. APT may otherwise select a repository
+# archive even when the same package/version is present in this bundle.
+# Installed packages remain visible through dpkg's status database.
+APT_OFFLINE_LISTS=$(mktemp -d)
+trap 'rm -rf -- "$APT_OFFLINE_LISTS"' EXIT
+set -- -o Dir::Etc::sourcelist=/dev/null \
+    -o Dir::Etc::sourceparts=/dev/null \
+    -o "Dir::State::lists=$APT_OFFLINE_LISTS"
 # All transitive native dependencies beyond stock Python/libc6/libudev1 are bundled.
 # Simulation catches missing baseline packages without modifying the system.
-apt-get --simulate --no-download --no-install-recommends --no-remove install "$ROOT"/debs/*.deb || fail 'Offline dependency preflight failed. Required baseline: Trixie python3 3.13.5, libc6 >=2.38, libudev1 >=183. No network fallback is permitted.'
+apt-get "$@" --simulate --no-download --no-install-recommends --no-remove install "$ROOT"/debs/*.deb || fail 'Offline dependency preflight failed. Required baseline: Trixie python3 3.13.5, libc6 >=2.38, libudev1 >=183. No network fallback is permitted.'
 visudo -cf "$ROOT/pi/vn300-shutdown-sudoers"
-apt-get -y --no-download --no-install-recommends --no-remove install "$ROOT"/debs/*.deb
+apt-get "$@" -y --no-download --no-install-recommends --no-remove install "$ROOT"/debs/*.deb
 id vectornav >/dev/null 2>&1 || useradd --create-home --user-group --shell /bin/bash vectornav
 HOME_DIR=$(getent passwd vectornav | cut -d: -f6)
 [ "$HOME_DIR" = /home/vectornav ] || fail 'Existing vectornav user must have home /home/vectornav; refusing to change its account.'
