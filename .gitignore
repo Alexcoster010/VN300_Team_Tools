@@ -10,3 +10,5 @@ analysis_output/desktop_runs/
 .venv-build/
 build/
 dist/
+VN300_Offline_*.zip
+VN300_Offline_*.zip.sha256

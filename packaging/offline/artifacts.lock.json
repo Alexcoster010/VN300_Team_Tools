@@ -1,0 +1,285 @@
+{
+  "target": {
+    "os": "bookworm",
+    "architecture": "arm64",
+    "python": "3.11"
+  },
+  "artifacts": [
+    {
+      "path": "wheels/argparse_addons-0.12.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/c1/41/629e70c4cb32c1ddb88de970cd174bbb43d8241c8e07bdffc62a8280297c/argparse_addons-0.12.0-py3-none-any.whl",
+      "sha256": "48b70ecd719054fcb0d7e6f25a1fecc13607aac61d446e83f47d211b4ead0d61",
+      "package": "argparse-addons",
+      "version": "0.12.0",
+      "requires": []
+    },
+    {
+      "path": "wheels/bitstruct-8.23.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+      "url": "https://files.pythonhosted.org/packages/49/ad/0bb7415584033109dc5564a11f0a1c1618c11bbf14c9f61f4ee670696673/bitstruct-8.23.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "cdb634fe38d322ec4832de5163ac4cd7525f5478ece19657ba0ce5839230bedd",
+      "package": "bitstruct",
+      "version": "8.23.0",
+      "requires": []
+    },
+    {
+      "path": "wheels/cantools-40.7.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/f5/4c/46355057aaf5e6e0d900c031d2af95c61ca901753ec45778cc7bd7cdbb0d/cantools-40.7.1-py3-none-any.whl",
+      "sha256": "a68159cce229581f77aad0b906938682f29ecc9164248c997af80f1d49c073c9",
+      "package": "cantools",
+      "version": "40.7.1",
+      "requires": [
+        "bitstruct>=8.16.1",
+        "python-can>=4.6.0",
+        "textparser>=0.21.1",
+        "diskcache",
+        "argparse_addons",
+        "crccheck",
+        "mypy; extra == \"dev\"",
+        "pipx; extra == \"dev\"",
+        "ruff; extra == \"dev\"",
+        "tox; extra == \"dev\"",
+        "matplotlib; extra == \"plot\"",
+        "windows-curses; (platform_system == \"Windows\" and platform_python_implementation == \"CPython\") and extra == \"windows-all\""
+      ]
+    },
+    {
+      "path": "wheels/colorzero-2.0-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/7e/a6/ddd0f130e44a7593ac6c55aa93f6e256d2270fd88e9d1b64ab7f22ab8fde/colorzero-2.0-py2.py3-none-any.whl",
+      "sha256": "0e60d743a6b8071498a56465f7719c96a5e92928f858bab1be2a0d606c9aa0f8",
+      "package": "colorzero",
+      "version": "2.0",
+      "requires": [
+        "setuptools",
+        "pkginfo ; extra == 'doc'",
+        "sphinx ; extra == 'doc'",
+        "sphinx-rtd-theme ; extra == 'doc'",
+        "pytest ; extra == 'test'",
+        "pytest-cov ; extra == 'test'"
+      ]
+    },
+    {
+      "path": "wheels/crccheck-1.3.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/01/b5/68a9054be852e61f31de1be4e8d95802646b93344ce17c2380a1748706fa/crccheck-1.3.1-py3-none-any.whl",
+      "sha256": "1680c9a7bb1ca4bec45fa19b8ca64319f10d2ce4eb8b0d25d51cb99a20ca0108",
+      "package": "crccheck",
+      "version": "1.3.1",
+      "requires": []
+    },
+    {
+      "path": "wheels/diskcache-5.6.3-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/3f/27/4570e78fc0bf5ea0ca45eb1de3818a23787af9b390c0b0a0033a1b8236f9/diskcache-5.6.3-py3-none-any.whl",
+      "sha256": "5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19",
+      "package": "diskcache",
+      "version": "5.6.3",
+      "requires": []
+    },
+    {
+      "path": "wheels/gpiozero-2.0.1.post3-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/45/cb/ec5917b454b2e82874769a348dc74cfcec5b447bf1061c827edea9702451/gpiozero-2.0.1.post3-py3-none-any.whl",
+      "sha256": "d491734803a9bc6036602e6b8bbd73fb25c33da88de0fcd11a40e890b8bc2d3b",
+      "package": "gpiozero",
+      "version": "2.0.1.post3",
+      "requires": [
+        "colorzero",
+        "importlib-metadata ~=4.6 ; python_version < \"3.10\"",
+        "importlib-resources ~=5.0 ; python_version < \"3.10\"",
+        "sphinx-rtd-theme >=1.0 ; extra == 'doc'",
+        "sphinx >=4.0 ; extra == 'doc'",
+        "pytest ; extra == 'test'",
+        "pytest-cov ; extra == 'test'"
+      ]
+    },
+    {
+      "path": "wheels/packaging-26.3-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "package": "packaging",
+      "version": "26.3",
+      "requires": []
+    },
+    {
+      "path": "wheels/pip-25.3-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/44/3c/d717024885424591d5376220b5e836c2d5293ce2011523c9de23ff7bf068/pip-25.3-py3-none-any.whl",
+      "sha256": "9655943313a94722b7774661c21049070f6bbb0a1516bf02f7c8d5d9201514cd",
+      "package": "pip",
+      "version": "25.3",
+      "requires": []
+    },
+    {
+      "path": "wheels/pyserial-3.5-py2.py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/07/bc/587a445451b253b285629263eb51c2d8e9bcea4fc97826266d186f96f558/pyserial-3.5-py2.py3-none-any.whl",
+      "sha256": "c4451db6ba391ca6ca299fb3ec7bae67a5c55dde170964c7a14ceefec02f2cf0",
+      "package": "pyserial",
+      "version": "3.5",
+      "requires": [
+        "hidapi; extra == 'cp2110'"
+      ]
+    },
+    {
+      "path": "wheels/python_can-4.6.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/58/34/e4ac153acdbcfba7f48bc73d6586a74c91cc919fcc2e29acbf81be329d1f/python_can-4.6.1-py3-none-any.whl",
+      "sha256": "17f95255868a95108dcfcb90565a684dad32d5a3ebb35afd14f739e18c84ff6c",
+      "package": "python-can",
+      "version": "4.6.1",
+      "requires": [
+        "wrapt~=1.10",
+        "packaging>=23.1",
+        "typing_extensions>=3.10.0.0",
+        "pywin32>=305; (platform_system == \"Windows\" and platform_python_implementation == \"CPython\") and extra == \"pywin32\"",
+        "pyserial>=3.0; extra == \"seeedstudio\"",
+        "pyserial~=3.0; extra == \"serial\"",
+        "filelock; extra == \"neovi\"",
+        "python-ics>=2.12; extra == \"neovi\"",
+        "canalystii>=0.1.0; extra == \"canalystii\"",
+        "cantact>=0.0.7; extra == \"cantact\"",
+        "python-can-cvector; extra == \"cvector\"",
+        "gs-usb>=0.2.1; extra == \"gs-usb\"",
+        "nixnet>=0.3.2; extra == \"nixnet\"",
+        "uptime~=3.0.1; extra == \"pcan\"",
+        "python-can-remote; extra == \"remote\"",
+        "python-can-sontheim>=0.1.2; extra == \"sontheim\"",
+        "python-can-canine>=0.2.2; extra == \"canine\"",
+        "zlgcan; extra == \"zlgcan\"",
+        "python-can-candle>=1.2.2; extra == \"candle\"",
+        "windows-curses; (platform_system == \"Windows\" and platform_python_implementation == \"CPython\") and extra == \"viewer\"",
+        "asammdf>=6.0.0; extra == \"mf4\"",
+        "msgpack~=1.1.0; extra == \"multicast\""
+      ]
+    },
+    {
+      "path": "wheels/pyusb-1.3.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/28/b8/27e6312e86408a44fe16bd28ee12dd98608b39f7e7e57884a24e8f29b573/pyusb-1.3.1-py3-none-any.whl",
+      "sha256": "bf9b754557af4717fe80c2b07cc2b923a9151f5c08d17bdb5345dac09d6a0430",
+      "package": "pyusb",
+      "version": "1.3.1",
+      "requires": []
+    },
+    {
+      "path": "wheels/setuptools-84.0.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl",
+      "sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+      "package": "setuptools",
+      "version": "84.0.0",
+      "requires": [
+        "pytest!=8.1.*,>=6; extra == \"test\"",
+        "virtualenv>=13.0.0; extra == \"test\"",
+        "wheel>=0.44.0; extra == \"test\"",
+        "pip>=19.1; extra == \"test\"",
+        "packaging>=24.2; extra == \"test\"",
+        "jaraco.envs>=2.2; extra == \"test\"",
+        "pytest-xdist>=3; extra == \"test\"",
+        "jaraco.path>=3.7.2; extra == \"test\"",
+        "build[virtualenv]>=1.0.3; extra == \"test\"",
+        "filelock>=3.4.0; extra == \"test\"",
+        "ini2toml[lite]>=0.14; extra == \"test\"",
+        "tomli-w>=1.0.0; extra == \"test\"",
+        "pytest-timeout; extra == \"test\"",
+        "pytest-perf; sys_platform != \"cygwin\" and extra == \"test\"",
+        "jaraco.develop>=7.21; (python_version >= \"3.9\" and sys_platform != \"cygwin\") and extra == \"test\"",
+        "pytest-home>=0.5; extra == \"test\"",
+        "pytest-subprocess; extra == \"test\"",
+        "pyproject-hooks!=1.1; extra == \"test\"",
+        "jaraco.test>=5.5; extra == \"test\"",
+        "sphinx>=3.5; extra == \"doc\"",
+        "jaraco.packaging>=9.3; extra == \"doc\"",
+        "rst.linker>=1.9; extra == \"doc\"",
+        "furo; extra == \"doc\"",
+        "sphinx-lint; extra == \"doc\"",
+        "jaraco.tidelift>=1.4; extra == \"doc\"",
+        "pygments-github-lexers==0.0.5; extra == \"doc\"",
+        "sphinx-favicon; extra == \"doc\"",
+        "sphinx-inline-tabs; extra == \"doc\"",
+        "sphinx-reredirects; extra == \"doc\"",
+        "sphinxcontrib-towncrier; extra == \"doc\"",
+        "sphinx-notfound-page<2,>=1; extra == \"doc\"",
+        "pyproject-hooks!=1.1; extra == \"doc\"",
+        "towncrier<24.7; extra == \"doc\"",
+        "packaging>=24.2; extra == \"core\"",
+        "more_itertools>=8.8; extra == \"core\"",
+        "jaraco.text>=3.7; extra == \"core\"",
+        "importlib_metadata>=6; python_version < \"3.10\" and extra == \"core\"",
+        "tomli>=2.0.1; python_version < \"3.11\" and extra == \"core\"",
+        "wheel>=0.43.0; extra == \"core\"",
+        "jaraco.functools>=4; extra == \"core\"",
+        "more_itertools; extra == \"core\"",
+        "pytest-checkdocs>=2.14; extra == \"check\"",
+        "pytest-ruff>=0.2.1; sys_platform != \"cygwin\" and extra == \"check\"",
+        "ruff>=0.13.0; sys_platform != \"cygwin\" and extra == \"check\"",
+        "pytest-cov; extra == \"cover\"",
+        "pytest-enabler>=3.4; extra == \"enabler\"",
+        "pytest-mypy>=1.0.1; platform_python_implementation != \"PyPy\" and extra == \"type\"",
+        "mypy==1.18.*; extra == \"type\"",
+        "importlib_metadata>=7.0.2; python_version < \"3.10\" and extra == \"type\"",
+        "jaraco.develop>=7.21; sys_platform != \"cygwin\" and extra == \"type\""
+      ]
+    },
+    {
+      "path": "wheels/textparser-0.26.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/7d/cc/812fe3ae07a1917bb4cfb6dec5f6fc6e8825d65b4e77cd25bc52cd59230f/textparser-0.26.2-py3-none-any.whl",
+      "sha256": "e14ec4fd58d3515d897196a71f4ccf8d354f5c5c6b87910571b4d250de073c4b",
+      "package": "textparser",
+      "version": "0.26.2",
+      "requires": [
+        "lark-parser; extra == \"examples\"",
+        "pyparsing; extra == \"examples\"",
+        "parsita; extra == \"examples\"",
+        "funcparserlib; extra == \"examples\"",
+        "parsy; extra == \"examples\"",
+        "parsimonious; extra == \"examples\"",
+        "textx; extra == \"examples\"",
+        "mypy>=2.1; extra == \"test\"",
+        "ruff>=0.15.16; extra == \"test\"",
+        "pytest>=9.0; extra == \"test\"",
+        "coverage>=7.14; extra == \"test\""
+      ]
+    },
+    {
+      "path": "wheels/typing_extensions-4.16.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "package": "typing_extensions",
+      "version": "4.16.0",
+      "requires": []
+    },
+    {
+      "path": "wheels/wrapt-1.17.3-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/1f/f6/a933bd70f98e9cf3e08167fc5cd7aaaca49147e48411c0bd5ae701bb2194/wrapt-1.17.3-py3-none-any.whl",
+      "sha256": "7171ae35d2c33d326ac19dd8facb1e82e5fd04ef8c6c0e394d7af55a55051c22",
+      "package": "wrapt",
+      "version": "1.17.3",
+      "requires": []
+    },
+    {
+      "path": "debs/can-utils_2020.11.0-1_arm64.deb",
+      "url": "https://deb.debian.org/debian/pool/main/c/can-utils/can-utils_2020.11.0-1_arm64.deb",
+      "sha256": "f54269ea69e70dfecaf7f32fcaff375c2ce44918b7eb6f3ce37f05ef725525f8",
+      "package": "can-utils",
+      "version": "2020.11.0-1",
+      "requires": "libc6 (>= 2.17)"
+    },
+    {
+      "path": "debs/libusb-1.0-0_1.0.26-1_arm64.deb",
+      "url": "https://deb.debian.org/debian/pool/main/libu/libusb-1.0/libusb-1.0-0_1.0.26-1_arm64.deb",
+      "sha256": "e0648086b231c9204514d31480d517cb1b51e301ac39e69335a67d01ec785608",
+      "package": "libusb-1.0-0",
+      "version": "2:1.0.26-1",
+      "requires": "libc6 (>= 2.17), libudev1 (>= 183)"
+    },
+    {
+      "path": "debs/liblgpio1_0.2.2-1~rpt1_arm64.deb",
+      "url": "https://archive.raspberrypi.com/debian/pool/main/l/lg-gpio/liblgpio1_0.2.2-1~rpt1_arm64.deb",
+      "sha256": "404d1253b33e3d2c627d8c928d213ba6848315e50f3721073a2824e91c6f25f9",
+      "package": "liblgpio1",
+      "version": "0.2.2-1~rpt1",
+      "requires": "libc6 (>= 2.34)"
+    },
+    {
+      "path": "debs/python3-lgpio_0.2.2-1~rpt1_arm64.deb",
+      "url": "https://archive.raspberrypi.com/debian/pool/main/l/lg-gpio/python3-lgpio_0.2.2-1~rpt1_arm64.deb",
+      "sha256": "4ab1269be0c9d392103484cca713cb2853a9185bbc1a6f53c02e983ed8c00f23",
+      "package": "python3-lgpio",
+      "version": "0.2.2-1~rpt1",
+      "requires": "liblgpio1 (= 0.2.2-1~rpt1), python3 (<< 3.12), python3 (>= 3.11~), python3:any, libc6 (>= 2.17)"
+    }
+  ]
+}
