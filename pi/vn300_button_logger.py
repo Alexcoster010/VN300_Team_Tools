@@ -2764,20 +2764,17 @@ loadConfig(); loadRunMetadata(); setInterval(tick,250); tick();
 
 
 def log_archive_roots():
-    """Return each distinct configured storage tree once, without following links."""
+    """Return distinct lexical storage paths; opening each path checks its links."""
     candidates = [("current", active_base_log_dir), ("pi-local", LOCAL_FALLBACK)]
     roots = []
     for label, path in candidates:
         if path is None:
             continue
-        path = Path(path)
-        if path.is_symlink() or not path.is_dir():
+        path = Path(os.path.abspath(path))
+        if any(path == other or path.is_relative_to(other) for _, other in roots):
             continue
-        resolved = path.resolve()
-        if any(resolved == other or resolved.is_relative_to(other) for _, other in roots):
-            continue
-        roots = [(name, other) for name, other in roots if not other.is_relative_to(resolved)]
-        roots.append((label, resolved))
+        roots = [(name, other) for name, other in roots if not other.is_relative_to(path)]
+        roots.append((label, path))
     return roots
 
 
@@ -2809,8 +2806,21 @@ class SpaceCheckedArchive:
 def write_log_archive(destination):
     """Archive regular files through directory fds; cap each at its open-time size."""
     count = 0
-    dir_flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
-    file_flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    dir_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    file_flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
+
+    def open_root(path):
+        """Walk every component with O_NOFOLLOW, holding each parent while opening its child."""
+        root_fd = os.open("/", dir_flags)
+        try:
+            for part in path.parts[1:]:
+                child_fd = os.open(part, dir_flags, dir_fd=root_fd)
+                os.close(root_fd)
+                root_fd = child_fd
+            return root_fd
+        except BaseException:
+            os.close(root_fd)
+            raise
 
     def visit(archive, directory_fd, prefix):
         nonlocal count
@@ -2848,7 +2858,12 @@ def write_log_archive(destination):
 
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
         for label, root in log_archive_roots():
-            root_fd = os.open(root, dir_flags)
+            try:
+                root_fd = open_root(root)
+            except OSError:
+                # A configured device may be absent, or a component may have
+                # been replaced by a link while this archive was being built.
+                continue
             try:
                 visit(archive, root_fd, label)
             finally:

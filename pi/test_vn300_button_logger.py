@@ -419,6 +419,40 @@ class DownloadLogsTests(unittest.TestCase):
             with zipfile.ZipFile(io.BytesIO(response.read())) as archive:
                 self.assertEqual(archive.namelist(), ["current/safe.txt"])
 
+    def test_root_swap_to_symlink_cannot_archive_outside_tree(self):
+        outside = Path(self.temp.name) / "outside"
+        outside.mkdir()
+        (outside / "secret.txt").write_text("secret")
+        (self.current / "run.csv").write_text("run")
+        (self.fallback / "old.csv").write_text("old")
+        original_roots = logger.log_archive_roots
+
+        def swap_after_root_selection():
+            roots = original_roots()
+            self.current.rename(Path(self.temp.name) / "former-current")
+            self.current.symlink_to(outside, target_is_directory=True)
+            return roots
+
+        output = io.BytesIO()
+        with mock.patch.object(logger, "log_archive_roots", side_effect=swap_after_root_selection):
+            self.assertEqual(logger.write_log_archive(output), 1)
+        with zipfile.ZipFile(output) as archive:
+            self.assertEqual(archive.namelist(), ["pi-local/old.csv"])
+
+    def test_symlinked_root_ancestor_cannot_archive_outside_tree(self):
+        outside = Path(self.temp.name) / "outside"
+        outside.mkdir()
+        (outside / "secret.txt").write_text("secret")
+        linked_parent = Path(self.temp.name) / "linked-parent"
+        linked_parent.symlink_to(outside, target_is_directory=True)
+        logger.active_base_log_dir = linked_parent
+        (self.fallback / "old.csv").write_text("old")
+
+        output = io.BytesIO()
+        self.assertEqual(logger.write_log_archive(output), 1)
+        with zipfile.ZipFile(output) as archive:
+            self.assertEqual(archive.namelist(), ["pi-local/old.csv"])
+
     def test_no_logs_and_archive_error(self):
         with self.assertRaises(urllib.error.HTTPError) as caught:
             urllib.request.urlopen(self.url + "/api/download_logs", timeout=2)
