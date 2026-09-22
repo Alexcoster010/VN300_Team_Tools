@@ -231,6 +231,11 @@ The analyzer folder import prefers `*_BINARY.csv` over a matching `*_VNINS.csv` 
 
 Current development versions include the start of passive MoTeC/dash CAN logging. It is disabled by default.
 
+The selected USB adapter is a **Kvaser Leaf Light HS v2**. The Pi integration uses
+the Linux `kvaser_usb` driver, SocketCAN (`can0`), and python-can's `socketcan`
+backend. The vehicle CAN bitrate and MoTeC transmit profile still need to be
+confirmed before capture is enabled. See `pi/CAN_SETUP.md` for setup checks.
+
 Default service behavior:
 
 - VN300 logging still works without CAN hardware.

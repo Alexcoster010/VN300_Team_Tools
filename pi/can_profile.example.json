@@ -1,5 +1,5 @@
 {
-  "name": "Unconfigured USB CAN adapter - raw capture",
+  "name": "Kvaser Leaf Light HS v2 - raw SocketCAN capture",
   "interface": "socketcan",
   "channel": "can0",
   "bitrate": 0,

@@ -41,7 +41,7 @@ Needed from team:
 - CAN IDs
 - signal scaling
 - signal units
-- CAN adapter choice
+- CAN adapter choice: **Kvaser Leaf Light HS v2 selected**
 
 Software work:
 
@@ -62,6 +62,12 @@ Possible hardware paths:
 - steering column/rack angular potentiometer into a small ADC/microcontroller
 - steering sensor into MoTeC/dash, then broadcast over CAN
 - steering sensor into a dedicated CAN sensor module
+
+Current hardware path:
+
+```text
+Steering sensor -> Arduino -> USB serial -> Pi
+```
 
 Preferred path:
 
@@ -202,14 +208,17 @@ Add warning states:
 ## Suggested Phase 2 Order
 
 - [ ] Confirm MoTeC/dash CAN transmit options.
-- [ ] Choose and install Pi CAN hardware.
+- [x] Choose Pi CAN hardware: Kvaser Leaf Light HS v2 connected by USB.
+- [ ] Confirm the Pi loads `kvaser_usb` and exposes the adapter as `can0`.
 - [ ] Use `candump can0` to prove CAN frames are visible.
 - [x] Create first CSV signal map format.
 - [x] Add disabled-by-default CAN logging scaffold to Pi.
 - [x] Add basic CAN dashboard health/status.
 - [ ] Add analyzer import for MoTeC channels.
 - [ ] Add throttle/brake/RPM plots.
-- [ ] Add steering angle hardware and calibration.
+- [x] Connect steering angle sensor to the Pi through an Arduino USB serial stream.
+- [ ] Define the Arduino line format, stable serial device path, and baud rate.
+- [ ] Add steering serial capture and calibration.
 - [ ] Add steering-based balance metrics.
 - [ ] Add wheel speed analysis.
 

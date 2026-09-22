@@ -22,11 +22,37 @@ python3 -c 'import can, cantools, usb; print(can.__version__, cantools.__version
 
 ## Adapter preparation
 
-Record the adapter make/model, USB VID/PID (`lsusb`), firmware, Pi OS/kernel,
-channel, vehicle bitrate, and whether hardware listen-only is supported.
+The selected adapter is a **Kvaser Leaf Light HS v2**. Use it through Linux
+SocketCAN and python-can's `socketcan` interface. Current Linux kernels list the
+Leaf Light v2 under the `kvaser_usb` driver; Kvaser also provides a SocketCAN
+driver for kernels that do not recognize the device. Do not install Kvaser's
+proprietary Linux CANlib package when using SocketCAN.
+
+On the Pi, confirm the adapter and driver before enabling logging:
+
+```sh
+lsusb
+sudo modprobe kvaser_usb
+ip -details link show
+```
+
+After the vehicle CAN bitrate is known, configure the interface (replace the
+example bitrate if necessary):
+
+```sh
+sudo ip link set can0 down 2>/dev/null || true
+sudo ip link set can0 type can bitrate 1000000
+sudo ip link set can0 up
+ip -details -statistics link show can0
+candump can0
+```
+
+Record the USB VID/PID (`lsusb`), firmware, Pi OS/kernel, assigned channel,
+vehicle bitrate, and whether the installed driver exposes listen-only mode.
 
 | Adapter family | Python interface | Driver preparation |
 | --- | --- | --- |
+| **Kvaser Leaf Light HS v2 (selected)** | `socketcan` | Use the kernel `kvaser_usb` driver and confirm it exposes `can0`. If the Pi kernel does not recognize the adapter, install Kvaser's SocketCAN driver rather than the proprietary CANlib package. Configure bitrate with `ip link` before starting the logger. |
 | Linux-supported USB CAN, including suitable candleLight/PEAK devices | `socketcan` | Confirm the matching kernel driver exposes `can0`; configure bitrate and supported listen-only mode through Linux before logging. |
 | Serial/SLCAN firmware | `slcan` | Use a stable `/dev/serial/by-id/...` channel, service-user serial access, and adapter-specific serial baud/bitrate options. |
 | Direct gs_usb access | `gs_usb` | Requires `python-can[gs-usb]`, libusb and USB permissions in addition to this base package. Select this only after confirming firmware/driver compatibility. |
