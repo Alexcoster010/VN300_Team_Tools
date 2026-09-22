@@ -33,6 +33,7 @@ import subprocess
 import struct
 import threading
 import time
+import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Optional
@@ -49,6 +50,8 @@ except ImportError:
 READ_SIZE = 65536
 SERIAL_TIMEOUT_S = 0.05
 FLUSH_INTERVAL_S = 5.0
+DURABLE_CHECKPOINT_INTERVAL_S = FLUSH_INTERVAL_S
+CAN_SHUTDOWN_TIMEOUT_S = 5.0
 CAPTURE_QUEUE_MAX_CHUNKS = 4096
 FILE_BUFFER_BYTES = 1024 * 1024
 EXPECTED_BINARY_PERIOD_S = 0.01
@@ -505,10 +508,39 @@ def free_space_bytes(path: Path) -> int:
     return shutil.disk_usage(path).free
 
 
+def write_atomic_json(path: Path, payload: dict):
+    """Durably replace JSON without exposing a partially written document."""
+    path = Path(path)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(json.dumps(payload, indent=2, sort_keys=True).encode("utf-8"))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(tmp_name, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
 def write_session_metadata(path: Path, metadata: dict):
-    tmp_path = path.with_suffix(".tmp")
-    tmp_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
-    tmp_path.replace(path)
+    write_atomic_json(path, metadata)
+
+
+def durable_checkpoint(raw_file, csv_outputs, binary_outputs):
+    """Bound serial-stream crash loss to DURABLE_CHECKPOINT_INTERVAL_S."""
+    raw_file.flush()
+    os.fsync(raw_file.fileno())
+    csv_outputs.flush(sync=True)
+    binary_outputs.flush(sync=True)
 
 
 def write_run_metadata_csv(log_dir: Path, row: dict):
@@ -522,10 +554,7 @@ def write_run_metadata_csv(log_dir: Path, row: dict):
 
 
 def write_log_status_file(log_dir: Path, payload: dict):
-    path = log_dir / "VN300_logger_status.json"
-    tmp_path = path.with_suffix(".tmp")
-    tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    tmp_path.replace(path)
+    write_atomic_json(log_dir / "VN300_logger_status.json", payload)
 
 
 def parse_bool_text(value, default: bool = False) -> bool:
@@ -752,6 +781,7 @@ def run_can_logger(
     frames = 0
     decoded_frames = 0
     decode_errors = 0
+    last_checkpoint = session_start_monotonic
     try:
         database = load_can_database(config.get("dbc"))
         signal_map = {} if database is not None else load_can_signal_map(config.get("signal_map"))
@@ -783,6 +813,11 @@ def run_can_logger(
             sum(len(items) for items in signal_map.values()),
         )
         while not stop_requested.is_set() and not stop_event.is_set():
+            now = time.monotonic()
+            if now - last_checkpoint >= DURABLE_CHECKPOINT_INTERVAL_S:
+                writers.flush(sync=True)
+                last_checkpoint = now
+                update_can_status(last_durable_checkpoint_s=now - session_start_monotonic)
             msg = bus.recv(timeout=0.2)
             if msg is None:
                 update_can_status(status="online")
@@ -2032,6 +2067,7 @@ def run_session(
         "can_profile": str(can_config.get("profile") or ""),
         "can_dbc": str(can_config.get("dbc") or ""),
         "can_bus_options": can_config.get("bus_options", {}),
+        "durable_checkpoint_interval_s": DURABLE_CHECKPOINT_INTERVAL_S,
     }
 
     logging.info("Opening %s at %d baud", port, baud)
@@ -2080,7 +2116,7 @@ def run_session(
             can_thread = threading.Thread(
                 target=run_can_logger,
                 args=(can_config, log_dir, file_prefix, start_time, can_stop_event),
-                daemon=True,
+                name="vn300-can-writer",
             )
             can_thread.start()
         with serial.Serial(
@@ -2220,7 +2256,7 @@ def run_session(
                         capture.depth(), capture.max_queue_depth, capture.queue_full_events
                     )
 
-                    if now - last_flush < FLUSH_INTERVAL_S:
+                    if now - last_flush < DURABLE_CHECKPOINT_INTERVAL_S:
                         continue
                     free_now = free_space_bytes(log_dir)
                     if free_now < MIN_FREE_SPACE_BYTES:
@@ -2236,9 +2272,7 @@ def run_session(
                         binary_bytes=binary_byte_count,
                     )
                     try:
-                        raw_file.flush()
-                        csv_outputs.flush(sync=False)
-                        binary_outputs.flush(sync=False)
+                        durable_checkpoint(raw_file, csv_outputs, binary_outputs)
                         write_log_status_file(log_dir, {
                             "status": "logging",
                             "session": session_name,
@@ -2252,6 +2286,7 @@ def run_session(
                             "capture_queue_peak": capture.max_queue_depth,
                             "capture_queue_full_events": capture.queue_full_events,
                             "free_space_bytes": free_now,
+                            "durable_checkpoint_interval_s": DURABLE_CHECKPOINT_INTERVAL_S,
                             "last_flush_pi_clock": dt.datetime.now().isoformat(timespec="seconds"),
                         })
                         set_log_health("writing", free_space=free_now, write_error="", last_flush_s=now - start_time)
@@ -2290,7 +2325,17 @@ def run_session(
     finally:
         can_stop_event.set()
         if can_thread:
-            can_thread.join(timeout=2.0)
+            can_thread.join(timeout=CAN_SHUTDOWN_TIMEOUT_S)
+            if can_thread.is_alive():
+                metadata["can_shutdown"] = {"completed": False, "incomplete": True, "timeout_s": CAN_SHUTDOWN_TIMEOUT_S}
+                write_session_metadata(metadata_path, metadata)
+                logging.error("CAN writer shutdown timed out; waiting before session finalization.")
+                can_thread.join()
+                metadata["can_shutdown"] = {"completed": True, "incomplete": False, "completed_after_timeout": True}
+            else:
+                metadata["can_shutdown"] = {"completed": True, "incomplete": False}
+        else:
+            metadata["can_shutdown"] = {"completed": True, "incomplete": False, "started": False}
         try:
             csv_outputs.close()
         except OSError as exc:

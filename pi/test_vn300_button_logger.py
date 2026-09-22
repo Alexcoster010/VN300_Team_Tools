@@ -1,5 +1,6 @@
 import csv
 import json
+import os
 import shutil
 import struct
 import sys
@@ -297,6 +298,42 @@ class SessionPipelineTests(unittest.TestCase):
         self.assertEqual(metadata["binary_crc_errors"], 0)
         self.assertEqual(metadata["binary_time_gaps"], 0)
         self.assertEqual(metadata["capture_queue_full_events"], 0)
+
+
+class DurableIoTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = Path.cwd() / "work" / f"durable_io_{uuid.uuid4().hex}"
+        self.directory.mkdir(parents=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.directory, ignore_errors=True)
+
+    def test_atomic_json_fsyncs_file_and_parent(self):
+        path = self.directory / "status.json"
+        with mock.patch.object(logger.os, "fsync", wraps=os.fsync) as fsync:
+            logger.write_atomic_json(path, {"state": "ready"})
+        self.assertEqual(json.loads(path.read_text()), {"state": "ready"})
+        self.assertGreaterEqual(fsync.call_count, 2)
+        self.assertFalse(list(self.directory.glob(".status.json.*.tmp")))
+
+    def test_atomic_json_preserves_old_document_on_replace_failure(self):
+        path = self.directory / "status.json"
+        path.write_text('{"state": "old"}')
+        with mock.patch.object(logger.os, "replace", side_effect=OSError("injected")):
+            with self.assertRaises(OSError):
+                logger.write_atomic_json(path, {"state": "new"})
+        self.assertEqual(json.loads(path.read_text()), {"state": "old"})
+        self.assertFalse(list(self.directory.glob(".status.json.*.tmp")))
+
+    def test_durable_checkpoint_syncs_all_serial_streams(self):
+        raw = mock.Mock(); raw.fileno.return_value = 17
+        ascii_outputs = mock.Mock(); binary_outputs = mock.Mock()
+        with mock.patch.object(logger.os, "fsync") as fsync:
+            logger.durable_checkpoint(raw, ascii_outputs, binary_outputs)
+        raw.flush.assert_called_once()
+        fsync.assert_called_once_with(17)
+        ascii_outputs.flush.assert_called_once_with(sync=True)
+        binary_outputs.flush.assert_called_once_with(sync=True)
 
 
 if __name__ == "__main__":
