@@ -172,6 +172,7 @@ latest_packet = {
     "session": None,
     "message_type": None,
     "updated_monotonic": None,
+    "live_capture_monotonic": None,
     "fields": {},
     "checksum_ok": None,
     "raw_bytes": 0,
@@ -871,6 +872,47 @@ def update_capture_health(depth: int, peak: int, full_events: int):
         latest_packet["capture_queue_full_events"] = full_events
 
 
+def publish_live_binary_fields(status: str, logging_active: bool, session: str, fields: dict, captured_at: float):
+    """Publish the newest decoded sample without waiting for durable logging.
+
+    Packet counters remain owned by the FIFO logging consumer so session
+    metadata still describes persisted data, not dashboard publications.
+    """
+    sample_time = fields.get("Pi_Elapsed_Time_s")
+    with state_lock:
+        latest_packet.update({
+            "status": status,
+            "logging": logging_active,
+            "session": session,
+            "message_type": "BINARY",
+            "fields": fields,
+            "checksum_ok": bool(fields.get("Checksum_OK")),
+            "updated_monotonic": time.monotonic(),
+            "live_capture_monotonic": captured_at,
+            "parse_source": "binary",
+        })
+    if sample_time is not None:
+        update_timing(sample_time, fields)
+
+
+def publish_live_ascii(status: str, logging_active: bool, session: str, parsed: dict, elapsed_s: float, captured_at: float):
+    fields = values_as_fields(parsed)
+    fields["Sample_Time_s"] = elapsed_s
+    with state_lock:
+        latest_packet.update({
+            "status": status,
+            "logging": logging_active,
+            "session": session,
+            "message_type": parsed["message_type"],
+            "fields": fields,
+            "checksum_ok": parsed["checksum_ok"],
+            "updated_monotonic": time.monotonic(),
+            "live_capture_monotonic": captured_at,
+            "parse_source": "ascii",
+        })
+    update_timing(elapsed_s, fields)
+
+
 def reset_latest_for_session(session_name: str):
     with state_lock:
         latest_packet.update({
@@ -880,6 +922,7 @@ def reset_latest_for_session(session_name: str):
             "session": session_name,
             "message_type": None,
             "updated_monotonic": None,
+            "live_capture_monotonic": None,
             "fields": {},
             "checksum_ok": None,
             "raw_bytes": 0,
@@ -912,6 +955,7 @@ def reset_latest_for_setup_stream():
             "session": None,
             "message_type": None,
             "updated_monotonic": None,
+            "live_capture_monotonic": None,
             "fields": {},
             "checksum_ok": None,
             "raw_bytes": 0,
@@ -1048,8 +1092,9 @@ class SerialChunkCapture:
     stalls from overflowing the kernel/USB serial buffers.
     """
 
-    def __init__(self, serial_port, should_stop, max_queue_chunks: int = CAPTURE_QUEUE_MAX_CHUNKS):
+    def __init__(self, serial_port, should_stop, max_queue_chunks: int = CAPTURE_QUEUE_MAX_CHUNKS, on_chunk=None):
         self.serial_port = serial_port
+        self.on_chunk = on_chunk
         self.should_stop = should_stop
         self.queue = queue.Queue(maxsize=max_queue_chunks)
         self.stop_event = threading.Event()
@@ -1087,6 +1132,12 @@ class SerialChunkCapture:
                 if not chunk:
                     continue
                 captured_at = time.monotonic()
+                if self.on_chunk is not None:
+                    try:
+                        self.on_chunk(captured_at, chunk)
+                    except Exception:
+                        # Live publication must never interrupt raw capture.
+                        logging.exception("Live serial parser failed")
                 while not self.stop_event.is_set():
                     try:
                         self.queue.put((captured_at, chunk), timeout=0.05)
@@ -1096,6 +1147,50 @@ class SerialChunkCapture:
                         self.queue_full_events += 1
         except Exception as exc:
             self.error = exc
+
+
+class LiveChunkParser:
+    """Parse serial data on the reader path and publish only current telemetry.
+
+    Durable capture remains FIFO and loss-accounted. This parser has no file
+    writes and is intentionally independent from that backlog.
+    """
+    def __init__(self, session_name: str, start_time: float, parse_mode: str):
+        self.session_name = session_name
+        self.start_time = start_time
+        self.parse_mode = parse_mode
+        self.binary_buffer = bytearray()
+        self.line_buffer = bytearray()
+        self.binary_active = False
+
+    def feed(self, captured_at: float, chunk: bytes):
+        if self.parse_mode in ("auto", "binary"):
+            self.binary_buffer.extend(chunk)
+            packets, _crc_errors, _skipped = extract_vn300_binary_packets(self.binary_buffer)
+            for packet in packets:
+                try:
+                    fields = parse_vn300_binary_packet(packet)
+                except (struct.error, IndexError, KeyError):
+                    continue
+                if fields:
+                    self.binary_active = True
+                    publish_live_binary_fields("logging", True, self.session_name, fields, captured_at)
+        parse_ascii = self.parse_mode == "ascii" or (self.parse_mode == "auto" and not self.binary_active)
+        if not parse_ascii:
+            return
+        if b"$VN" in chunk and not self.line_buffer:
+            self.line_buffer.extend(chunk[chunk.find(b"$VN"):])
+        elif self.line_buffer or b"$VN" in chunk:
+            self.line_buffer.extend(chunk)
+        if len(self.line_buffer) > MAX_ASCII_BUFFER_BYTES:
+            start = self.line_buffer.rfind(b"$VN")
+            self.line_buffer = bytearray() if start < 0 else self.line_buffer[start:]
+        while b"\n" in self.line_buffer:
+            line, _, remainder = self.line_buffer.partition(b"\n")
+            self.line_buffer = bytearray(remainder)
+            parsed = parse_ascii_line(line.decode("ascii", errors="ignore"))
+            if parsed:
+                publish_live_ascii("logging", True, self.session_name, parsed, captured_at - self.start_time, captured_at)
 
 
 def vectornav_crc16(data: bytes) -> int:
@@ -1770,6 +1865,7 @@ def update_latest(
     binary_bytes: Optional[int] = None,
     allow_timing: bool = True,
     timing_active: bool = True,
+    publish: bool = True,
 ):
     fields_for_timing = None
     with state_lock:
@@ -1782,20 +1878,20 @@ def update_latest(
             fields = values_as_fields(parsed)
             if sample_time_s is not None:
                 fields["Sample_Time_s"] = sample_time_s
-            if allow_timing:
+            if allow_timing and publish:
                 latest_packet["message_type"] = parsed["message_type"]
                 latest_packet["fields"] = fields
                 latest_packet["checksum_ok"] = parsed["checksum_ok"]
                 latest_packet["updated_monotonic"] = time.monotonic()
                 latest_packet["parse_source"] = "ascii"
             latest_packet["ascii_packets"] += 1
-            if allow_timing:
+            if allow_timing and publish:
                 fields_for_timing = fields
         if raw_bytes is not None:
             latest_packet["raw_bytes"] = raw_bytes
         if binary_bytes is not None:
             latest_packet["binary_bytes"] = binary_bytes
-    if timing_active and allow_timing and fields_for_timing is not None and sample_time_s is not None:
+    if timing_active and allow_timing and publish and fields_for_timing is not None and sample_time_s is not None:
         update_timing(sample_time_s, fields_for_timing)
 
 
@@ -1807,6 +1903,7 @@ def update_latest_fields(
     raw_bytes: Optional[int] = None,
     binary_bytes: Optional[int] = None,
     timing_active: bool = True,
+    publish: bool = True,
 ):
     sample_time = fields.get("Pi_Elapsed_Time_s")
     with state_lock:
@@ -1815,12 +1912,13 @@ def update_latest_fields(
         latest_packet["setup_streaming"] = setup_stream_requested.is_set()
         if session is not None:
             latest_packet["session"] = session
-        latest_packet["message_type"] = "BINARY"
-        latest_packet["fields"] = fields
-        latest_packet["checksum_ok"] = bool(fields.get("Checksum_OK"))
-        latest_packet["updated_monotonic"] = time.monotonic()
+        if publish:
+            latest_packet["message_type"] = "BINARY"
+            latest_packet["fields"] = fields
+            latest_packet["checksum_ok"] = bool(fields.get("Checksum_OK"))
+            latest_packet["updated_monotonic"] = time.monotonic()
+            latest_packet["parse_source"] = "binary"
         latest_packet["binary_packets"] += 1
-        latest_packet["parse_source"] = "binary"
         if isinstance(sample_time, (int, float)) and math.isfinite(sample_time):
             first_time = latest_packet.get("first_binary_sensor_time_s")
             previous_time = latest_packet.get("last_binary_sensor_time_s")
@@ -1848,7 +1946,7 @@ def update_latest_fields(
             latest_packet["raw_bytes"] = raw_bytes
         if binary_bytes is not None:
             latest_packet["binary_bytes"] = binary_bytes
-    if timing_active and sample_time is not None:
+    if timing_active and publish and sample_time is not None:
         update_timing(sample_time, fields)
 
 
@@ -2098,9 +2196,11 @@ def run_session(
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
         ) as ser, raw_path.open("ab", buffering=FILE_BUFFER_BYTES) as raw_file:
+            live_parser = LiveChunkParser(session_name, start_time, parse_mode)
             capture = SerialChunkCapture(
                 ser,
                 lambda: stop_requested.is_set() or active_session_stop.is_set(),
+                on_chunk=lambda captured_at, chunk: live_parser.feed(captured_at, chunk),
             ).start()
             try:
                 while capture.is_alive() or not capture.empty():
@@ -2166,6 +2266,7 @@ def run_session(
                                     fields,
                                     raw_bytes=byte_count,
                                     binary_bytes=binary_byte_count,
+                                    publish=False,
                                 )
                             elif not parse_failed:
                                 increment_bad_binary_packets()
@@ -2211,6 +2312,7 @@ def run_session(
                                         raw_bytes=byte_count,
                                         binary_bytes=binary_byte_count,
                                         allow_timing=allow_ascii_timing,
+                                        publish=False,
                                     )
                         else:
                             if binary_active and line_buffer:
@@ -2688,10 +2790,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 age_s = None
                 if latest_packet.get("updated_monotonic") is not None:
                     age_s = time.monotonic() - latest_packet["updated_monotonic"]
-                payload = {k: v for k, v in latest_packet.items() if k != "updated_monotonic"}
+                live_capture_age_s = None
+                if latest_packet.get("live_capture_monotonic") is not None:
+                    live_capture_age_s = time.monotonic() - latest_packet["live_capture_monotonic"]
+                payload = {k: v for k, v in latest_packet.items() if k not in ("updated_monotonic", "live_capture_monotonic")}
                 if isinstance(payload.get("can"), dict):
                     payload["can"] = {k: v for k, v in payload["can"].items() if k != "_last_monotonic"}
                 payload["age_s"] = age_s
+                payload["live_capture_age_s"] = live_capture_age_s
             payload["setup_streaming"] = setup_stream_requested.is_set()
             payload["timing"] = public_timing_snapshot()
             payload["run_metadata"] = public_run_metadata_snapshot()

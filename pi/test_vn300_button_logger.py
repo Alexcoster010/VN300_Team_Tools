@@ -206,6 +206,54 @@ class SerialCaptureTests(unittest.TestCase):
         self.assertGreater(capture.queue_full_events, 0)
 
 
+class LivePipelineLatencyTests(unittest.TestCase):
+    class PacedPacketSerial:
+        def __init__(self, packets, stop_event):
+            self.packets = iter(packets)
+            self.stop_event = stop_event
+
+        def read(self, _size):
+            try:
+                time.sleep(0.001)
+                return next(self.packets)
+            except StopIteration:
+                self.stop_event.set()
+                return b""
+
+    def test_dashboard_uses_recent_reader_sample_while_durable_consumer_falls_behind(self):
+        """A slow CSV/raw path cannot make the published sample FIFO-aged."""
+        stop_event = threading.Event()
+        logger.reset_latest_for_session("latency-test")
+        start = time.monotonic()
+        parser = logger.LiveChunkParser("latency-test", start, "binary")
+        packets = [make_binary_packet(1_000_000_000 + index * 10_000_000) for index in range(80)]
+        # The real binary decoder is covered separately. Make it cheap here so
+        # durable throughput, rather than CPU parsing, is the limiting resource.
+        with mock.patch.object(logger, "extract_vn300_binary_packets", return_value=([b"packet"], 0, 0)), mock.patch.object(
+            logger, "parse_vn300_binary_packet", return_value={"Pi_Elapsed_Time_s": 1.0, "Checksum_OK": True}
+        ):
+            capture = logger.SerialChunkCapture(
+                self.PacedPacketSerial(packets, stop_event),
+                stop_event.is_set,
+                max_queue_chunks=8,
+                on_chunk=parser.feed,
+            ).start()
+            # Deliberately make durable consumption 10x slower than ingress.
+            while capture.is_alive() or not capture.empty():
+                try:
+                    capture.get(timeout=0.02)
+                except logger.queue.Empty:
+                    continue
+                time.sleep(0.010)
+                with logger.state_lock:
+                    age = time.monotonic() - logger.latest_packet["live_capture_monotonic"]
+                self.assertLess(age, 0.16)
+            capture.join(timeout=1.0)
+        self.assertEqual(capture.max_queue_depth, 8)
+        self.assertIsNone(capture.error)
+
+
+
 class BinaryHealthTests(unittest.TestCase):
     def test_sensor_time_gap_is_counted(self):
         logger.reset_latest_for_session("health-test")
