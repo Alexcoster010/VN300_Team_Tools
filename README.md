@@ -15,6 +15,7 @@ The current desktop release is `v0.15.2`. Once installed, the app checks GitHub 
 For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
 
 For Pi software updates and post-update checks, use `INSTALLER_UPDATE_CHECKLIST.md`.
+For a fresh offline Raspberry Pi OS Trixie ARM64/Python 3.13.5 installation, use `OFFLINE_INSTALL_TRIXIE.md`. The existing Bookworm bundle remains a separate supported artifact.
 
 For change tracking, use `VERSION_HISTORY.md`. For completed milestones and remaining acceptance criteria, see `MILESTONES_AND_GOALS.md`.
 
