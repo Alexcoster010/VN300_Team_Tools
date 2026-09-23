@@ -2602,7 +2602,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px
 </style>
 </head>
 <body>
-<header><h1>VN300 Live</h1><a href="/api/download_logs" target="_blank" class="download-button">Download All Logs</a><span id="status" class="pill off">idle</span><span id="session"></span><span id="timingStatus"></span></header>
+<header><h1>VN300 Live</h1><a href="api/download_logs" id="downloadLogs" class="download-button">Download All Logs</a><span id="downloadLogsStatus" class="save-status" aria-live="polite"></span><span id="status" class="pill off">idle</span><span id="session"></span><span id="timingStatus"></span></header>
 <main>
 <section class="grid">
 <div class="tile"><div class="label">Speed</div><div id="speed" class="value">-- mph</div></div>
@@ -2709,6 +2709,26 @@ function configPayload(){const p={mode:document.getElementById('mode').value}; i
 function metadataPayload(){const p={}; metadataIds.forEach(id=>p[id]=document.getElementById(id).value); return p}
 function setTimingSaveStatus(text,state=''){const el=document.getElementById('timingConfigSaveStatus'); el.textContent=text; el.className='save-status '+state}
 function setMetadataSaveStatus(text,state=''){const el=document.getElementById('runMetadataSaveStatus'); el.textContent=text; el.className='save-status '+state}
+document.getElementById('downloadLogs').addEventListener('click',async event=>{
+ event.preventDefault(); const status=document.getElementById('downloadLogsStatus'); const button=event.currentTarget;
+ const pageUrl=new URL(window.location.href); pageUrl.search=''; pageUrl.hash='';
+ if(pageUrl.pathname.endsWith('index.html')) pageUrl.pathname=pageUrl.pathname.slice(0,-10);
+ if(!pageUrl.pathname.endsWith('/')) pageUrl.pathname+='/';
+ const url=new URL('api/download_logs',pageUrl);
+ button.setAttribute('aria-busy','true'); status.className='save-status saving'; status.textContent='Checking log download...';
+ try{
+  const response=await fetch(url.href,{method:'HEAD',cache:'no-store'});
+  if(!response.ok){status.className='save-status error';
+   if(response.status===501) status.textContent='This logger version does not support log downloads. Update the logger and restart it.';
+   else if(response.status===404&&response.headers.get('X-Log-Download-State')==='empty') status.textContent='No logs are available to download.';
+   else status.textContent=response.status===404?'Log download route was not found. Check the dashboard path or update and restart the logger.':`Log download check failed (${response.status}).`;
+   return
+  }
+  status.className='save-status'; status.textContent='Preparing log archive; your browser download will start shortly.';
+  window.location.assign(url.href);
+ }catch(error){status.className='save-status error'; status.textContent='Could not reach the log download route. Check the connection to the logger.'}
+ finally{button.removeAttribute('aria-busy')}
+});
 ['mode'].concat(ids).forEach(id=>{const el=document.getElementById(id); el.addEventListener('input',()=>setTimingSaveStatus('Unsaved timing changes','dirty')); el.addEventListener('change',()=>setTimingSaveStatus('Unsaved timing changes','dirty'))});
 metadataIds.forEach(id=>document.getElementById(id).addEventListener('input',()=>setMetadataSaveStatus('Unsaved metadata changes','dirty')));
 document.getElementById('saveConfig').onclick=async()=>{
@@ -2871,6 +2891,56 @@ def write_log_archive(destination):
     return count
 
 
+def log_archive_has_files():
+    """Check for at least one regular log file without following links or reading file data."""
+    dir_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+
+    def open_root(path):
+        root_fd = os.open("/", dir_flags)
+        try:
+            for part in path.parts[1:]:
+                child_fd = os.open(part, dir_flags, dir_fd=root_fd)
+                os.close(root_fd)
+                root_fd = child_fd
+            return root_fd
+        except BaseException:
+            os.close(root_fd)
+            raise
+
+    for _label, root in log_archive_roots():
+        try:
+            pending = [open_root(root)]
+        except OSError:
+            continue
+        found = False
+        try:
+            while pending and not found:
+                directory_fd = pending.pop()
+                try:
+                    for name in os.listdir(directory_fd):
+                        if name in (".", "..", "") or "/" in name or "\\" in name:
+                            continue
+                        try:
+                            info = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+                            if stat.S_ISREG(info.st_mode):
+                                found = True
+                                break
+                            if stat.S_ISDIR(info.st_mode):
+                                pending.append(os.open(name, dir_flags, dir_fd=directory_fd))
+                        except OSError:
+                            continue
+                except OSError:
+                    pass
+                finally:
+                    os.close(directory_fd)
+        finally:
+            for directory_fd in pending:
+                os.close(directory_fd)
+        if found:
+            return True
+    return False
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     def send_json(self, payload: dict, status: int = 200):
         body = json.dumps(payload).encode("utf-8")
@@ -2917,7 +2987,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             archive_lock.release()
 
     def do_GET(self):
-        if self.path == "/api/download_logs":
+        if self.path.split("?", 1)[0] == "/api/download_logs":
             self.download_logs()
             return
         if self.path == "/" or self.path.startswith("/index.html"):
@@ -2959,6 +3029,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_json({"config": public_timing_snapshot()["config"], "timing": public_timing_snapshot()})
             return
 
+        self.send_error(404)
+
+    def do_HEAD(self):
+        # Let the dashboard detect deployments that do not yet expose this
+        # route without starting the potentially very large ZIP operation.
+        if self.path.split("?", 1)[0] == "/api/download_logs":
+            has_files = log_archive_has_files()
+            self.send_response(200 if has_files else 404)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Log-Download-State", "available" if has_files else "empty")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         self.send_error(404)
 
     def do_POST(self):

@@ -504,5 +504,55 @@ class DownloadLogsTests(unittest.TestCase):
         self.assertEqual(result, [200])
 
 
+class DownloadHeadRouteTests(unittest.TestCase):
+    def test_download_head_check_with_query_responds_without_archive(self):
+        handler = object.__new__(logger.DashboardHandler)
+        handler.path = "/api/download_logs?source=dashboard"
+        with mock.patch.object(logger.DashboardHandler, "send_response") as send_response, mock.patch.object(
+            logger.DashboardHandler, "send_header"
+        ) as send_header, mock.patch.object(logger.DashboardHandler, "end_headers") as end_headers, mock.patch.object(
+            logger, "write_log_archive", side_effect=AssertionError("HEAD must not build ZIP")
+        ), mock.patch.object(logger, "log_archive_has_files", return_value=True):
+            handler.do_HEAD()
+
+        send_response.assert_called_once_with(200)
+        send_header.assert_any_call("Content-Length", "0")
+        send_header.assert_any_call("X-Log-Download-State", "available")
+        end_headers.assert_called_once_with()
+
+    def test_empty_log_preflight_returns_specific_state(self):
+        handler = object.__new__(logger.DashboardHandler)
+        handler.path = "/api/download_logs"
+        with mock.patch.object(logger.DashboardHandler, "send_response") as send_response, mock.patch.object(
+            logger.DashboardHandler, "send_header"
+        ) as send_header, mock.patch.object(logger.DashboardHandler, "end_headers"), mock.patch.object(
+            logger, "log_archive_has_files", return_value=False
+        ):
+            handler.do_HEAD()
+
+        send_response.assert_called_once_with(404)
+        send_header.assert_any_call("X-Log-Download-State", "empty")
+
+    def test_other_head_path_is_not_mistaken_for_download_route(self):
+        handler = object.__new__(logger.DashboardHandler)
+        handler.path = "/prefix/api/download_logs"
+        with mock.patch.object(logger.DashboardHandler, "send_error") as send_error:
+            handler.do_HEAD()
+        send_error.assert_called_once_with(404)
+
+    def test_get_with_query_uses_same_download_route(self):
+        handler = object.__new__(logger.DashboardHandler)
+        handler.path = "/api/download_logs?source=dashboard"
+        with mock.patch.object(logger.DashboardHandler, "download_logs") as download_logs:
+            handler.do_GET()
+        download_logs.assert_called_once_with()
+
+    def test_dashboard_explains_legacy_head_not_implemented_response(self):
+        self.assertIn(
+            "This logger version does not support log downloads. Update the logger and restart it.",
+            logger.DASHBOARD_HTML,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
