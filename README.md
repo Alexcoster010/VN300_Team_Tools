@@ -4,13 +4,13 @@ Raspberry Pi VN-300 logging, live trackside monitoring, and offline vehicle tele
 
 ## Current status
 
-Last verified against GitHub on **September 21, 2026**.
+Last verified against GitHub on **September 23, 2026**.
 
 | Component | Status |
 | --- | --- |
-| Published Windows app | **v0.15.2**, available from GitHub Releases; bundles Pi logger **v0.6.1**. |
+| Published Windows app | **v0.15.3**, latest GitHub release [`desktop-v0.15.3`](https://github.com/Alexcoster010/VN300_Team_Tools/releases/tag/desktop-v0.15.3), with four Windows release assets (two installers and their checksums); bundles Pi logger **v0.6.1**. |
 | Independent `pi-logger` branch | **v0.6.1**, available as the branch ZIP. |
-| Validation status | 38 desktop/logger/packaging tests and 19 standalone Pi tests passed; physical Pi, adapter, and vehicle-bus validation remains open. |
+| Validation status | The v0.15.3 GitHub Actions release workflow completed successfully; physical Pi, adapter, and vehicle-bus validation remains open. |
 
 The release contents below are published. Software test results do not replace validation on the target Pi, CAN adapter, or vehicle.
 
@@ -69,11 +69,11 @@ CAN remains **disabled by default** and requires `--can-enable`. Selecting a pro
 
 The published `desktop-app` and `pi-logger` branches include `pi/CAN_SETUP.md` and `pi/can_profile.example.json`. No real-adapter or vehicle-bus validation is claimed here.
 
-## Windows startup repair
+## Windows startup repair history
 
-The published **v0.15.2** build fixes a Qt startup failure caused by an incompatible ICU DLL collected from an unrelated tool on the build machine's `PATH`. The build now restricts DLL discovery and runs the frozen desktop executable to verify its main window opens before generating an installer.
+The **v0.15.2** release fixed a Qt startup failure caused by an incompatible ICU DLL collected from an unrelated tool on the build machine's `PATH`. Its build restricted DLL discovery and ran the frozen desktop executable to verify its main window opened before generating an installer.
 
-The repaired app was installed and observed running responsively on the development laptop. **38 regression tests passed**, including CAN/DBC tests, virtual CAN capture, logger tests, and desktop/packaging checks. This is software validation, not Pi or CAN hardware validation. The GitHub release workflow completed successfully and published both installer names with SHA-256 checksum files.
+In the **September 21, 2026** verification snapshot, the repaired app was installed and observed running responsively on the development laptop. **38 regression tests** passed, including CAN/DBC tests, virtual CAN capture, logger tests, and desktop/packaging checks; **19 standalone Pi tests** also passed. These are historical software results, not current test totals or Pi/CAN hardware validation. The v0.15.2 GitHub release workflow published both installer names with SHA-256 checksum files.
 
 ## Analysis and engineering tools
 
