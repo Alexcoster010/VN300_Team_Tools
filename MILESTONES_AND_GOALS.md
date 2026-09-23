@@ -9,10 +9,10 @@ and signal definitions are ready.
 
 ## Release state
 
-- The previous public desktop release was `v0.15.0`; this branch advances the release line through the completed `v0.15.1` logger/CAN work to desktop `v0.15.2`.
-- Desktop `v0.15.2` contains the packaged-startup repair alongside the `v0.15.1` logger and CAN work. `APP_VERSION`, release notes, and packaging code identify the release contents.
+- The previous public desktop release was `v0.15.0`; this branch advances the release line through the completed `v0.15.1` logger/CAN work to desktop `v0.15.3`.
+- Desktop `v0.15.3` contains the dashboard log download route UX improvements and Raspberry Pi installer fixes, alongside earlier packaged-startup, logger, and CAN work. `APP_VERSION`, release notes, and packaging code identify the release contents.
 - The documented embedded Pi logger remains `v0.6.1`. No separate Pi release
-  or vehicle validation is implied by the desktop `v0.15.2` work.
+  or vehicle validation is implied by the desktop `v0.15.3` work.
 - The entries below distinguish code and automated-test evidence from work that
   still requires a Pi, CAN adapter, or vehicle.
 

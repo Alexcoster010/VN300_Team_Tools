@@ -10,7 +10,7 @@ Team members should use the packaged installer rather than downloading the repos
 
 Download `Sooner-Racing-Telemetry-Setup-X.Y.Z.exe`, run it, and launch **Sooner Racing Telemetry** from Windows Search or the Start Menu. The installer includes Python, the analyzer, the native trackside dashboard, and the report viewer; no separate Python or Git installation is required. Windows may display an unsigned-app warning because the installer is not code-signed.
 
-The current desktop release is `v0.15.2`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
+The current desktop release is `v0.15.3`. Once installed, the app checks GitHub for future desktop releases and can install them from inside the app.
 
 For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
 
@@ -48,8 +48,7 @@ For change tracking, use `VERSION_HISTORY.md`. For completed milestones and rema
 - `analysis/vn300_lap_analysis.py`: offline analysis, lap splitting, and overlay HTML generation from `*_BINARY.csv` or `*_VNINS.csv`.
 - `analysis/vn300_custom_analysis.py`: generic CSV channel scanner, safe calculated-channel engine, filtering, statistics, plot generation, and export.
 - `analysis/vn300_gg_analysis.py`: corrected per-driver G-G diagrams with data-quality filtering and directional grip envelopes.
-- `analysis_output/`, `folder_import_output/`, `lap_smoke_output/`: example generated outputs.
-- `serial_samples/`: example raw serial capture.
+- Generated analysis results and raw serial captures are local data and are not included in the GitHub repository. New outputs default to `Documents\\Sooner Racing Telemetry\\Analysis` in the installed app.
 
 ## Assumptions And Placeholders
 
@@ -99,7 +98,7 @@ py -3 -B .\app\vn300_qt_app.py
 
 The optional localhost web interface can still be started with `py -3 .\app\vn300_team_app.py`.
 
-The installed app checks the public GitHub `desktop-app` branch for a newer desktop `APP_VERSION`. Use the header update button to download the matching versioned installer and SHA-256 checksum from GitHub Releases. Pi logger `v0.6.1` is embedded in desktop `v0.15.2`; logger version checks and secure `scp`/SSH installation work without internet access. Source ZIPs and Git clones retain their existing source-update paths. See `DESKTOP_APP_INSTALL.md` for installation and release details.
+The installed app checks the public GitHub `desktop-app` branch for a newer desktop `APP_VERSION`. Use the header update button to download the matching versioned installer and SHA-256 checksum from GitHub Releases. Pi logger `v0.6.1` is embedded in desktop `v0.15.3`; logger version checks and secure `scp`/SSH installation work without internet access. This release also improves the live dashboard log download route and fixes Raspberry Pi installer issues. Source ZIPs and Git clones retain their existing source-update paths. See `DESKTOP_APP_INSTALL.md` for installation and release details.
 
 ## Button Wiring
 

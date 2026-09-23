@@ -5,6 +5,11 @@ __pycache__/
 Thumbs.db
 *.tmp
 *.log
+outputs/
+analysis_output/
+folder_import_output/
+lap_smoke_output/
+serial_samples/
 analysis_output/app_runs/
 analysis_output/desktop_runs/
 .venv-build/
