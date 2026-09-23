@@ -1,7 +1,10 @@
 # VN300 fresh-Pi offline installation
 
 This is a separate, self-contained installation ZIP, not the desktop updater's
-source-only Pi package. It includes the committed logger, dashboard (embedded in
+source-only Pi package or a GitHub release asset. Build it locally from a clean
+committed checkout using the instructions at the end of this document; the ZIP
+and checksum are generated under the ignored `dist/` directory and may not exist
+in a fresh checkout. It includes the committed logger, dashboard (embedded in
 the logger), CAN profile/map/documentation, systemd/sudoers, 16 pinned Python
 wheels, four native packages, installer, verifier, hashes and source commit ID.
 No credentials, vehicle recordings or desktop build products are included.
@@ -38,11 +41,14 @@ and [GPIO Zero installation](https://gpiozero.readthedocs.io/en/latest/installin
 
 ## Windows PowerShell transfer
 
-Replace the hostname and login below with your Imager settings. `ssh` and `scp`
-are Windows OpenSSH commands. Do not type a password into a script.
+First build the ZIP from the repository root as described under Rebuilding and
+validation. Replace the repository path, hostname and login below with your
+own. `ssh` and `scp` are Windows OpenSSH commands. Do not type a password into
+a script.
 
 ```powershell
-Set-Location 'C:\Users\14694\Documents\ChatGPT\Telemetry\dist'
+$Repo = 'C:\path\to\VN300_Team_Tools'
+Set-Location (Join-Path $Repo 'dist')
 $Zip = 'VN300_Offline_Trixie_arm64_py313.zip'
 $Pi = 'yourlogin@raspberrypi.local'
 Get-FileHash -Algorithm SHA256 $Zip

@@ -2,7 +2,7 @@
 
 Current documented Pi logger version: `v0.6.1`
 
-Stable tagged Pi version: `v0.4.0`
+Historical stable Pi tag: `v0.4.0` (the current documented logger is `v0.6.1`)
 
 If the team needs the last pre-Phase-2 version later:
 

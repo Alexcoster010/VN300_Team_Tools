@@ -9,7 +9,7 @@ and signal definitions are ready.
 
 ## Release state
 
-- The previous public desktop release was `v0.15.0`; this branch advances the release line through the completed `v0.15.1` logger/CAN work to desktop `v0.15.3`.
+- The latest public desktop release is `v0.15.3` (`desktop-v0.15.3` on GitHub Releases). Its published installer and checksum assets are for Windows; the Raspberry Pi Trixie offline ZIP is built locally as described in `OFFLINE_INSTALL_TRIXIE.md`.
 - Desktop `v0.15.3` contains the dashboard log download route UX improvements and Raspberry Pi installer fixes, alongside earlier packaged-startup, logger, and CAN work. `APP_VERSION`, release notes, and packaging code identify the release contents.
 - The documented embedded Pi logger remains `v0.6.1`. No separate Pi release
   or vehicle validation is implied by the desktop `v0.15.3` work.
