@@ -1,0 +1,13 @@
+pyserial
+gpiozero
+smbus2
+python-can
+cantools
+pyusb
+
+# Numerical packages for the optional LC0 minimum-lap model.
+# Pi installation: core/CAN by default; VN300_INSTALL_MODELS=1 adds these.
+matplotlib
+numpy
+pandas
+scipy

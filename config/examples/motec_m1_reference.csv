@@ -1,0 +1,274 @@
+channel,can_id,start_bit,length_bits,byte_order,signed,scale,offset,unit,notes,display_name,message,extended,multiplexer_start_bit,multiplexer_length_bits,multiplexer_value,value_type,reference
+VCS_Compound,0x01F,0,8,big,true,1,0.0,,VCS compound selector: 0–4,VCS Compound,VCS gauges,false,,,,number,MoTeC_M1_CAN_Reference
+VCS_Vehicle_Speed,0x01F,16,16,big,false,0.0277777777777778,0.0,source units,R × 0.02777777778 in source units,VCS Vehicle › Speed,VCS gauges compound 0,false,0,8,0,number,MoTeC_M1_CAN_Reference
+VCS_Engine_Speed,0x01F,32,16,big,false,36,0.0,source units,R × 36 in source units,VCS Engine › Speed,VCS gauges compound 0,false,0,8,0,number,MoTeC_M1_CAN_Reference
+VCS_Gear_ADL_code,0x01F,48,8,big,true,1,0.0,code,ADL gear: source 0 → −2; −1 → −3; otherwise unchanged,VCS Gear (ADL code),VCS gauges compound 0,false,0,8,0,number,MoTeC_M1_CAN_Reference
+VCS_Throttle_Position,0x01F,16,16,big,false,0.001,0.0,source units,R × 0.001 in source units,VCS Throttle › Position,VCS gauges compound 1,false,0,8,1,number,MoTeC_M1_CAN_Reference
+VCS_Brake_Pressure_maximum_front_rear,0x01F,32,16,big,false,1000,0.0,source units,R × 1000 in source units,VCS Brake Pressure (maximum front/rear),VCS gauges compound 1,false,0,8,1,number,MoTeC_M1_CAN_Reference
+VCS_Steering_Angle,0x01F,48,16,big,true,0.1,0.0,source units,R × 0.1 in source units,VCS Steering › Angle,VCS gauges compound 1,false,0,8,1,number,MoTeC_M1_CAN_Reference
+VCS_Vehicle_Acceleration_Longitudinal,0x01F,16,16,big,true,0.0980665204821735,0.0,source units,R × 0.09806652048 in source units,VCS Vehicle › Acceleration › Longitudinal,VCS gauges compound 2,false,0,8,2,number,MoTeC_M1_CAN_Reference
+VCS_Vehicle_Acceleration_Lateral,0x01F,32,16,big,true,0.0980665204821735,0.0,source units,R × 0.09806652048 in source units,VCS Vehicle › Acceleration › Lateral,VCS gauges compound 2,false,0,8,2,number,MoTeC_M1_CAN_Reference
+VCS_Lap_Distance,0x01F,48,16,big,false,1,0.0,source units,R in source units,VCS Lap › Distance,VCS gauges compound 2,false,0,8,2,number,MoTeC_M1_CAN_Reference
+VCS_Lap_Time_Running,0x01F,16,16,big,false,0.01,0.0,source units,R × 0.01 in source units,VCS Lap › Time › Running,VCS gauges compound 3,false,0,8,3,number,MoTeC_M1_CAN_Reference
+VCS_Lap_Number,0x01F,32,16,big,true,1,0.0,source units,R in source units,VCS Lap › Number,VCS gauges compound 3,false,0,8,3,number,MoTeC_M1_CAN_Reference
+VCS_Lap_Time,0x01F,48,16,big,false,0.01,0.0,source units,R × 0.01 in source units,VCS Lap › Time,VCS gauges compound 3,false,0,8,3,number,MoTeC_M1_CAN_Reference
+VCS_GPS_hour,0x01F,16,8,big,false,1,0.0,,Integer hour; see VCS date and time note,VCS GPS hour,VCS gauges compound 4,false,0,8,4,number,MoTeC_M1_CAN_Reference
+VCS_GPS_minute,0x01F,24,8,big,false,1,0.0,,Integer minute; see VCS date and time note,VCS GPS minute,VCS gauges compound 4,false,0,8,4,number,MoTeC_M1_CAN_Reference
+VCS_GPS_second,0x01F,32,8,big,false,1,0.0,,Integer second; see VCS date and time note,VCS GPS second,VCS gauges compound 4,false,0,8,4,number,MoTeC_M1_CAN_Reference
+VCS_GPS_day,0x01F,40,8,big,false,1,0.0,,Integer day; see VCS date and time note,VCS GPS day,VCS gauges compound 4,false,0,8,4,number,MoTeC_M1_CAN_Reference
+VCS_GPS_month,0x01F,48,8,big,false,1,0.0,,Integer month; see VCS date and time note,VCS GPS month,VCS gauges compound 4,false,0,8,4,number,MoTeC_M1_CAN_Reference
+VCS_GPS_year,0x01F,56,8,big,false,1,0.0,,Integer year; see VCS date and time note,VCS GPS year,VCS gauges compound 4,false,0,8,4,number,MoTeC_M1_CAN_Reference
+Fuel_Pump_Voltage,0x113,0,16,big,false,1,0.0,source units,R in source units,Fuel › Pump › Voltage,Fuel pump and ignition voltage,false,,,,number,MoTeC_M1_CAN_Reference
+IgnitionVoltage_Absolute_Voltage,0x113,16,16,big,false,1,0.0,source units,R in source units,IgnitionVoltage › Absolute Voltage,Fuel pump and ignition voltage,false,,,,number,MoTeC_M1_CAN_Reference
+Brake_Pressure_Rear,0x114,0,16,big,true,1000,0.0,source units,R × 1000 in source units,Brake › Pressure › Rear,Rear brake pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Position,0x115,0,16,big,true,0.01,0.0,source units,R × 0.01 in source units,Throttle › Position,Throttle positions and aim,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Servo_Bank_1_Position_Sensor,0x115,16,16,big,true,0.01,0.0,source units,R × 0.01 in source units,Throttle › Servo › Bank 1 › Position › Sensor,Throttle positions and aim,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Servo_Bank_1_Position,0x115,32,16,big,true,0.01,0.0,source units,R × 0.01 in source units,Throttle › Servo › Bank 1 › Position,Throttle positions and aim,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Aim,0x115,48,16,big,true,0.01,0.0,source units,R × 0.01 in source units,Throttle › Aim,Throttle positions and aim,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Servo_Bank_1_Position_Sensor_Main_Voltage,0x116,0,16,big,true,0.001,0.0,source units,R × 0.001 in source units,Throttle › Servo › Bank 1 › Position › Sensor › Main › Voltage,Throttle sensor and motor diagnostics,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Servo_Bank_1_Position_Sensor_Tracking_Voltage,0x116,16,16,big,true,0.001,0.0,source units,R × 0.001 in source units,Throttle › Servo › Bank 1 › Position › Sensor › Tracking › Voltage,Throttle sensor and motor diagnostics,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Servo_Bank_1_Motor_Output_Duty_Cycle,0x116,32,16,big,true,0.01,0.0,source units,R × 0.01 in source units,Throttle › Servo › Bank 1 › Motor › Output › Duty Cycle,Throttle sensor and motor diagnostics,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Servo_Bank_1_Diagnostic,0x116,48,16,big,true,1,0.0,code,Raw enum integer; value map not supplied,Throttle › Servo › Bank 1 › Diagnostic,Throttle sensor and motor diagnostics,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Servo_Bank_1_Control_Feed_Forward,0x117,0,16,big,true,0.001,0.0,source units,R × 0.001 in source units,Throttle › Servo › Bank 1 › Control › Feed Forward,Throttle control terms,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Servo_Bank_1_Control_Proportional,0x117,16,16,big,true,0.001,0.0,source units,R × 0.001 in source units,Throttle › Servo › Bank 1 › Control › Proportional,Throttle control terms,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Servo_Bank_1_Control_Integral,0x117,32,16,big,true,0.001,0.0,source units,R × 0.001 in source units,Throttle › Servo › Bank 1 › Control › Integral,Throttle control terms,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Servo_Bank_1_Control_Derivative,0x117,48,16,big,true,0.001,0.0,source units,R × 0.001 in source units,Throttle › Servo › Bank 1 › Control › Derivative,Throttle control terms,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Count,0x449,0,16,big,false,1,0.0,source units,R in source units,Gear › Shift › Count,Gear shift count,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Ratio,0x630,0,16,big,false,0.001,0.0,source units,R × 0.001 in source units,Gear › Ratio,Gear ratios and position voltage,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Estimate_Ratio,0x630,16,16,big,false,0.001,0.0,source units,R × 0.001 in source units,Gear › Estimate › Ratio,Gear ratios and position voltage,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Position_Sensor_Main_Voltage,0x630,32,16,big,false,0.001,0.0,source units,R × 0.001 in source units,Gear › Position › Sensor › Main › Voltage,Gear ratios and position voltage,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Source,0x631,0,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Gear › Source,Gear selection and shift requests,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Estimate,0x631,8,8,big,true,1,0.0,code,Raw enum integer; value map not supplied,Gear › Estimate,Gear selection and shift requests,false,,,,number,MoTeC_M1_CAN_Reference
+Gear,0x631,16,8,big,true,1,0.0,code,Raw enum integer; value map not supplied,Gear,Gear selection and shift requests,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift,0x631,24,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift,Gear selection and shift requests,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Request,0x631,32,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift › Request,Gear selection and shift requests,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Request_Source,0x631,40,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift › Request › Source,Gear selection and shift requests,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Request_Automatic_Priority,0x631,48,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift › Request › Automatic › Priority,Gear selection and shift requests,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Type,0x631,56,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift › Type,Gear selection and shift requests,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Speed_Matching_Enabled,0x631,60,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Gear Shift Speed Matching Enabled,Gear selection and shift requests,false,,,,boolean,MoTeC_M1_CAN_Reference
+Gear_Paddle_Position_Sensor,0x632,0,16,big,true,0.0001,0.0,source units,R × 0.0001 in source units,Gear › Paddle › Position › Sensor,Paddle lever and switches,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Lever_Force_Sensor,0x632,16,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Gear › Lever › Force › Sensor,Paddle lever and switches,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Paddle_Up_Switch,0x632,32,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Gear › Paddle › Up Switch,Paddle lever and switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Gear_Paddle_Down_Switch,0x632,33,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Gear › Paddle › Down Switch,Paddle lever and switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Gear_Lever_Up_Switch,0x632,34,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Gear › Lever › Up Switch,Paddle lever and switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Gear_Lever_Down_Switch,0x632,35,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Gear › Lever › Down Switch,Paddle lever and switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Clutch_Switch,0x632,36,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Clutch › Switch,Paddle lever and switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Brake_Switch,0x632,37,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Brake › Switch,Paddle lever and switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Gear_Lever,0x632,40,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Gear › Lever,Paddle lever and switches,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Paddle,0x632,44,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Gear › Paddle,Paddle lever and switches,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Lever_Diagnostic,0x632,48,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Gear › Lever › Diagnostic,Paddle lever and switches,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Paddle_Diagnostic,0x632,52,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Gear › Paddle › Diagnostic,Paddle lever and switches,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Mode,0x633,0,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift › Mode,Shift mode and diagnostics,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Mode_Switch_Position,0x633,8,8,big,true,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift › Mode › Switch › Position,Shift mode and diagnostics,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Result,0x633,16,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift › Result,Shift mode and diagnostics,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_State,0x633,20,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift › State,Shift mode and diagnostics,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Diagnostic,0x633,24,8,big,true,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift › Diagnostic,Shift mode and diagnostics,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Actuator_State,0x634,0,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Gear › Shift › Actuator › State,Shift actuator,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Actuator_Pump_Relay_State,0x634,4,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Gear › Shift › Actuator › Pump › Relay › State,Shift actuator,false,,,,boolean,MoTeC_M1_CAN_Reference
+Gear_Shift_Actuator_Up_State,0x634,5,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Gear › Shift › Actuator › Up › State,Shift actuator,false,,,,boolean,MoTeC_M1_CAN_Reference
+Gear_Shift_Actuator_Down_State,0x634,6,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Gear › Shift › Actuator › Down › State,Shift actuator,false,,,,boolean,MoTeC_M1_CAN_Reference
+Gear_Shift_Actuator_Position,0x634,8,16,big,true,0.0001,0.0,source units,R × 0.0001 in source units,Gear › Shift › Actuator › Position,Shift actuator,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Actuator_Pressure,0x634,24,16,big,false,100,0.0,source units,R × 100 in source units,Gear › Shift › Actuator › Pressure,Shift actuator,false,,,,number,MoTeC_M1_CAN_Reference
+Clutch_Position,0x635,0,16,big,true,0.0001,0.0,source units,R × 0.0001 in source units,Clutch › Position,Clutch and brake state,false,,,,number,MoTeC_M1_CAN_Reference
+Clutch_Pressure,0x635,16,16,big,false,1000,0.0,source units,R × 1000 in source units,Clutch › Pressure,Clutch and brake state,false,,,,number,MoTeC_M1_CAN_Reference
+Clutch_State,0x635,32,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Clutch › State,Clutch and brake state,false,,,,number,MoTeC_M1_CAN_Reference
+Brake_State,0x635,36,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Brake › State,Clutch and brake state,false,,,,number,MoTeC_M1_CAN_Reference
+0x01,0x635,40,8,big,false,1,0.0,,Constant 0x01,0x01,Clutch and brake state,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Engine_Speed_Limit,0x636,0,16,big,false,6,0.0,source units,R × 6 in source units,Gear › Shift › Engine Speed › Limit,Shift engine intervention,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Ignition_Cut,0x636,16,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Gear › Shift › Ignition Cut,Shift engine intervention,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Fuel_Cut,0x636,24,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Gear › Shift › Fuel Cut,Shift engine intervention,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Ignition_Timing_Limit_Advance,0x636,32,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Gear › Shift › Ignition Timing › Limit Advance,Shift engine intervention,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Shift_Throttle_Aim,0x636,48,16,big,false,0.001,0.0,source units,R × 0.001 in source units,Gear › Shift › Throttle Aim,Shift engine intervention,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Speed,0x640,0,16,big,false,6,0.0,source units,R × 6 in source units,Engine › Speed,Engine speed manifold and throttle,false,,,,number,MoTeC_M1_CAN_Reference
+Inlet_Manifold_Pressure,0x640,16,16,big,false,100,0.0,source units,R × 100 in source units,Inlet › Manifold › Pressure,Engine speed manifold and throttle,false,,,,number,MoTeC_M1_CAN_Reference
+Inlet_Air_Temperature,0x640,32,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Inlet › Air › Temperature,Engine speed manifold and throttle,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Position,0x640,48,16,big,false,0.001,0.0,source units,R × 0.001 in source units,Throttle › Position,Engine speed manifold and throttle,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Volume,0x641,0,16,big,false,1e-09,0.0,source units,R × 1e-09 in source units,Fuel › Volume,Fuel delivery and efficiency,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Mixture_Aim,0x641,16,16,big,false,0.01,0.0,source units,R × 0.01 in source units,Fuel › Mixture Aim,Fuel delivery and efficiency,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Sensor,0x641,32,16,big,false,100,0.0,source units,R × 100 in source units,Fuel › Pressure › Sensor,Fuel delivery and efficiency,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Injector_Primary_Duty_Cycle,0x641,48,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Fuel › Injector › Primary › Duty Cycle,Fuel delivery and efficiency,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Efficiency,0x641,56,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Engine › Efficiency,Fuel delivery and efficiency,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Pedal,0x642,0,16,big,false,0.001,0.0,source units,R × 0.001 in source units,Throttle › Pedal,Pedal load and timing,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Load,0x642,16,16,big,false,1e-06,0.0,source units,R × 1e-06 in source units,Engine › Load,Pedal load and timing,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Timing,0x642,32,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Ignition › Timing,Pedal load and timing,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Timing_Primary,0x642,48,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Fuel › Timing › Primary,Pedal load and timing,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_1_Knock_Level,0x643,0,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Ignition › Cylinder 1 › Knock › Level,Cylinder knock levels,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_2_Knock_Level,0x643,8,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Ignition › Cylinder 2 › Knock › Level,Cylinder knock levels,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_3_Knock_Level,0x643,16,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Ignition › Cylinder 3 › Knock › Level,Cylinder knock levels,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_4_Knock_Level,0x643,24,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Ignition › Cylinder 4 › Knock › Level,Cylinder knock levels,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_5_Knock_Level,0x643,32,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Ignition › Cylinder 5 › Knock › Level,Cylinder knock levels,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_6_Knock_Level,0x643,40,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Ignition › Cylinder 6 › Knock › Level,Cylinder knock levels,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_7_Knock_Level,0x643,48,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Ignition › Cylinder 7 › Knock › Level,Cylinder knock levels,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_8_Knock_Level,0x643,56,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Ignition › Cylinder 8 › Knock › Level,Cylinder knock levels,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Output_Cut_Count,0x644,0,8,big,false,1,0.0,source units,R in source units,Ignition › Output › Cut Count,Cuts injector pulse and oil pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Output_Cut_Count,0x644,8,8,big,false,1,0.0,source units,R in source units,Fuel › Output › Cut Count,Cuts injector pulse and oil pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Output_Cut_Average,0x644,16,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Ignition › Output › Cut Average,Cuts injector pulse and oil pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Output_Cut_Average,0x644,24,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Fuel › Output › Cut Average,Cuts injector pulse and oil pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Cylinder_1_Primary_Output_Pulse_Width_1,0x644,32,8,big,false,0.0001,0.0,source units,R × 0.0001 in source units,Fuel › Cylinder 1 › Primary › Output › Pulse Width 1,Cuts injector pulse and oil pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Timing_State,0x644,40,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Ignition › Timing › State,Cuts injector pulse and oil pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cut_State,0x644,44,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Ignition › Cut › State,Cuts injector pulse and oil pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Oil_Pressure,0x644,48,16,big,false,100,0.0,source units,R × 100 in source units,Engine › Oil › Pressure,Cuts injector pulse and oil pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Boost_Pressure,0x645,0,16,big,true,100,0.0,source units,R × 100 in source units,Boost › Pressure,Boost and lever force,false,,,,number,MoTeC_M1_CAN_Reference
+Boost_Aim,0x645,16,16,big,false,100,0.0,source units,R × 100 in source units,Boost › Aim,Boost and lever force,false,,,,number,MoTeC_M1_CAN_Reference
+Boost_Actuator_Normal_Output_Duty_Cycle,0x645,48,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Boost › Actuator › Normal › Output › Duty Cycle,Boost and lever force,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Lever_Force_Sensor,0x645,56,8,big,true,5,0.0,source units,R × 5 in source units,Gear › Lever › Force › Sensor,Boost and lever force,false,,,,number,MoTeC_M1_CAN_Reference
+Inlet_Camshaft_Aim,0x646,0,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Inlet › Camshaft › Aim,Inlet camshaft control,false,,,,number,MoTeC_M1_CAN_Reference
+Inlet_Camshaft_Bank_1_Position,0x646,16,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Inlet › Camshaft › Bank 1 › Position,Inlet camshaft control,false,,,,number,MoTeC_M1_CAN_Reference
+Inlet_Camshaft_Bank_2_Position,0x646,32,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Inlet › Camshaft › Bank 2 › Position,Inlet camshaft control,false,,,,number,MoTeC_M1_CAN_Reference
+Inlet_Camshaft_Bank_1_Actuator_Output_Duty_Cycle,0x646,48,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Inlet › Camshaft › Bank 1 › Actuator › Output › Duty Cycle,Inlet camshaft control,false,,,,number,MoTeC_M1_CAN_Reference
+Inlet_Camshaft_Bank_2_Actuator_Output_Duty_Cycle,0x646,56,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Inlet › Camshaft › Bank 2 › Actuator › Output › Duty Cycle,Inlet camshaft control,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Camshaft_Aim,0x647,0,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Exhaust › Camshaft › Aim,Exhaust camshaft control,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Camshaft_Bank_1_Position,0x647,16,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Exhaust › Camshaft › Bank 1 › Position,Exhaust camshaft control,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Camshaft_Bank_2_Position,0x647,32,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Exhaust › Camshaft › Bank 2 › Position,Exhaust camshaft control,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Camshaft_Bank_1_Actuator_Output_Duty_Cycle,0x647,48,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Exhaust › Camshaft › Bank 1 › Actuator › Output › Duty Cycle,Exhaust camshaft control,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Camshaft_Bank_2_Actuator_Output_Duty_Cycle,0x647,56,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Exhaust › Camshaft › Bank 2 › Actuator › Output › Duty Cycle,Exhaust camshaft control,false,,,,number,MoTeC_M1_CAN_Reference
+Wheel_Speed_Front_Left,0x648,0,16,big,false,0.0277777777777778,0.0,source units,R × 0.02777777778 in source units,Wheel Speed › Front › Left,Wheel speeds,false,,,,number,MoTeC_M1_CAN_Reference
+Wheel_Speed_Front_Right,0x648,16,16,big,false,0.0277777777777778,0.0,source units,R × 0.02777777778 in source units,Wheel Speed › Front › Right,Wheel speeds,false,,,,number,MoTeC_M1_CAN_Reference
+Wheel_Speed_Rear_Left,0x648,32,16,big,false,0.0277777777777778,0.0,source units,R × 0.02777777778 in source units,Wheel Speed › Rear › Left,Wheel speeds,false,,,,number,MoTeC_M1_CAN_Reference
+Wheel_Speed_Rear_Right,0x648,48,16,big,false,0.0277777777777778,0.0,source units,R × 0.02777777778 in source units,Wheel Speed › Rear › Right,Wheel speeds,false,,,,number,MoTeC_M1_CAN_Reference
+Coolant_Temperature,0x649,0,8,big,false,1,-40.0,source units,R − 40 in source units,Coolant › Temperature,Temperatures voltage and fuel used,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Oil_Temperature,0x649,8,8,big,false,1,-40.0,source units,R − 40 in source units,Engine › Oil › Temperature,Temperatures voltage and fuel used,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Temperature,0x649,16,8,big,false,1,-40.0,source units,R − 40 in source units,Fuel › Temperature,Temperatures voltage and fuel used,false,,,,number,MoTeC_M1_CAN_Reference
+Ambient_Temperature_Sensor,0x649,24,8,big,false,1,-40.0,source units,R − 40 in source units,Ambient › Temperature › Sensor,Temperatures voltage and fuel used,false,,,,number,MoTeC_M1_CAN_Reference
+Airbox_Temperature,0x649,32,8,big,false,1,-40.0,source units,R − 40 in source units,Airbox › Temperature,Temperatures voltage and fuel used,false,,,,number,MoTeC_M1_CAN_Reference
+ECU_Battery_Voltage,0x649,40,8,big,false,0.1,0.0,source units,R × 0.1 in source units,ECU › Battery › Voltage,Temperatures voltage and fuel used,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Used_rollover_residue,0x649,48,16,big,false,1e-05,0.0,source units,R / 100000 in source units; modulo residue,Fuel › Used (rollover residue),Temperatures voltage and fuel used,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Temperature,0x64A,0,16,big,false,0.1,0.0,source units,R × 0.1 in source units,Exhaust › Temperature,Exhaust load speed limit and ambient pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Load_Average,0x64A,16,16,big,false,0.001,0.0,source units,R × 0.001 in source units,Engine › Load › Average,Exhaust load speed limit and ambient pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Speed_Limit,0x64A,32,16,big,false,6,0.0,source units,R × 6 in source units,Engine › Speed › Limit,Exhaust load speed limit and ambient pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Ambient_Pressure,0x64A,48,16,big,false,100,0.0,source units,R × 100 in source units,Ambient › Pressure,Exhaust load speed limit and ambient pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_1_Trim_Knock,0x64B,0,8,big,false,0.1,0.0,source units,R × 0.1 in source units,Ignition › Cylinder 1 › Trim › Knock,Cylinder knock trims,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_2_Trim_Knock,0x64B,8,8,big,false,0.1,0.0,source units,R × 0.1 in source units,Ignition › Cylinder 2 › Trim › Knock,Cylinder knock trims,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_3_Trim_Knock,0x64B,16,8,big,false,0.1,0.0,source units,R × 0.1 in source units,Ignition › Cylinder 3 › Trim › Knock,Cylinder knock trims,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_4_Trim_Knock,0x64B,24,8,big,false,0.1,0.0,source units,R × 0.1 in source units,Ignition › Cylinder 4 › Trim › Knock,Cylinder knock trims,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_5_Trim_Knock,0x64B,32,8,big,false,0.1,0.0,source units,R × 0.1 in source units,Ignition › Cylinder 5 › Trim › Knock,Cylinder knock trims,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_6_Trim_Knock,0x64B,40,8,big,false,0.1,0.0,source units,R × 0.1 in source units,Ignition › Cylinder 6 › Trim › Knock,Cylinder knock trims,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_7_Trim_Knock,0x64B,48,8,big,false,0.1,0.0,source units,R × 0.1 in source units,Ignition › Cylinder 7 › Trim › Knock,Cylinder knock trims,false,,,,number,MoTeC_M1_CAN_Reference
+Ignition_Cylinder_8_Trim_Knock,0x64B,56,8,big,false,0.1,0.0,source units,R × 0.1 in source units,Ignition › Cylinder 8 › Trim › Knock,Cylinder knock trims,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Run_Time,0x64C,0,16,big,false,1,0.0,source units,R in source units,Engine › Run Time,Runtime and warning flags,false,,,,number,MoTeC_M1_CAN_Reference
+ECU_Acceleration_Uptime,0x64C,16,16,big,false,1,0.0,source units,R in source units,ECU › Acceleration › Uptime,Runtime and warning flags,false,,,,number,MoTeC_M1_CAN_Reference
+Warning_Source,0x64C,32,8,big,false,1,0.0,code,Raw enum integer; value map not supplied,Warning › Source,Runtime and warning flags,false,,,,number,MoTeC_M1_CAN_Reference
+Coolant_Temperature_Warning,0x64C,40,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Coolant › Temperature › Warning,Runtime and warning flags,false,,,,boolean,MoTeC_M1_CAN_Reference
+Coolant_Pressure_Warning,0x64C,41,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Coolant › Pressure › Warning,Runtime and warning flags,false,,,,boolean,MoTeC_M1_CAN_Reference
+Engine_Speed_Warning,0x64C,42,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Engine › Speed › Warning,Runtime and warning flags,false,,,,boolean,MoTeC_M1_CAN_Reference
+Engine_Oil_Temperature_Warning,0x64C,43,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Engine › Oil › Temperature › Warning,Runtime and warning flags,false,,,,boolean,MoTeC_M1_CAN_Reference
+Engine_Oil_Pressure_Warning,0x64C,44,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Engine › Oil › Pressure › Warning,Runtime and warning flags,false,,,,boolean,MoTeC_M1_CAN_Reference
+Engine_Crankcase_Pressure_Warning,0x64C,46,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Engine › Crankcase › Pressure › Warning,Runtime and warning flags,false,,,,boolean,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Warning,0x64C,47,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Fuel › Pressure › Warning,Runtime and warning flags,false,,,,boolean,MoTeC_M1_CAN_Reference
+Knock_Warning,0x64C,48,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Knock › Warning,Runtime and warning flags,false,,,,boolean,MoTeC_M1_CAN_Reference
+Engine_State,0x64D,0,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Engine › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pump_State,0x64D,4,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Fuel › Pump › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Anti_Lag_State,0x64D,8,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Anti Lag › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Launch_State,0x64D,12,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Launch › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Boost_Aim_State,0x64D,16,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Boost › Aim › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Overrun_State,0x64D,24,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Engine › Overrun › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_State,0x64D,28,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Fuel › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Knock_State,0x64D,36,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Knock › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Throttle_Aim_State,0x64D,40,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Throttle › Aim › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Closed_Loop_State,0x64D,44,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Fuel › Closed Loop › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Speed_Reference_State,0x64D,48,4,big,false,1,0.0,code,Raw enum integer; value map not supplied,Engine › Speed › Reference › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Gear,0x64D,52,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Gear,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Speed_Limit_State,0x64D,56,8,big,false,1,0.0,code,Raw enum integer; value map not supplied,Engine › Speed › Limit › State,Operating states,false,,,,number,MoTeC_M1_CAN_Reference
+Anti_Lag_Diagnostic,0x64E,0,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Anti Lag › Diagnostic,Diagnostics and driver switches,false,,,,number,MoTeC_M1_CAN_Reference
+Launch_Diagnostic,0x64E,4,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Launch › Diagnostic,Diagnostics and driver switches,false,,,,number,MoTeC_M1_CAN_Reference
+Boost_Control_Diagnostic,0x64E,8,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Boost › Control › Diagnostic,Diagnostics and driver switches,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Cut_State,0x64E,12,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Fuel › Cut › State,Diagnostics and driver switches,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Closed_Loop_Diagnostic,0x64E,16,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Fuel › Closed Loop › Diagnostic,Diagnostics and driver switches,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Oil_Pressure_Low_Switch,0x64E,24,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Engine › Oil › Pressure › Low Switch,Diagnostics and driver switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Pit_Switch,0x64E,25,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Pit Switch,Diagnostics and driver switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Launch_Switch,0x64E,26,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Launch Switch,Diagnostics and driver switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Traction_Switch,0x64E,27,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Traction Switch,Diagnostics and driver switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Brake_State,0x64E,28,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Brake › State,Diagnostics and driver switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Anti_Lag_Switch,0x64E,29,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Anti Lag Switch,Diagnostics and driver switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Engine_Run_Switch,0x64E,30,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Engine › Run Switch,Diagnostics and driver switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Gear_Neutral_Switch,0x64E,31,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Gear › Neutral Switch,Diagnostics and driver switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Engine_Run_Time_Total,0x64F,0,16,big,false,360,0.0,source units,R × 360 in source units,Engine › Run Time › Total,Lifetime runtime trims and fuel level,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Closed_Loop_Control_Bank_1_Trim,0x64F,16,8,big,false,0.005,0.0,source units,R × 0.005 in source units,Fuel › Closed Loop › Control › Bank 1 › Trim,Lifetime runtime trims and fuel level,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Closed_Loop_Control_Bank_2_Trim,0x64F,24,8,big,false,0.005,0.0,source units,R × 0.005 in source units,Fuel › Closed Loop › Control › Bank 2 › Trim,Lifetime runtime trims and fuel level,false,,,,number,MoTeC_M1_CAN_Reference
+Transmission_Temperature,0x64F,32,8,big,false,1,-40.0,source units,R − 40 in source units,Transmission › Temperature,Lifetime runtime trims and fuel level,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Tank_Level,0x64F,40,8,big,false,0.001,0.0,source units,R × 0.001 in source units,Fuel › Tank › Level,Lifetime runtime trims and fuel level,false,,,,number,MoTeC_M1_CAN_Reference
+Template_Version,0x64F,56,8,big,false,1,0.0,,Constant 0x04,Template Version,Lifetime runtime trims and fuel level,false,,,,number,MoTeC_M1_CAN_Reference
+Driver_Rotary_Switch_1,0x650,0,8,big,true,1,0.0,code,Raw enum integer; value map not supplied,Driver › Rotary Switch 1,Driver rotary and digital switches,false,,,,number,MoTeC_M1_CAN_Reference
+Driver_Rotary_Switch_2,0x650,8,8,big,true,1,0.0,code,Raw enum integer; value map not supplied,Driver › Rotary Switch 2,Driver rotary and digital switches,false,,,,number,MoTeC_M1_CAN_Reference
+Driver_Rotary_Switch_3,0x650,16,8,big,true,1,0.0,code,Raw enum integer; value map not supplied,Driver › Rotary Switch 3,Driver rotary and digital switches,false,,,,number,MoTeC_M1_CAN_Reference
+Driver_Rotary_Switch_4,0x650,24,8,big,true,1,0.0,code,Raw enum integer; value map not supplied,Driver › Rotary Switch 4,Driver rotary and digital switches,false,,,,number,MoTeC_M1_CAN_Reference
+Driver_Rotary_Switch_5,0x650,32,8,big,true,1,0.0,code,Raw enum integer; value map not supplied,Driver › Rotary Switch 5,Driver rotary and digital switches,false,,,,number,MoTeC_M1_CAN_Reference
+Driver_Rotary_Switch_6,0x650,40,8,big,true,1,0.0,code,Raw enum integer; value map not supplied,Driver › Rotary Switch 6,Driver rotary and digital switches,false,,,,number,MoTeC_M1_CAN_Reference
+Driver_Switch_1,0x650,56,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Switch 1,Driver rotary and digital switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Switch_2,0x650,57,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Switch 2,Driver rotary and digital switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Switch_3,0x650,58,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Switch 3,Driver rotary and digital switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Switch_4,0x650,59,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Switch 4,Driver rotary and digital switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Switch_5,0x650,60,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Switch 5,Driver rotary and digital switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Switch_6,0x650,61,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Switch 6,Driver rotary and digital switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Switch_7,0x650,62,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Switch 7,Driver rotary and digital switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Driver_Switch_8,0x650,63,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Driver › Switch 8,Driver rotary and digital switches,false,,,,boolean,MoTeC_M1_CAN_Reference
+Exhaust_Lambda,0x651,0,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Exhaust › Lambda,Lambda and bank exhaust temperature,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Lambda_Bank_1,0x651,16,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Exhaust › Lambda › Bank 1,Lambda and bank exhaust temperature,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Lambda_Bank_2,0x651,24,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Exhaust › Lambda › Bank 2,Lambda and bank exhaust temperature,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Temperature_Bank_1,0x651,32,16,big,false,0.1,0.0,source units,R × 0.1 in source units,Exhaust › Temperature › Bank 1,Lambda and bank exhaust temperature,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Temperature_Bank_2,0x651,48,16,big,false,0.1,0.0,source units,R × 0.1 in source units,Exhaust › Temperature › Bank 2,Lambda and bank exhaust temperature,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Injector_Secondary_Contribution,0x652,0,16,big,false,0.001,0.0,source units,R × 0.001 in source units,Fuel › Injector › Secondary › Contribution,Secondary injection,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Timing_Secondary,0x652,16,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Fuel › Timing › Secondary,Secondary injection,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Injector_Secondary_Duty_Cycle,0x652,32,8,big,false,0.01,0.0,source units,R × 0.01 in source units,Fuel › Injector › Secondary › Duty Cycle,Secondary injection,false,,,,number,MoTeC_M1_CAN_Reference
+Brake_Pressure_Front_Sensor,0x655,0,16,big,true,1000,0.0,source units,R × 1000 in source units,Brake › Pressure › Front › Sensor,Brake coolant and steering pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Brake_Pressure_Rear_Sensor,0x655,16,16,big,true,1000,0.0,source units,R × 1000 in source units,Brake › Pressure › Rear › Sensor,Brake coolant and steering pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Coolant_Pressure,0x655,32,16,big,true,100,0.0,source units,R × 100 in source units,Coolant › Pressure,Brake coolant and steering pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Steering_Pressure,0x655,48,16,big,true,1000,0.0,source units,R × 1000 in source units,Steering › Pressure,Brake coolant and steering pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Steering_Angle,0x656,0,16,big,true,0.1,0.0,source units,R × 0.1 in source units,Steering › Angle,Steering angle and fluid flows,false,,,,number,MoTeC_M1_CAN_Reference
+Inlet_Mass_Flow,0x656,16,16,big,false,0.0001,0.0,source units,R × 0.0001 in source units,Inlet › Mass Flow,Steering angle and fluid flows,false,,,,number,MoTeC_M1_CAN_Reference
+Airbox_Mass_Flow,0x656,32,16,big,false,0.0001,0.0,source units,R × 0.0001 in source units,Airbox › Mass Flow,Steering angle and fluid flows,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Flow,0x656,48,16,big,false,1e-08,0.0,source units,R × 1e-08 in source units,Fuel › Flow,Steering angle and fluid flows,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Injector_Primary_Differential_Pressure,0x657,0,16,big,true,100,0.0,source units,R × 100 in source units,Fuel › Injector › Primary › Differential Pressure,Injector differential pressure and shaft speeds,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Injector_Secondary_Differential_Pressure,0x657,16,16,big,true,100,0.0,source units,R × 100 in source units,Fuel › Injector › Secondary › Differential Pressure,Injector differential pressure and shaft speeds,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Input_Shaft_Speed,0x657,32,16,big,false,6,0.0,source units,R × 6 in source units,Gear › Input › Shaft Speed,Injector differential pressure and shaft speeds,false,,,,number,MoTeC_M1_CAN_Reference
+Gear_Output_Shaft_Speed,0x657,48,16,big,false,6,0.0,source units,R × 6 in source units,Gear › Output › Shaft Speed,Injector differential pressure and shaft speeds,false,,,,number,MoTeC_M1_CAN_Reference
+Vehicle_Acceleration_Lateral,0x658,0,16,big,true,0.009806650125,0.0,source units,R × 0.009806650125 in source units,Vehicle › Acceleration › Lateral,Vehicle acceleration,false,,,,number,MoTeC_M1_CAN_Reference
+Vehicle_Acceleration_Longitudinal,0x658,16,16,big,true,0.009806650125,0.0,source units,R × 0.009806650125 in source units,Vehicle › Acceleration › Longitudinal,Vehicle acceleration,false,,,,number,MoTeC_M1_CAN_Reference
+Vehicle_Acceleration_Vertical,0x658,32,16,big,true,0.009806650125,0.0,source units,R × 0.009806650125 in source units,Vehicle › Acceleration › Vertical,Vehicle acceleration,false,,,,number,MoTeC_M1_CAN_Reference
+Vehicle_Speed,0x659,32,16,big,false,0.0277777777777778,0.0,source units,R × 0.02777777778 in source units,Vehicle › Speed,Vehicle speed,false,,,,number,MoTeC_M1_CAN_Reference
+Template_Version,0x65A,32,8,big,false,1,0.0,,Constant 0x04,Template Version,Template version,false,,,,number,MoTeC_M1_CAN_Reference
+Lap_Time,0x65B,0,16,big,false,0.01,0.0,source units,R × 0.01 in source units,Lap › Time,Lap timing and distance,false,,,,number,MoTeC_M1_CAN_Reference
+Lap_Time_Running,0x65B,16,16,big,false,0.01,0.0,source units,R × 0.01 in source units,Lap › Time › Running,Lap timing and distance,false,,,,number,MoTeC_M1_CAN_Reference
+Lap_Number,0x65B,32,16,big,false,1,0.0,source units,R in source units,Lap › Number,Lap timing and distance,false,,,,number,MoTeC_M1_CAN_Reference
+Lap_Distance,0x65B,48,16,big,false,1,0.0,source units,R in source units,Lap › Distance,Lap timing and distance,false,,,,number,MoTeC_M1_CAN_Reference
+Differential_Temperature,0x65C,0,16,big,false,0.1,0.0,source units,R × 0.1 in source units,Differential › Temperature,Differential temperature,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Pressure_Bank_1_Sensor,0x65E,0,16,big,true,100,0.0,source units,R × 100 in source units,Exhaust › Pressure › Bank 1 › Sensor,Exhaust and crankcase pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Exhaust_Pressure_Bank_2_Sensor,0x65E,16,16,big,true,100,0.0,source units,R × 100 in source units,Exhaust › Pressure › Bank 2 › Sensor,Exhaust and crankcase pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Engine_Crankcase_Pressure,0x65E,32,16,big,true,100,0.0,source units,R × 100 in source units,Engine › Crankcase › Pressure,Exhaust and crankcase pressure,false,,,,number,MoTeC_M1_CAN_Reference
+Knock_Threshold,0x65F,0,16,big,false,0.001,0.0,source units,R × 0.001 in source units,Knock › Threshold,Knock logging and pit speed limit,false,,,,number,MoTeC_M1_CAN_Reference
+Root_Logging_System_1_Used,0x65F,16,16,big,false,0.001,0.0,source units,R × 0.001 in source units,Root › Logging › System 1 › Used,Knock logging and pit speed limit,false,,,,number,MoTeC_M1_CAN_Reference
+Vehicle_Speed_Limit_Pit,0x65F,32,16,big,false,0.0277777777777778,0.0,source units,R × 0.02777777778 in source units,Vehicle › Speed › Limit › Pit,Knock logging and pit speed limit,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Mode,0x670,0,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Alternative Fuel › Mode,Alternative fuel mode and blends,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Composition_Sensor_Diagnostic,0x670,4,4,big,true,1,0.0,code,Raw enum integer; value map not supplied,Fuel › Composition › Sensor › Diagnostic,Alternative fuel mode and blends,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Timing_Primary_Blend,0x670,8,8,big,false,0.01,0.0,source units,R × 0.01 in source units; other branch = 0,Alternative Fuel › Timing › Primary Blend,Alternative fuel mode and blends,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Timing_Secondary_Blend,0x670,16,8,big,false,0.01,0.0,source units,R × 0.01 in source units; other branch = 0,Alternative Fuel › Timing › Secondary Blend,Alternative fuel mode and blends,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Ignition_Timing_Blend,0x670,24,8,big,false,0.01,0.0,source units,R × 0.01 in source units; other branch = 0,Alternative Fuel › Ignition Timing Blend,Alternative fuel mode and blends,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Mixture_Aim_Blend,0x670,32,8,big,false,0.01,0.0,source units,R × 0.01 in source units; other branch = 0,Alternative Fuel › Mixture Aim Blend,Alternative fuel mode and blends,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Composition,0x670,40,8,big,false,0.01,0.0,source units,R × 0.01 in source units; other branch = 0,Fuel › Composition,Alternative fuel mode and blends,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Ignition_Timing,0x670,48,8,big,true,0.5,0.0,source units,R × 0.5 in source units; other branch = 0,Alternative Fuel › Ignition Timing,Alternative fuel mode and blends,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Timing_Primary,0x671,0,16,big,true,0.1,0.0,source units,R × 0.1 in source units; other branch = 0,Alternative Fuel › Timing › Primary,Alternative fuel timing and mixture,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Timing_Secondary,0x671,16,16,big,true,0.1,0.0,source units,R × 0.1 in source units; other branch = 0,Alternative Fuel › Timing › Secondary,Alternative fuel timing and mixture,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Mixture_Aim,0x671,32,16,big,false,0.01,0.0,source units,R × 0.01 in source units; other branch = 0,Alternative Fuel › Mixture Aim,Alternative fuel timing and mixture,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Pressure_Sensor,0x672,0,16,big,false,100,0.0,source units,R × 100 in source units; other branch = 0,Alternative Fuel › Pressure › Sensor,Alternative fuel supply,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Temperature,0x672,16,8,big,false,1,-40.0,source units,R − 40 in source units; other branch = 0,Alternative Fuel › Temperature,Alternative fuel supply,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Contribution_Efficiency,0x672,24,8,big,false,0.01,0.0,source units,R × 0.01 in source units; other branch = 0,Alternative Fuel › Contribution Efficiency,Alternative fuel supply,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Pump_State,0x672,32,4,big,true,1,0.0,code,Raw enum integer; value map not supplied; other branch = 0,Alternative Fuel › Pump › State,Alternative fuel supply,false,,,,number,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Pressure_Warning,0x672,38,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Alternative Fuel › Pressure › Warning,Alternative fuel supply,false,,,,boolean,MoTeC_M1_CAN_Reference
+Alternative_Fuel_Pump_State_Active,0x672,39,1,big,false,1,0.0,boolean,1 = condition true; 0 = false,Alternative Fuel › Pump › State Active,Alternative fuel supply,false,,,,boolean,MoTeC_M1_CAN_Reference
+Fuel_Used,0x777,0,32,big,false,0.001,0.0,source units,R × 0.001 in source units,Fuel › Used,Estimated fuel used,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_1,0x653,0,16,big,false,1000,0.0,source units,R × 1000 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 1,Direct injection pump bank 1,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_1_Aim,0x653,16,16,big,false,1000,0.0,source units,R × 1000 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 1 › Aim,Direct injection pump bank 1,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_1_Control,0x653,32,8,big,false,0.005,0.0,source units,R × 0.005 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 1 › Control,Direct injection pump bank 1,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_1_Control_Feed_Forward,0x653,40,8,big,true,0.01,0.0,source units,R × 0.01 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 1 › Control › Feed Forward,Direct injection pump bank 1,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_1_Control_Proportional,0x653,48,8,big,true,0.01,0.0,source units,R × 0.01 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 1 › Control › Proportional,Direct injection pump bank 1,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_1_Control_Integral,0x653,56,8,big,true,0.01,0.0,source units,R × 0.01 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 1 › Control › Integral,Direct injection pump bank 1,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_2,0x654,0,16,big,false,1000,0.0,source units,R × 1000 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 2,Direct injection pump bank 2,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_2_Aim,0x654,16,16,big,false,1000,0.0,source units,R × 1000 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 2 › Aim,Direct injection pump bank 2,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_2_Control,0x654,32,8,big,false,0.005,0.0,source units,R × 0.005 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 2 › Control,Direct injection pump bank 2,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_2_Control_Feed_Forward,0x654,40,8,big,true,0.01,0.0,source units,R × 0.01 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 2 › Control › Feed Forward,Direct injection pump bank 2,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_2_Control_Proportional,0x654,48,8,big,true,0.01,0.0,source units,R × 0.01 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 2 › Control › Proportional,Direct injection pump bank 2,false,,,,number,MoTeC_M1_CAN_Reference
+Fuel_Pressure_Direct_Bank_2_Control_Integral,0x654,56,8,big,true,0.01,0.0,source units,R × 0.01 in source units; disabled in supplied source,Fuel › Pressure › Direct › Bank 2 › Control › Integral,Direct injection pump bank 2,false,,,,number,MoTeC_M1_CAN_Reference
+Brake_Temperature_Front_Left,0x65D,0,16,big,true,0.1,0.0,source units,R × 0.1 in source units; disabled in supplied source,Brake › Temperature › Front › Left,Brake temperatures,false,,,,number,MoTeC_M1_CAN_Reference
+Brake_Temperature_Front_Right,0x65D,16,16,big,true,0.1,0.0,source units,R × 0.1 in source units; disabled in supplied source,Brake › Temperature › Front › Right,Brake temperatures,false,,,,number,MoTeC_M1_CAN_Reference
+Brake_Temperature_Rear_Left,0x65D,32,16,big,true,0.1,0.0,source units,R × 0.1 in source units; disabled in supplied source,Brake › Temperature › Rear › Left,Brake temperatures,false,,,,number,MoTeC_M1_CAN_Reference
+Brake_Temperature_Rear_Right,0x65D,48,16,big,true,0.1,0.0,source units,R × 0.1 in source units; disabled in supplied source,Brake › Temperature › Rear › Right,Brake temperatures,false,,,,number,MoTeC_M1_CAN_Reference

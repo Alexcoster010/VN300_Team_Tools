@@ -1,5 +1,0 @@
-pyserial
-gpiozero
-python-can
-cantools
-pyusb

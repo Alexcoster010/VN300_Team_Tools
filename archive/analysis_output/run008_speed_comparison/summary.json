@@ -1,0 +1,38 @@
+{
+  "all": {
+    "bins": 2304,
+    "vehicle_mean": 2.356556353585666,
+    "air_mean": 0.7140262345555883,
+    "mean_difference": -1.6425301190300774,
+    "mae": 2.114540233889384,
+    "rmse": 8.248271268904872,
+    "correlation": 0.7326339685147624,
+    "ratio_of_means": 0.3029956119950823
+  },
+  "vehicle_at_least_5_mph": {
+    "bins": 112,
+    "vehicle_mean": 40.274898513215035,
+    "air_mean": 6.273498609353742,
+    "mean_difference": -34.0013999038613,
+    "mae": 34.08696605081662,
+    "rmse": 37.18112456257227,
+    "correlation": 0.4383431499472642,
+    "ratio_of_means": 0.1557669625733576
+  },
+  "moving_uncertainty_below_1_mps": {
+    "bins": 78,
+    "vehicle_mean": 36.16252409089376,
+    "air_mean": 5.01496493960114,
+    "mean_difference": -31.14755915129262,
+    "mae": 31.27042336230539,
+    "rmse": 34.81533068253954,
+    "correlation": 0.44033503438309596,
+    "ratio_of_means": 0.1386785094700837
+  },
+  "moving_start_s": 45.75,
+  "moving_end_s": 56.85,
+  "air_peak_mph": 29.112128,
+  "vehicle_peak_mph": 66.1138623095087,
+  "below_nominal_zero_rows": 2848,
+  "air_rows": 13384
+}

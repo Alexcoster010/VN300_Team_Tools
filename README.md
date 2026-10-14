@@ -1,610 +1,208 @@
-# VN300 Team Tools
+# SRT Telemetry
 
-This folder is a transfer-ready package for Raspberry Pi logging, live dashboard viewing, and laptop/offline VN-300 data analysis.
+Raspberry Pi data collection and a browser web panel for VN300, Arduino steering/airspeed, Pi I²C SFM3505 mass flow, and optional CAN input. Saved-session analysis and vehicle models use the same project.
 
-Current Pi logger release: `v0.6.1`. CAN support is prepared but disabled by
-default; real adapter and vehicle-bus validation is still required.
-
-For a beginner-friendly setup checklist, start with `ONE_PAGE_SETUP_GUIDE.md`.
-
-For Pi software updates and post-update checks, use `INSTALLER_UPDATE_CHECKLIST.md`.
-
-For change tracking, use `VERSION_HISTORY.md`.
-
-## Folder Contents
-
-- `ONE_PAGE_SETUP_GUIDE.md`: one-page setup guide for a new team member.
-- `INSTALLER_UPDATE_CHECKLIST.md`: step-by-step update/install checklist to maintain after future changes.
-- `PI_INSTALL_CURRENT_VERSION.md`: concise current-version install/update procedure for the Pi.
-- `PI_LOGGER_INSTALL.md`: one-command public ZIP install and update procedure for the Pi logger.
-- `PI_LOGGER_VERSION`: version marker installed with the Pi logger and exposed through `/api/latest`.
-- `Install_VN300_Logger.sh`: root installer entry point for an extracted `pi-logger` branch ZIP.
-- `VERSION_HISTORY.md`: version and change history for the team tools.
-- `MOTEC_CAN_TO_PI_INTEGRATION_REPORT.md`: detailed plan for MoTeC M130 CAN broadcast into the Pi logger.
-- `PHASE_2_PLAN.md`: next-step plan for MoTeC/dash CAN, steering angle, driver inputs, and balance metrics.
-- `motec_can_signal_map_template.csv`: example MoTeC/dash CAN signal map to fill in after CAN IDs and scaling are known.
-- `pi/vn300_button_logger.py`: Raspberry Pi logger and live dashboard. It starts at boot, then waits idle until the log button is pressed.
-- `pi/vn300-button-logger.service`: systemd service for the logger/dashboard.
-- `pi/install_on_pi.sh`: installer to run on the Pi after copying this folder.
-- `pi/vn300-shutdown-sudoers`: allows the service user to shut down the Pi from the power button.
-- `pi/requirements-pi.txt`: Python packages needed on the Pi.
-- `pi/CAN_SETUP.md`: adapter-driver, JSON profile, and DBC/CSV setup guidance.
-- `pi/can_profile.example.json`: raw-capture profile template for the confirmed adapter.
-- `pi/motec_can_signal_map.csv`: Pi-side CAN signal map used by optional Phase 2 CAN logging.
-- `analysis/vn300_lap_analysis.py`: offline analysis, lap splitting, and overlay HTML generation from `*_BINARY.csv` or `*_VNINS.csv`.
-- `analysis/vn300_gg_analysis.py`: corrected per-driver G-G diagrams with data-quality filtering and directional grip envelopes.
-- `analysis_output/`, `folder_import_output/`, `lap_smoke_output/`: example generated outputs.
-- `serial_samples/`: example raw serial capture.
-
-## Assumptions And Placeholders
-
-The included Pi service and installer are set up for these team defaults:
-
-- Pi username: `vectornav`
-- VN-300 serial port: `/dev/ttyUSB0`
-- VN-300 baud rate: `921600`
-- Dashboard port: `8080`
-- Installed app path on Pi: `/home/vectornav/vn300_tools`
-
-The public Pi logger package is distributed from the `pi-logger` branch. After extracting its ZIP on the Pi, run `sh Install_VN300_Logger.sh` from the extracted root folder. See `PI_LOGGER_INSTALL.md`.
-
-If your Pi uses a different username, serial port, or baud rate, update these files before installing:
-
-- `pi/install_on_pi.sh`
-- `pi/vn300-button-logger.service`
-- `pi/vn300-shutdown-sudoers`
-
-Generic placeholders used below:
-
-- `<team-tools-folder>`: local path to this `VN300_Team_Tools` folder on your laptop.
-- `<data-folder>`: local path to a folder containing VN300 log CSV files.
-- `<output-folder>`: local folder where analysis results should be written.
-- `<pi-user>`: Pi login username, usually `vectornav`.
-- `<pi-host>`: Pi hostname or IP address, for example `raspberrypi.local` or `192.168.1.25`.
-- `<flash-drive-log-folder>`: copied Pi log folder, usually a `VN300_BOOT_YYYY-MM-DD_HH-MM-SS` folder.
-
-## Button Wiring
-
-Use momentary pushbuttons wired from GPIO pin to ground. The script enables internal pull-ups.
-
-| Function | Raspberry Pi BCM GPIO | Physical Pin | Other Button Leg |
-| --- | ---: | ---: | --- |
-| Log toggle | GPIO17 | Pin 11 | Ground |
-| Power hold | GPIO27 | Pin 13 | Ground |
-
-Log button behavior:
-
-- Press once: start a new logging session.
-- Press again: stop logging and flush files.
-
-Power button behavior:
-
-- Hold about 2 seconds: stop logging, flush files, and shut down the Pi.
-
-## Stable v0.4.0 Install From GitHub
-
-The last VN300-only version before Phase 2 work is tagged:
+## Layout
 
 ```text
-v0.4.0
+app.py               Entry point, HTTP API, and web file serving
+logger.py            Sensors, recording, storage, GPIO, and live timing
+analysis.py          Lap analysis, G-G plots, lap prediction, and tire models
+web/                 Six-page panel, shared CSS/JS, local team assets, report theme
+config/              Settings, version, CAN map, and calibration examples
+deploy/              Pi installer, service template, shutdown permissions
+arduino/             Arduino A0/A1 analog firmware
+mass_flow.py         Pi I²C SFM3505 acquisition and capture
+docs/                Current hardware setup guides
+tests/               Recording, API, sensor, analysis, and dashboard tests
+archive/             Historical docs, reports, captures, and generated work
+requirements.txt     Python dependencies
 ```
 
-On a Pi or laptop with Git installed, that exact version can be checked out with:
+The web panel uses plain HTML, CSS, and JavaScript with shared navigation and direct page URLs. Recording APIs and log formats remain compatible. Historical files are retained in `archive/`; their instructions may refer to former paths.
+
+## Web panel
+
+Open `http://<pi-ip>:8080/`. `/` opens Track. Each page supports direct navigation and refresh:
+
+| URL | Functions |
+| --- | --- |
+| `/track` | Speed / G, Start/Stop Log, setup streaming, capture/CRC/queue health, storage, driver metadata, lap/autocross timing and traces |
+| `/sensors` | All received VN300 channels, steering pot raw / voltage / angle, airspeed raw / voltage / estimate, SFM3505 air/O2 flow in slm, latest raw CAN frames and decoded signals with units / ages |
+| `/sessions` | Search/filter recorded and imported sessions, metadata/files, individual files/session ZIPs/all logs, saved-log and model-input imports |
+| `/analysis` | Select multiple sessions; lap splitting, sectors, overlays, driver/session comparisons, measured G-G lap prediction, separate G-G plots; saved reports and CSV exports |
+| `/models` | Theoretical tire envelope, LC0 minimum-lap model, LC0/R20 tire comparison; real command parameters and explicit input-file selectors |
+| `/setup` | Saved/effective device settings, CAN configuration, live steering calibration, airspeed curves, timing gates/course setup |
+| `/help` | Current setup README, hardware steps, historical guides/plans/reports, and team information |
+
+Connection and storage health appear in the shared header on every page. Recording state, driver, and run details appear on Track. The storage bar shows available Pi filesystem space; log destination space is also shown. `/live` remains a compatibility alias for Track. Stale readings fade and the connection indicator distinguishes a reachable panel from fresh sensor data. The locally bundled Sooner Racing Team logo and Help car photo come from the supplied Porsche OKC Assets folder. The theme uses Oklahoma Crimson (`#841617`), black, white, and neutral grays. No remote fonts, scripts, images, or frontend build system are required.
+
+Track places speed, longitudinal/lateral G, and lap timing in one compact panel above the trace. **Edit run info** opens the next-log form inside the run bar; save it before starting a new recording. Each recording retains the info captured at its start. Diagnostics starts collapsed and contains GPS, stream rate/queue/CRC counts, log health, and Pi temperature; alerts remain visible while it is collapsed. Completed runs starts collapsed when empty, opens when results arrive, and preserves your choice during live refreshes. Timing setup is a small link, with a visible prompt when gates are not configured.
+
+### Timing gates & offline maps
+
+Open Setup → Timing gates (also linked from Track). Use **Start stream** beside Start Log in the header for live GPS. Walk to each end of a gate and use **GPS → endpoint 1 / 2**, or enter gate width and travel heading and choose **Center gate on GPS**. **Use GPS heading** copies the VN300 yaw; confirm the intended travel heading, especially while stationary. GPS capture requires a sample under two seconds old, finite coordinates, and position uncertainty ≤10 m. Capture uses the VN300 GPS, not browser location. Save timing to apply and persist the gate; changing a draft does not change active timing.
+
+Track combines the run trace and speed history in one panel. Hover or tap either plot to highlight the same captured sample in both views and inspect its speed, elapsed time, and distance. Arrow keys also select samples. Current and best traces retain their own captured speeds; before a timed trace is available, the speed plot shows the latest 60 seconds of fresh samples.
+
+Select OU campus or Riverwind parking lots, zoom / pan, select **Draw start / finish gate**, then tap two endpoints. Autocross has separate start and finish gates. Manual coordinates remain available. A map gate needs at least 1 m between endpoints. Map imagery is a reference; confirm gate positions with live GPS on site.
+
+Small local JPEGs and their exact EPSG:3857 export extents are bundled in `web/assets/`. They were downloaded on October 1, 2026 from [USGS NAIP Plus / The National Map](https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer), which describes its orthoimagery as public domain. Acquisition dates vary; these are not live images. This avoids a Google Maps API key and online map dependency. Maps require no external requests. Preserve `map-areas.json` alongside the images for correct georeferencing.
+
+Sensors uses one expandable tree grouped by measurement type, with all branches collapsed initially. Steering combines raw voltage, ADC count, calculated angle, calibration, and any CAN steering signals. Airspeed and mass flow group their raw and calculated outputs; motion and navigation include IMU, attitude, GPS, velocity, timing, and every other received VN300 field. CAN sensors appear under vehicle controls, powertrain, electrical, or their other sensor type. CAN bus health, estimated bandwidth, and all raw frames appear in the same tree. Filter by sensor, field, message, or CAN ID; matching ancestors open automatically. Expansion and focused CAN scaling edits survive live refreshes.
+
+CAN collection follows the existing recording lifecycle; setup streaming starts VN300 streaming, and the Arduino and Pi mass flow readers run independently when configured. Enable CAN in Setup to use the supplied MoTeC M1 reference map, or select a DBC / custom CSV map to override it. Standard and extended IDs are distinct. The live cache retains up to 2,048 IDs and 8,192 signals, with an explicit eviction count in CAN bus health; every frame continues to be recorded in the existing CSV files. Values fade after two seconds without an update. No CAN transmission is added.
+
+### Bench preview without hardware
+
+Install the Python dependencies, then run:
 
 ```sh
-git clone https://github.com/Alexcoster010/VN300_Team_Tools.git
-cd VN300_Team_Tools
-git checkout v0.4.0
+python3 app.py --web-only --dashboard-host 127.0.0.1 --dashboard-port 8080 --data-dir /tmp/srt-bench-data
 ```
 
-Use that tag if the team needs the stable logger/dashboard before the Phase 2 CAN work is ready.
+This serves real imports, analysis, models, and settings APIs without opening serial ports, attaching GPIO, or recording. Start/Stop requests do not acquire data in this mode. Use a separate `--config /path/to/bench-settings.json` when testing saved device settings. Bench preview does not connect to the Pi or acquire hardware data.
 
-## Install Or Update The Pi Logger
+### Runtime storage and analysis worker
 
-On the Pi, download and extract the current public logger ZIP:
+Logs retain their existing USB/`~/vn300_logs` locations and boot folders. Web runtime data defaults to `~/vn300_data`; configure `data_dir` in settings, use `--data-dir`, or set `SRT_DATA_DIR`. The directory must be outside application source.
 
 ```text
-https://github.com/Alexcoster010/VN300_Team_Tools/archive/refs/heads/pi-logger.zip
+vn300_data/
+  imports/<import-id>/...                    Original imported files and ZIP folder structure
+  results/<source-session-id>/<job-id>/
+    job.json                                Parameters, source IDs, input files, status, errors
+    source_metadata.csv                     Combined driver metadata when available
+    worker.log                              Progress messages and diagnostics
+    out/...                                 Existing HTML/CSV/JSON/PNG analysis outputs
+  timing.json                               Last saved course/timing setup
+  run_metadata.json                         Next-run metadata restored after restart
 ```
 
-Open a terminal in the extracted folder and run:
+Comparisons link every source session in the job manifest and are grouped under the first selected session. Models use selected source-session attribution or their input-file/result group. Independent model work has its own input group. Existing archive files are read-only references and remain in place.
+
+One separate Python worker process calls the real `analysis.py` commands. It runs at reduced CPU priority with numerical thread limits. Jobs queue while recording; an active worker is stopped **before** HTTP/GPIO/auto-start capture begins and resumes only after the run drains and flushes. The panel shows queued/running/paused/completed/error states, actual worker output, and exports. Progress is phase/output based, not a fabricated percentage. Jobs can be cancelled. Saved results and queued jobs survive restart; interrupted running jobs are marked as errors and can be submitted again.
+
+Import ZIP/CSV/BIN/JSON/TIR/DBC files in Sessions. Uploads are limited to 256 MiB, ZIPs to 5000 entries and 1 GiB expanded, with storage-reserve and path/link checks. Imports and archive downloads wait until recording stops. Import preserves metadata/timing files and prefers matching BINARY over ASCII for analysis. Individual active-run downloads wait for capture to finish. Download All Logs includes recorded and imported logs; result exports are available on Analysis/Models.
+
+Saved timing gates are discovered beside source CSVs. Without complete gates, lap analysis creates whole-session comparisons and quality reports; timed sectors/prediction require actual laps/runs. Override timing in the advanced parameters when needed. Select several sessions for driver comparison; session JSON driver metadata is merged, or supply a run-sheet/driver map/driver order. Results disclose missing/filtered/uncertain data instead of promising a prediction from unsuitable inputs.
+
+## Pi installation and updates
+
+From the extracted repository root on the Pi:
 
 ```sh
-sh Install_VN300_Logger.sh
+sh deploy/install.sh --check
+sh deploy/install.sh
 ```
 
-To validate a download without changing the installed logger, run:
+Defaults: user `vectornav`, app directory `/home/vectornav/vn300_tools`, VN300 port `/dev/ttyUSB0`, baud `921600`, web port `8080`. Sensor and app baud rates must match. Set `VN300_USER` or `VN300_APP_DIR` to override installation defaults.
 
-```sh
-sh Install_VN300_Logger.sh --check
-```
+The installer includes the panel, report theme, local team assets, README, and historical Markdown references. It backs up the existing app and service, preserves settings, copies legacy calibration/CAN files into `config/` when needed, and carries forward existing service command-line flags. It checks `/api/latest` after restarting and restores the previous app and service if the check fails.
 
-The installer creates a backup, preserves the installed CAN map, installs dependencies, and verifies the service through `/api/latest`. It also adds the default service user to the `dialout`, `gpio`, and `netdev` groups. If serial, GPIO, or CAN permissions still fail, reboot the Pi once after running the installer.
-
-The installer disables older auto-start logger services if they exist:
-
-- `vn300-logger.service`
-- `vn300-dual-logger.service`
-
-Then it enables and starts:
-
-- `vn300-button-logger.service`
-
-## Pi Test Commands
-
-Check service status:
+The service retains its existing name, `vn300-button-logger.service`, to avoid duplicate recorders during upgrades. Older `vn300-logger` and `vn300-dual-logger` services are disabled. Serial/GPIO/I²C and optional CAN dependencies are installed; numerical model packages are optional. Set `VN300_INSTALL_MODELS=1` to install NumPy, pandas, SciPy, and matplotlib for the minimum-lap model. Set `VN300_OFFLINE_INSTALL=1` to use existing dependencies without downloading.
 
 ```sh
 systemctl status vn300-button-logger.service --no-pager
-```
-
-Watch live service logs:
-
-```sh
 journalctl -u vn300-button-logger.service -f
 ```
 
-Manual test without GPIO buttons:
+Open `http://<pi-ip>:8080/`. Reboot after the first installation if new serial/GPIO/I²C/CAN group permissions have not taken effect.
+
+## Configuration
+
+Use Setup or edit the installed `config/settings.json`, then restart the service between runs. Setup shows saved settings separately from effective service settings. Sensor/network/GPIO/CAN changes require a restart; calibration saves apply live between runs where the corresponding sensor is enabled. Keys use argument names with underscores, such as `steering_port` and `dashboard_port`. Command-line flags override settings. JSON paths are relative to the settings file; command-line paths are relative to the working directory.
 
 ```sh
-python3 /home/<pi-user>/vn300_tools/vn300_button_logger.py --port /dev/ttyUSB0 --baud 921600 --no-buttons --auto-start
+python3 app.py --help
+python3 app.py --no-buttons --auto-start --port /dev/ttyUSB0 --baud 921600
+python3 app.py --config /path/to/settings.json
 ```
 
-With the default user:
+Use stable `/dev/serial/by-id/` paths for separate VN300 and Arduino devices. Set `steering_port` to enable Arduino capture; its baud defaults to `115200`. The legacy format is one raw integer per line. The panel's steering calibration saves to `config/steering_calibration.json`; raw readings are always retained.
+
+For paired A0 steering and A1 airspeed voltages, set `arduino_format` to `a0-a1-volts` and `airspeed_calibration` to your calibration JSON. Input is `A0_voltage,A1_voltage` per line. Both channels, original readings, and range flags are recorded in the same steering CSV. Copy and edit hardware-specific profiles from `config/examples/`.
+
+The Sensirion SFM3505 connects directly to the **Pi I²C bus**, with `mass_flow_enable: true`, `mass_flow_i2c_bus: 1`, and `mass_flow_sample_hz: 50` (the shipped settings). The Pi checks every sensor CRC, exposes independent `mass_flow` status in `/api/latest`, and records a separate `_MASS_FLOW.csv` with the same run prefix and elapsed-time origin as the VN300 and Arduino files. It streams even without an Arduino serial port or calibration. Enable I²C and use the Pi's 3.3 V supply and SDA/SCL pins; see [SFM3505 wiring and setup](docs/SFM3505_SETUP.md), also in Help. For Uno steering/airspeed, upload [the analog sketch](arduino/analog_telemetry/analog_telemetry.ino) and select `a0-a1-volts`. Saved `a0-a1-sfm3505` settings automatically migrate to this wiring; upload the analog sketch when upgrading.
+
+Optional passive CAN capture uses `can_enable`, `can_profile`, `can_dbc`, `can_interface`, `can_channel`, and `can_bitrate`. CAN is disabled by default. The default map, `config/motec_can_signal_map.csv`, contains 273 fields across all 50 explicit IDs defined in `MoTeC_M1_CAN_Reference.docx`: 47 active IDs (including five VCS compounds on `0x01F`) and three layouts disabled in the supplied ECU source. The synchronization ID `0x021` and other undefined messages remain raw-only. Header-only legacy default maps fall back to the bundled `config/examples/motec_m1_reference.csv`; custom maps and explicit raw-only profiles are respected. The example map is a placeholder, not validated vehicle configuration. A DBC takes precedence over a CSV map.
+
+The reference decoder assumes big-endian byte order, contiguous MSB-first bit offsets, and signed two’s-complement fields. The document leaves these API details unconfirmed; verify known values on the ECU before relying on the decoding. MoTeC’s [M1 Build support example](https://motec.zendesk.com/hc/en-gb/community/posts/16901358291599-M1-Build-Questions) identifies `true` on the receive API as big-endian; applying that convention to `TxOpen(true)` is an inference. Physical units remain “source units” where the reference did not supply channel metadata; enumeration values remain numeric codes. Flags display On/Off. Source scaling is inverted per message, including temperature offsets, signed nibbles, and fuel-used modulo residues. Multiplexed VCS values retain their last sample until that compound returns.
+
+Each CAN signal has editable multiplier and divider fields on Sensors. Click Save to apply `displayed = decoded × multiplier ÷ divider` immediately, including during capture. Both must be finite and the divider must be nonzero. Adjustments are saved in `can_scaling.json` in the web runtime data directory, keyed by ID, standard/extended frame type, and full channel name. Set both to 1 and save to reset. Raw and decoded columns and recorded CSV values retain their original values.
+
+The Sensors bandwidth tile estimates observed classic CAN utilization over a rolling five-second window, with identifier/control/CRC/ACK/intermission overhead and a 20% allowance for stuffed bits. It includes undecoded frames and remote requests. Rates settle from a shorter window at capture start and decay to zero when traffic stops; the tile shows unavailable when capture is inactive, bitrate is unknown, or CAN FD/error traffic appears in the window. Bitrate comes from the CAN profile/settings, or Linux SocketCAN interface timing when the configured bitrate is zero. Set the actual bus bitrate in Setup if it cannot be detected. Filters, receive loss, error/retry traffic, and actual stuffing can make this differ from full physical bus utilization.
+
+Existing detailed hardware references remain available: [CAN](archive/docs/CAN_SETUP.md), [steering](archive/docs/STEERING_SETUP.md), [Arduino analog inputs](archive/docs/ARDUINO_ANALOG_SETUP.md). Use the current paths above when following these historical references.
+
+## Recording
+
+Wire the maintained Log on/off switch and momentary Power button from GPIO to ground; internal pull-ups are enabled.
+
+| Function | BCM GPIO | Physical pin | Behavior |
+| --- | ---: | ---: | --- |
+| Log switch | 17 | 11 | ON (closed to ground): start; OFF (open): stop and flush |
+| Power | 27 | 13 | Hold about two seconds to flush and shut down |
+
+The logger reads the switch at startup: booting with it ON starts a run, and OFF stays idle even with `--auto-start`. Auto-start still works with `--no-buttons` or unavailable GPIO controls. The switch uses 50 ms debounce. After an acquisition fault, cycle OFF then ON to retry. Panel Start/Stop commands still work; the next switch change applies its physical position.
+
+The panel retains Start/Stop Log, setup streaming without recording, run metadata, lap/autocross timing, steering calibration, health indicators, and Download All Logs. Capture queues, CRC checks, live data, fault handling, and shutdown behavior are preserved.
+
+Logs prefer USB storage and fall back to `~/vn300_logs`. Each boot creates a `VN300_BOOT_...` folder. Existing names/formats remain: raw `.bin`, parsed BINARY/ASCII CSVs, session metadata JSON, and optional steering/mass flow/CAN CSVs. Supported VN300 binary configuration remains `1,4,7F,1FF9,004C,060D,A0BF,0004,00C6,061B,A218,0002`.
+
+When Pi mass flow is enabled, each run includes `_MASS_FLOW.csv` with air/O2 flow, raw values, range, and sample status. Session metadata stores mass flow bus settings, scale, reference conditions, sample counts, and errors independently of Arduino metadata.
+
+Keep logs outside the source directory. Updates preserve installed calibration, CAN maps, and settings instead of replacing them with examples.
+
+## Analysis and models
+
+Previous scripts are consolidated into `analysis.py`. Each command keeps its original flags and output formats; add `--help` for options.
+
+| Previous script | Command |
+| --- | --- |
+| `vn300_lap_analysis.py` | `python3 analysis.py laps` |
+| `vn300_gg_analysis.py` | `python3 analysis.py gg` |
+| `lc0_theoretical_gg.py` | `python3 analysis.py tire-model` |
+| `lc0_minimum_lap.py` | `python3 analysis.py minimum-lap` |
+| `tire_ellipse_comparison.py` | `python3 analysis.py tire-comparison` |
+
+The measured G-G lap predictor is included in lap analysis. Folder imports still prefer BINARY over matching ASCII sessions, discover saved timing/metadata, and support driver comparisons, sectors, autocross, overlays, and reports.
 
 ```sh
-python3 /home/vectornav/vn300_tools/vn300_button_logger.py --port /dev/ttyUSB0 --baud 921600 --no-buttons --auto-start
+python3 analysis.py laps /path/to/logs --out /path/to/results --no-prompts
+python3 analysis.py gg /path/to/logs --out /path/to/gg-results
+python3 analysis.py minimum-lap --help
 ```
 
-Stop the manual test with `Ctrl+C`. It should create one `.bin` file and one or more message CSV files.
+Model inputs:
 
-The VN-300 serial baud rate and the service baud rate must match.
+- **Theoretical tire envelope:** fitted LC0 MF6.1 `.TIR` and `gg_envelope_by_driver.csv` from G-G analysis. Parameters include per-tire load (N), pressure (kPa), camber (deg), track grip, and ellipse exponent.
+- **Minimum lap:** fitted `.TIR`, original telemetry CSV with `Speed_mps`, `Longitudinal_G`, `Lateral_G`, GPS latitude/longitude, and `Common_AngularRate_Z_rps` or `Imu_AngularRate_Z_rps`. Provide the reference start row (zero-based), sample count, and duration (s). Optional `lap_sector_splits.csv` supplies benchmarks; a selected propulsion session supplies acceleration fitting. Missing numerical dependencies are listed on the page.
+- **Tire comparison:** fitted LC0 and R20 `.TIR` files, common load/pressure/camber/grip/exponent, and a normal-load sweep.
 
-## Binary VectorNav Output
-
-The logger safely records binary serial output to the raw `.bin` file at `921600` baud. The live dashboard includes a stream counter showing raw bytes, binary bytes, parsed binary packets, and parsed ASCII packet count.
-
-Current limitation:
-
-- Raw binary capture works.
-- ASCII CSV/dashboard parsing works for `$VN...` ASCII packets.
-- Binary CSV/dashboard parsing is implemented for the saved Serial 1 Binary Output Message Configuration #1:
-  `1,4,7F,1FF9,004C,060D,A0BF,0004,00C6,061B,A218,0002`.
-- In auto parse mode, valid binary packets become the authoritative live dashboard/timing stream. ASCII packets can still be written, but they will not override binary live timing once binary is active.
-
-With that binary configuration, each logging session creates:
-
-```text
-VN300_YYYY-MM-DD_RUN001_ttyUSB0.bin
-VN300_YYYY-MM-DD_RUN001_BINARY.csv
-VN300_YYYY-MM-DD_RUN001_session_metadata.json
-```
-
-The binary CSV includes normalized columns used by the dashboard and analyzer:
-
-- `Latitude_deg`, `Longitude_deg`, `Altitude_m`
-- `Yaw_deg`, `Pitch_deg`, `Roll_deg`
-- `Vel_N_mps`, `Vel_E_mps`, `Vel_D_mps`, `Speed_mph`
-- `Longitudinal_Accel_mps2`, `Lateral_Accel_mps2`, `Vertical_Accel_mps2`
-- `Longitudinal_G`, `Lateral_G`, `Vertical_G`
-- `PosUncertainty_m`, `VelUncertainty_mps`
-
-The analyzer folder import prefers `*_BINARY.csv` over a matching `*_VNINS.csv` so the same session is not analyzed twice. Use `--include-ascii` only when you intentionally want both files included.
-
-## Optional Phase 2 CAN Logging
-
-Pi logger `v0.6.1` supports optional passive CAN capture through `python-can`,
-JSON adapter profiles, CSV signal maps, and DBC decoding through `cantools`.
-It is disabled by default. The adapter driver, bitrate, listen-only settings,
-and vehicle signal definitions must be confirmed and tested on the actual Pi.
-See `pi/CAN_SETUP.md` before enabling it.
-
-Default service behavior:
-
-- VN300 logging still works without CAN hardware.
-- The service file does not include `--can-enable`.
-- No CAN files are created unless CAN is enabled.
-
-When CAN is enabled, each run can create:
-
-```text
-VN300_YYYY-MM-DD_RUN001_MOTEC_RAW_CAN.csv
-VN300_YYYY-MM-DD_RUN001_MOTEC_CHANNELS.csv
-```
-
-`*_MOTEC_RAW_CAN.csv` stores every received CAN frame. `*_MOTEC_CHANNELS.csv` stores decoded channels from:
-
-```text
-pi/motec_can_signal_map.csv
-```
-
-The team must fill in the real MoTeC/dash CAN IDs, bit positions, scaling, offsets, and units before decoded values are meaningful. Use `motec_can_signal_map_template.csv` as the starting point.
-
-Manual CAN test example after `can0` is configured on the Pi:
+Import these files on Sessions first, then select them on Models. All numeric/optional parameters are derived from the same Python parsers used by the CLI. Exports are standalone and contain their report theme. Only the LC0 minimum-lap model requires numerical packages. Install all dependencies in a virtual environment for that model:
 
 ```sh
-python3 /home/<pi-user>/vn300_tools/vn300_button_logger.py \
-  --port /dev/ttyUSB0 \
-  --baud 921600 \
-  --no-buttons \
-  --auto-start \
-  --can-enable \
-  --can-channel can0 \
-  --can-bitrate 1000000
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -r requirements.txt
 ```
 
-## Flash Drive Output
+Existing results and captures are preserved under `archive/analysis_output`, `archive/folder_import_output`, `archive/lap_smoke_output`, and `archive/serial_samples`. Historical guides/plans and the original README are in `archive/docs`. Scratch files, rendered documents, and build output are also preserved in the archive.
 
-The logger searches `/media` and `/mnt` for a writable mounted drive. It writes to:
-
-```text
-VN300_LOGS/
-```
-
-Every time the Pi boots and the logger service starts, it creates a new boot folder:
-
-```text
-VN300_LOGS/
-  VN300_BOOT_YYYY-MM-DD_HH-MM-SS/
-```
-
-All logger output from that power cycle goes inside that boot folder. The boot folder name is based on the Pi clock at service start, so it can be wrong if the Pi has no network time.
-
-Each logging session is numbered by date. When binary VN-300 packets include a valid UTC date, the logger uses that VN-300 UTC date for the final run filename and run metadata. This keeps run files correctly dated even when the Pi clock is wrong or offline. The first run of a day is `RUN001`, the next is `RUN002`, and the count restarts the next day. If the Pi reboots during a test day, the logger scans existing same-day files under `VN300_LOGS` and continues with the next run number.
-
-Each logging session also writes `VN300_YYYY-MM-DD_RUN###_session_metadata.json` with the run number, dashboard run metadata, port, baud rate, parse mode, stop reason, byte counts, packet counts, free space, Pi clock timestamps, and VN-300 UTC timestamps when available. The logger also appends one row to `VN300_run_metadata.csv` in the boot folder. The logger refuses to start, or stops an active session, when the selected log drive has less than 250 MB free.
-
-If no writable flash drive is found, it falls back to:
-
-```text
-/home/<pi-user>/vn300_logs
-```
-
-With the default user:
-
-```text
-/home/vectornav/vn300_logs
-```
-
-Expected files:
-
-```text
-VN300_BOOT_YYYY-MM-DD_HH-MM-SS/
-  VN300_YYYY-MM-DD_RUN001_ttyUSB0.bin
-  VN300_YYYY-MM-DD_RUN001_BINARY.csv
-  VN300_YYYY-MM-DD_RUN001_VNINS.csv
-  VN300_YYYY-MM-DD_RUN001_VNIMU.csv
-  VN300_YYYY-MM-DD_RUN001_session_metadata.json
-  VN300_run_metadata.csv
-  VN300_dashboard_timing_config.csv
-```
-
-`VN300_dashboard_timing_config.csv` is written when timing setup is saved in the dashboard. It records lap/autocross mode, start line coordinates, finish/stop line coordinates if used, minimum speed, and minimum crossing gap.
-
-`VN300_run_metadata.csv` is written from the dashboard Run Metadata panel. Before a run, enter the driver, test type, course, setup notes, tire pressures, and validity flag, then click `Save Run Info`. The physical log button then starts the next numbered run using that saved metadata.
-
-## Live Dashboard Over Router
-
-Connect the Pi Ethernet or Wi-Fi to the car router. Once the service is running, any laptop/phone on that router can open:
-
-```text
-http://<pi-host>:8080/
-```
-
-Examples:
-
-```text
-http://raspberrypi.local:8080/
-http://192.168.1.25:8080/
-```
-
-The dashboard starts when the Pi service starts. Logging does not need to be active for the dashboard page to load. Before logging starts, the dashboard will show idle/blank live data.
-
-The dashboard shows current logging state, speed, yaw, GPS position, position uncertainty, checksum state, and a rolling speed trace.
-
-The dashboard `Log` tile shows where the logger is writing:
-
-- `flash drive / writing / ... MB`: expected drive-day state.
-- `pi local fallback / writing / ... MB`: the Pi could not use the flash drive at service start, so logs are going to `/home/<pi-user>/vn300_logs`.
-- `write error`: the active log destination failed during a run. Stop the run and check the service logs before continuing.
-
-Live dashboard data only proves that the Pi is receiving and decoding VN-300 packets. It does not prove the flash drive is accepting writes; use the `Log` tile and `VN300_logger_status.json` in the boot folder to confirm file logging health.
-
-When live timing is configured and a run/lap is active, the dashboard also shows a GPS track plot:
-
-- blue path: current lap/run path
-- blue dot: current car position
-- green path: best completed valid lap/run path, once one exists
-- green dot: where the car was on the best path at the same elapsed time as the current lap/run
-
-The dashboard also has run metadata setup:
-
-- `Next Run`: shows the next date/run-number file ID, such as `VN300_2026-07-15_RUN004`.
-- `Driver`, `Test Type`, `Course`, `Location`, `Car Setup`, `Tire`, pressures, brake bias, aero, validity, and notes.
-- `Save Run Info`: saves the metadata that will be written into the next log session.
-
-The dashboard also has live timing setup:
-
-- Click **Start Setup Stream** before positioning the car at a timing gate.
-- Setup streaming opens the VN-300 only for live dashboard data. It does not create a run, advance the daily run number, write raw/CSV/metadata files, start CAN logging, or update lap timing.
-- Click **Stop Setup Stream** when setup is complete. Pressing the physical log button also leaves setup mode and starts a normal recorded run.
-
-- `Lap`: enter the two GPS endpoints of the start/finish line.
-- `Autocross`: enter the two GPS endpoints of the start line and the two GPS endpoints of the finish line.
-- `Min Speed mph`: ignores line crossings below this speed.
-- `Min Gap s`: ignores repeat crossings too close together.
-
-After saving the setup, the dashboard displays:
-
-- completed lap/run count
-- current running lap/run time
-- best lap/run time
-- live delta to the best completed lap/run once a reference exists
-- recent completed lap/run table
-
-For a lap track, the first start/finish crossing arms timing. Each later crossing completes the current lap and immediately starts the next one.
-
-For autocross, crossing the start line starts a run and crossing the finish line completes it.
-
-The first completed lap/run creates the reference, so live delta is blank during that first lap/run. Every later lap/run shows live delta against the best completed reference at the same distance into the lap/run. Completed deltas are still shown in the recent results table.
-
-Live delta is suppressed when VN-300 position uncertainty is above `4.0 m`. Timing-line crossings are still recorded, but completed lap/run rows show an invalid GPS warning when the crossing was made with position uncertainty above `4.0 m`. Warned laps/runs are not used as the best-lap reference for future deltas.
-
-Useful network commands on the Pi:
+## Verification
 
 ```sh
-hostname -I
-ip addr
+python3 -m unittest discover -s tests -p 'test_*.py'
+node tests/test_dashboard_polling.js
+node tests/test_can_panel.js
+node tests/test_gate_editor.js
+node tests/test_mass_flow_panel.js
+node tests/test_sensor_tree.js
+node tests/test_trace_view.js
+sh deploy/install.sh --check
 ```
 
-If browser clients cannot connect, check that the Pi and laptop are on the same router subnet and that port `8080` is not blocked.
+The regression suite also verifies direct page URLs, offline assets, import/path boundaries, downloads, persistence, real worker errors/results, capture pause/resume through flushing, and G-G/model chaining. Numeric model tests skip when their optional packages are unavailable. Tests simulate serial capture and recording faults; CAN integration tests require `python-can` and `cantools`. Verify actual capture, stop, and shutdown on the Pi before deploying to the vehicle.
 
-## Offline Analysis
-
-The analysis script reads `*_BINARY.csv`, `*_VNINS.csv`, or a folder containing logger CSV files. It has no third-party dependencies. When a folder has both binary and ASCII output for the same session, binary is used by default.
-
-Basic summary and overlay for a log folder:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\vn300_lap_analysis.py" `
-  "<data-folder>" `
-  --no-prompts `
-  --out "<output-folder>"
-```
-
-That writes a whole-run summary and overlay without lap/run splitting:
-
-```text
-<output-folder>\summary.csv
-<output-folder>\overlay.html
-```
-
-To split laps, enter two GPS coordinates that define the start/finish line:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\vn300_lap_analysis.py" `
-  "<data-folder>\VN300_YYYY-MM-DD_RUN001_BINARY.csv" `
-  --mode lap `
-  --start-lat1 35.000000 `
-  --start-lon1 -97.000000 `
-  --start-lat2 35.000100 `
-  --start-lon2 -97.000100 `
-  --min-speed-mph 5 `
-  --min-lap-seconds 20 `
-  --out "<output-folder>"
-```
-
-Replace the example coordinates with the actual two endpoints of the timing line.
-
-To analyze autocross with separate start and finish lines:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\vn300_lap_analysis.py" `
-  "<data-folder>\VN300_YYYY-MM-DD_RUN001_BINARY.csv" `
-  --mode autocross `
-  --start-lat1 35.000000 `
-  --start-lon1 -97.000000 `
-  --start-lat2 35.000100 `
-  --start-lon2 -97.000100 `
-  --finish-lat1 35.001000 `
-  --finish-lon1 -97.001000 `
-  --finish-lat2 35.001100 `
-  --finish-lon2 -97.001100 `
-  --min-speed-mph 5 `
-  --min-lap-seconds 20 `
-  --out "<output-folder>"
-```
-
-If you leave out `--mode` or line coordinates, the analyzer prompts for `lap` or `autocross` and asks for the needed GPS endpoints.
-
-If you pass a boot folder from the Pi, the analyzer automatically finds the session CSVs in it. If that folder contains `VN300_dashboard_timing_config.csv`, the analyzer automatically loads the latest saved dashboard timing setup:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\vn300_lap_analysis.py" `
-  "<flash-drive-log-folder>" `
-  --out "<output-folder>"
-```
-
-If the boot folder contains `VN300_run_metadata.csv`, the analyzer also loads the dashboard run metadata automatically. You can still pass a separate metadata file manually:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\vn300_lap_analysis.py" `
-  "<data-folder>" `
-  --metadata "<team-tools-folder>\metadata_template.csv" `
-  --out "<output-folder>"
-```
-
-If the run metadata has the wrong driver names, pass a driver map or the corrected sorted file order:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\vn300_lap_analysis.py" `
-  "<data-folder>" `
-  --driver-order "Jimmy,Mercer,Caleb,Alex K,Joseph,Hayden,Alex C" `
-  --driver-order-offset 1 `
-  --out "<output-folder>"
-```
-
-When lap or autocross timing is active, the analyzer automatically splits each timed lap/run into three sectors. It aims for even time sections, then moves each split to the nearest low-cornering section so the split is between corners instead of during a corner.
-
-To change the number of automatic sectors:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\vn300_lap_analysis.py" `
-  "<data-folder>" `
-  --mode lap `
-  --start-lat1 35.000000 `
-  --start-lon1 -97.000000 `
-  --start-lat2 35.000100 `
-  --start-lon2 -97.000100 `
-  --auto-sectors 4 `
-  --out "<output-folder>"
-```
-
-Use `--auto-sectors 0` to disable automatic sectors.
-
-When automatic sectors are used, the analyzer writes:
-
-```text
-<output-folder>\sector_summary.csv
-```
-
-The generated `report.html` also includes a distance-based delta-to-fastest plot for run-to-run comparison.
-
-When timed laps/runs are found, the analyzer also writes a lap-time/sector report using three equal-distance sectors:
-
-```text
-<output-folder>\lap_times_sector_splits.html
-<output-folder>\lap_sector_splits.csv
-<output-folder>\theoretical_best_by_driver.csv
-<output-folder>\overall_best_sectors.csv
-```
-
-The HTML report lists every lap/run time with driver name, sector splits, each driver's theoretical best, and the overall theoretical best. The fastest sector in each sector column is highlighted purple. Segments shorter than `20 s` are skipped from this report by default to keep false timing splits out; change that with `--sector-report-min-seconds`.
-
-For valid lap-mode data, the analyzer also calculates a same-line mathematical best from the measured car G-G diagram. It builds a 10-degree, 98th-percentile envelope for each driver, selects the strongest driver in each direction for the combined car envelope, and applies that boundary continuously around the fastest valid lap's recorded line. The lap report shows this result beside the observed sector composite and writes:
-
-```text
-<output-folder>\car_gg_lap_prediction.csv
-<output-folder>\car_gg_envelope.csv
-<output-folder>\car_gg_driver_envelopes.csv
-<output-folder>\car_gg_propulsion_envelope.csv
-<output-folder>\car_gg_lap_trace.csv
-```
-
-The car G-G result is a mathematical lower bound, not an achievable-lap forecast. It stitches short percentile peaks from different laps and drivers and assumes both the G-G and propulsion peaks can be repeated continuously. Timing splits shorter than the sector-report minimum, laps with insufficient usable telemetry, and laps outside the densest speed-integrated course-distance cluster are excluded. Use `--no-gg-lap-prediction` to disable it. The main controls are `--gg-envelope-percentile`, `--gg-angle-bin-deg`, `--gg-min-bin-points`, `--gg-speed-max-mph`, and `--gg-predictor-max-speed-mph`.
-
-### Corrected G-G diagrams
-
-Use the G-G analyzer for per-driver lateral-vs-longitudinal acceleration plots:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\vn300_gg_analysis.py" `
-  "<data-folder>" `
-  --out "<output-folder>\gg_analysis"
-```
-
-That writes:
-
-```text
-<output-folder>\gg_analysis\gg_diagrams_by_driver.html
-<output-folder>\gg_analysis\gg_summary_by_driver.csv
-<output-folder>\gg_analysis\gg_envelope_by_driver.csv
-<output-folder>\gg_analysis\<driver>_gg_points.csv
-```
-
-The G-G diagram uses lateral G on the X axis and longitudinal G on the Y axis. It filters samples with GPS position uncertainty above `4.0 m`, filters obvious acceleration spikes, keeps an equal G scale on both axes, and draws a directional percentile envelope instead of a simple traction circle.
-
-### LC0 theoretical friction ellipse
-
-Compare the recorded driver envelopes to a fixed Hoosier 18x6-10 LC0 tire ceiling with:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\lc0_theoretical_gg.py" `
-  "<gg-output-folder>\gg_envelope_by_driver.csv" `
-  --tir "<tire-model-folder>\fitted_tire\Hoosier_18x6-10_LC0_fitted.tir" `
-  --out "<output-folder>\lc0_theoretical_gg"
-```
-
-The command uses the TTC Round 6 B1654 data for the 18-inch outer diameter, 6-inch width, 10-inch wheel LC0 tire. The run schedule identifies the test roadway as a 120-grit 3Mite abrasive flat belt, stoned once. The command reads the pure-slip peak factors from the fitted MF6.1 file and applies a combined-slip friction ellipse. The report compares every driver and the best recorded car envelope to the same theoretical boundary. Use `--track-grip-scale` only when a defensible TTC-belt-to-track correlation factor is available.
-
-This is a tire-limited reference, not a complete vehicle limit. It does not model load transfer, downforce, temperature, power, gearing, differential behavior, brake balance, transient response, or track-surface loss.
-
-Compare matched-condition LC0 and R20 friction ellipses with:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\tire_ellipse_comparison.py" `
-  --lc0-tir "<tire-model-folder>\fitted_tire\Hoosier_18x6-10_LC0_fitted.tir" `
-  --r20-tir "<tire-model-folder>\fitted_tire\Hoosier_18x6-10_R20_fitted.tir" `
-  --out "<output-folder>\lc0_vs_r20"
-```
-
-The default comparison uses the same `750 N` per-tire normal load, `12 psi` pressure, zero camber, and basic ellipse exponent for both tires. Pass the car's measured static or representative dynamic tire load with `--normal-load-n` when available.
-
-### LC0 same-line minimum lap
-
-Predict a quasi-steady-state minimum lap on a recorded line with:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\lc0_minimum_lap.py" `
-  --reference-csv "<VN300_BINARY.csv>" `
-  --reference-start-row 40500 `
-  --reference-samples 3296 `
-  --reference-duration-s 33.391514 `
-  --reference-driver "Alex C" `
-  --reference-lap 3 `
-  --lap-summary "<analysis-folder>\lap_sector_splits.csv" `
-  --propulsion-root "<vn300-logs-folder>" `
-  --tir "<tire-model-folder>\fitted_tire\Hoosier_18x6-10_LC0_fitted.tir" `
-  --out "<output-folder>\lc0_minimum_lap"
-```
-
-The solver integrates the reference distance from measured speed, derives course curvature from smoothed yaw rate divided by speed, fits a power-limited acceleration cap from straight-line VN-300 data, and performs cyclic forward/backward speed passes. It writes an HTML report, surface-sensitivity summary, full theoretical traces, propulsion fit, recorded-lap validity audit, model JSON, and PNG preview.
-
-The report uses the best observed sector composite as its primary clean-run target. The friction-ellipse results are same-line mathematical lower bounds, not achievable-lap predictions: they do not optimize the racing line between cones and do not include individual-tire load transfer, aero, tire temperature, transient response, differential behavior, or changing surface conditions. Treat the grip-scale range as sensitivity analysis until the dusty-asphalt correlation is measured.
-
-If the dashboard metadata has the wrong driver names, pass the correct driver order. For example, if the first sorted file is a test run and the seven real runs follow it:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\vn300_gg_analysis.py" `
-  "<data-folder>" `
-  --driver-order "Jimmy,Mercer,Caleb,Alex K,Joseph,Hayden,Alex C" `
-  --driver-order-offset 1 `
-  --out "<output-folder>\gg_analysis"
-```
-
-You can also pass a CSV driver map with `run_id` and `driver` columns:
-
-```powershell
-py -3 "<team-tools-folder>\analysis\vn300_gg_analysis.py" `
-  "<data-folder>" `
-  --driver-map "<driver-map.csv>" `
-  --out "<output-folder>\gg_analysis"
-```
-
-Generated lap/run CSVs include:
-
-- segment number
-- segment time
-- segment distance
-- final delta to best previous lap/run
-- live delta to best previous lap/run at each sample
-- live delta error text when position uncertainty is above `4.0 m`
-- timing warning text when a start/finish crossing was recorded with position uncertainty above `4.0 m`
-
-The first lap/run has blank live delta because no reference exists yet. Every later lap/run gets live delta compared to the best previous completed lap/run.
-
-If `PosUncertainty_m` is above `4.0 m`, `live_delta_to_best_s` is left blank and `live_delta_error` explains the GPS uncertainty problem.
-
-Start/finish line crossings are still recorded when either GPS point around the crossing has `PosUncertainty_m` above `4.0 m`, but the analyzer adds `timing_warning` to the segment summary and lap/run CSV. Warned segments are not used as the best reference for later live-delta calculations.
-
-## Field Checklist
-
-1. Confirm the Pi username matches the installer/service files.
-2. Confirm the VN-300 appears as `/dev/ttyUSB0`, or update the service file.
-3. Confirm the VN-300 serial baud rate is `921600`, or update the service file.
-4. Wire the log button to GPIO17/GND and the power button to GPIO27/GND.
-5. Download and extract the `pi-logger` ZIP on the Pi, then run `sh Install_VN300_Logger.sh`.
-6. Boot with the flash drive inserted.
-7. Verify the service is idle, press the log button, watch `journalctl`, then press again to stop.
-8. Open `http://<pi-host>:8080/` from a laptop connected to the same router.
-9. Pull the new `VN300_LOGS` files from the flash drive and run the analysis script.
+Hardware acceptance remains: real VN300 packet rates/CRC and sustained writes; USB removal/fallback and disk exhaustion; GPIO stop/restart/shutdown flushing; Arduino units/signs and calibration; GPS lap/autocross gates; and adapter/DBC/CAN channel decoding on the Pi. Verify capture throughput while queuing and resuming analysis before vehicle use.

@@ -1,0 +1,15 @@
+[Unit]
+Description=SRT Telemetry Logger and Web Panel
+After=local-fs.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vectornav
+WorkingDirectory=/home/vectornav/vn300_tools
+ExecStart=/usr/bin/python3 /home/vectornav/vn300_tools/app.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

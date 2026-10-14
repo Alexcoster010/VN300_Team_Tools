@@ -1,0 +1,22 @@
+{
+  "sensor": "FS7002-D",
+  "source": "Typical-curve estimate: Siargo FS7002 User Manual VD.1.01, July 2022, page 15 Figure 7.1; points approximated from the plotted blue curve, not individual-sensor calibration. https://identic.de/uploads/tx_pdtidentic/FS7002_Massflow-Sensors_VD101.pdf",
+  "voltage_to_speed": [
+    [0.50, 0.0],
+    [0.93, 1.0],
+    [1.30, 2.0],
+    [1.60, 3.0],
+    [1.82, 4.0],
+    [2.00, 5.0],
+    [2.12, 6.0],
+    [2.25, 7.0],
+    [2.36, 8.0],
+    [2.46, 9.0],
+    [2.56, 10.0],
+    [2.65, 11.0],
+    [2.72, 12.0],
+    [2.79, 13.0],
+    [2.86, 14.0],
+    [2.92, 15.0]
+  ]
+}

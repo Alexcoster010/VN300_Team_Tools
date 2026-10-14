@@ -1,0 +1,42 @@
+[
+  {
+    "id": "ou",
+    "name": "OU campus",
+    "image": "/assets/ou-map.jpg",
+    "extent": {
+      "xmin": -10849334.626177426,
+      "ymin": 4188914.208012858,
+      "xmax": -10846166.212486835,
+      "ymax": 4193954.8661569795,
+      "spatialReference": {
+        "wkid": 102100,
+        "latestWkid": 3857
+      }
+    },
+    "width": 1100,
+    "height": 1750,
+    "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+    "attribution": "USGS / USDA \u00b7 public-domain aerial imagery",
+    "downloaded": "2026-10-01"
+  },
+  {
+    "id": "riverwind",
+    "name": "Riverwind parking lots",
+    "image": "/assets/riverwind-map.jpg",
+    "extent": {
+      "xmin": -10854318.269288933,
+      "ymin": 4187547.4274254153,
+      "xmax": -10852648.476927035,
+      "ymax": 4188919.0425798316,
+      "spatialReference": {
+        "wkid": 102100,
+        "latestWkid": 3857
+      }
+    },
+    "width": 1400,
+    "height": 1150,
+    "source": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer",
+    "attribution": "USGS / USDA \u00b7 public-domain aerial imagery",
+    "downloaded": "2026-10-01"
+  }
+]

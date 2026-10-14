@@ -1,0 +1,13 @@
+{
+  "port": "/dev/ttyUSB0",
+  "baud": 921600,
+  "dashboard_host": "0.0.0.0",
+  "dashboard_port": 8080,
+  "log_gpio": 17,
+  "power_gpio": 27,
+  "parse_mode": "auto",
+  "can_enable": false,
+  "mass_flow_enable": true,
+  "mass_flow_i2c_bus": 1,
+  "mass_flow_sample_hz": 50
+}

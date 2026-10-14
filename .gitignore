@@ -5,3 +5,12 @@ __pycache__/
 Thumbs.db
 *.tmp
 *.log
+
+# Local configuration and generated work; templates remain tracked.
+config/steering_calibration.json
+config/airspeed_calibration.json
+config/can_profile.json
+data/
+.venv/
+archive/build/
+archive/work/
